@@ -1,0 +1,6 @@
+
+to=${1:-master}
+original_branch=`git-current-branch`
+git-checkout $to
+git-merge $original_branch
+

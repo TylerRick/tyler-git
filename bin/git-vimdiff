@@ -1,0 +1,6 @@
+#!/bin/bash
+saved_as="$1.head$(extension $1)"
+echo "Saved as $saved_as"
+git-show HEAD:$1   > $saved_as
+vimdiff $saved_as $1
+rm $saved_as

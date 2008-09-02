@@ -1,0 +1,14 @@
+# prints the name of the branch to stdout if we are in a git repo and there is a current branch
+# or exits 1 if we are not
+
+#git-branch >/dev/null
+git-symbolic-ref HEAD >/dev/null 2>&1
+
+# todo: only suppress 'fatal: Not a git repository' if -q (quiet)
+
+if [ $? -eq 0 ]; then
+  #echo "$(git branch | grep '^*' |sed s/\*\ //)"
+  git-symbolic-ref HEAD | sed s#^refs/heads/##
+else
+  exit 1
+fi

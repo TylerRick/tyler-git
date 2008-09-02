@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+path = ARGV[0]
+puts File.extname(path)
+#if matches = ARGV[0].match(%r</[^/.]+\.(.*)>)
+#  ...
+#end
+

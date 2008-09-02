@@ -1,0 +1,8 @@
+# switches to the master branch (or whichever one you specify), does a git pull, (assumes the merge will be successful because you are doing all your changes in a topic branch and *not* in master),
+# and then switches back to the topic branch you were on
+# useful if you want to do a rebase: issue this command first to make sure the 'master' branch you are rebasing against is actually up-to-date!
+
+original_branch=`git-current-branch`
+git-checkout master
+git-pull
+git-checkout $original_branch

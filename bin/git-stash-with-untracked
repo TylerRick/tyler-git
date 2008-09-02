@@ -1,0 +1,5 @@
+# this command can't be reversed with git-stash apply, unfortunately 
+# (what used to be untracked files will now be staged files), 
+# so that kind of limits its usefulness
+git-add `git-ls-files-by-status -U -1`
+git-stash "$@"

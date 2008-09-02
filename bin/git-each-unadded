@@ -1,0 +1,55 @@
+#!/usr/bin/env ruby
+#-------------------------------------------------------------------------------
+
+
+
+#-------------------------------------------------------------------------------
+
+require 'rubygems' 
+require 'git'      # requires my local changes
+require 'colored'
+
+begin
+  gem 'termios'
+  require 'termios'
+  begin
+    # Set up termios so that it returns immediately when you press a key.
+    # (http://blog.rezra.com/articles/2005/12/05/single-character-input)
+    t = Termios.tcgetattr(STDIN)
+    save_terminal_attributes = t.dup
+    t.lflag &= ~Termios::ICANON
+    Termios.tcsetattr(STDIN, 0, t)
+
+    # Set terminal_attributes back to how we found them...
+    at_exit { Termios.tcsetattr(STDIN, 0, save_terminal_attributes) }
+  rescue RuntimeError => exception    # Necessary for automated testing.
+    if exception.message =~ /can't get terminal parameters/
+      # :todo: Can we detect if they are piping/redirecting stdout? Don't show warning if they are simply piping stdout.
+      # On the other hand, when ELSE do we expect to not find a terminal? Is this message *ever* helpful?
+      # Only testing? Then maybe the tests should set an environment variable or *something* to communicate that they want non-interactive mode.
+      puts 'Warning: Terminal not found.'
+      $interactive = false
+    else
+      raise
+    end
+  end
+  $termios_loaded = true
+rescue Gem::LoadError
+  $termios_loaded = false
+end
+
+#-------------------------------------------------------------------------------
+
+git = Git.open('.')
+git.status.untracked.each do |file|
+  print "#{file.magenta} : (a)dd; (d)elete, (q)uit, ..." + " > ".cyan
+
+  resp = STDIN.getc.chr
+  exit if resp == 'a'
+  case resp
+  when 'a'
+    system %(git-add #{file})
+  end
+end
+
+

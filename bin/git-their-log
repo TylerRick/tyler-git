@@ -1,0 +1,97 @@
+#!/usr/bin/env ruby
+
+require 'rubygems' 
+require 'colored'
+require 'git' 
+require 'terminfo' #http://www.a-k-r.org/ruby-terminfo/
+#.strftime('%Y-%m-%d %H:%M:%S')}
+
+begin
+  gem 'termios'
+  require 'termios'
+  begin
+    # Set up termios so that it returns immediately when you press a key.
+    # (http://blog.rezra.com/articles/2005/12/05/single-character-input)
+    t = Termios.tcgetattr(STDIN)
+    save_terminal_attributes = t.dup
+    t.lflag &= ~Termios::ICANON
+    Termios.tcsetattr(STDIN, 0, t)
+
+    # Set terminal_attributes back to how we found them...
+    at_exit { Termios.tcsetattr(STDIN, 0, save_terminal_attributes) }
+  rescue RuntimeError => exception    # Necessary for automated testing.
+    if exception.message =~ /can't get terminal parameters/
+      # :todo: Can we detect if they are piping/redirecting stdout? Don't show warning if they are simply piping stdout.
+      # On the other hand, when ELSE do we expect to not find a terminal? Is this message *ever* helpful?
+      # Only testing? Then maybe the tests should set an environment variable or *something* to communicate that they want non-interactive mode.
+      puts 'Warning: Terminal not found.'
+      $interactive = false
+    else
+      raise
+    end
+  end
+  $termios_loaded = true
+rescue Gem::LoadError
+  $termios_loaded = false
+end
+
+
+#-------------------------------------------------------------------------------
+# to do:
+# * how to interrupt parent process while in pager?
+# * resume from last play-their-log / code-review
+
+#-------------------------------------------------------------------------------
+show_diff = ARGV.grep('-v').any? || ARGV.grep('-p').any?
+pause = ARGV.grep('--pause').any?
+how_many = 10
+
+git = Git.open(working_dir = '.')
+git.log(10).each do |commit| 
+  next if commit.author.name =~ /^tyler/i
+
+
+  puts ('_'*TermInfo.screen_width).yellow #.on_cyan
+  puts commit.sha.yellow + ' ' + commit.author.name.red + ' ' + commit.author_date.strftime('%Y-%m-%d %H:%M:%S').blue
+  puts commit.message
+
+  print "(v)iew diff, or (q)uit >"
+  resp = STDIN.getc.chr
+  exit if resp == 'q'
+  #system "git log --pretty=format:'%Cred%H %Cgreen%ai %Cblue%an %Creset- %s %n%b' --patch-with-stat #{commit.sha} --max-count=1"
+  if resp == 'v'
+    puts
+    system "git log --pretty=oneline --patch-with-stat #{commit.sha} --max-count=1"
+  end
+
+#  if show_diff
+#    #puts commit.diff('.')
+#    system a= "git --no-pager diff --patch-with-stat #{commit.sha}~1 #{commit.sha}"
+#    STDIN.getc
+#  end
+
+end 
+
+=begin
+commit fc3ef5f36a2559e20dff277028be543547ac550e
+Author: joel <joel@i5labs.com>
+Date:   Mon Aug 18 17:38:15 2008 -0700
+
+    Adds support for a new 'experimental' deploy location. You can now publish a branch and then push that using 'cap experimental deploy branch=<branch>'.
+---
+ config/deploy.rb                                   |   34 +++++++++-
+ .../mongrel/mongrel_cluster.experimental.conf      |   27 ++++++++
+ .../mongrel/mongrel_cluster.experimental.yml       |   11 +++
+ config/system/monit/mongrel.experimental.monitrc   |    8 +++
+ config/system/nginx/redrover.experimental.conf     |   66 ++++++++++++++++++++
+ 5 files changed, 143 insertions(+), 3 deletions(-)
+
+diff --git a/config/deploy.rb b/config/deploy.rb
+index cd522c7..4ecc667 100644
+--- a/config/deploy.rb
++++ b/config/deploy.rb
+@@ -32,8 +32,6 @@ set :scm_passphrase, "fynspire3321"
+ set :web_user, "www"
+ set :use_sudo, false
+
+=end

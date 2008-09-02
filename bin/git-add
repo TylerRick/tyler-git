@@ -1,0 +1,5 @@
+# this wrapper for git-add adds the --except option so you can add -u all files *except* certain ones that aren't yet ready
+# (internally maybe it could let it add all of them but then unstage the "except" ones? no, because that might/would unstage
+# *all* changes that had been made to it, and they might want to have kept *some* of those changes as staged)
+# never mind, just use git-add -i
+

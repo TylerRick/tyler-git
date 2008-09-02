@@ -1,0 +1,77 @@
+#!/usr/bin/env ruby
+#-------------------------------------------------------------------------------
+
+# git-add -i/-p are of limited usefulness because they only let you choose which hunks to *stage*; they don't give you the option to delete a hunk, for example.
+# This command aims to provide that missing functionality. For each modified file, you can open it in your editor (vimdiff) and actually *delete* or edit a hunk
+# before staging it.
+# By default, it assumes when you are finished editing a hunk, that you are ready to stage it, and so it will auto-stage them as soon as you return from the editor;
+# but you can use the (w)ithout staging action to turn off auto-staging for a particular edit.
+
+# To do:
+# * let you specify (config or command line) whether to do just a diff (then it won't keep showing you diffs of what you've already staged)
+#   or to also do a diff --cached (in case you've already staged stuff but now aren't so sure about it and want to amend/edit the hunks that
+#   have already been staged)
+#   * in the latter case, cat the output from both, save to a temp file, and then run that file through a pager
+# * add a config-file option for auto-staging
+
+
+#-------------------------------------------------------------------------------
+
+require 'rubygems' 
+require 'git'      # requires my local changes
+require 'colored'
+require 'terminfo' #http://www.a-k-r.org/ruby-terminfo/
+
+begin
+  gem 'termios'
+  require 'termios'
+  begin
+    # Set up termios so that it returns immediately when you press a key.
+    # (http://blog.rezra.com/articles/2005/12/05/single-character-input)
+    t = Termios.tcgetattr(STDIN)
+    save_terminal_attributes = t.dup
+    t.lflag &= ~Termios::ICANON
+    Termios.tcsetattr(STDIN, 0, t)
+
+    # Set terminal_attributes back to how we found them...
+    at_exit { Termios.tcsetattr(STDIN, 0, save_terminal_attributes) }
+  rescue RuntimeError => exception    # Necessary for automated testing.
+    if exception.message =~ /can't get terminal parameters/
+      # :todo: Can we detect if they are piping/redirecting stdout? Don't show warning if they are simply piping stdout.
+      # On the other hand, when ELSE do we expect to not find a terminal? Is this message *ever* helpful?
+      # Only testing? Then maybe the tests should set an environment variable or *something* to communicate that they want non-interactive mode.
+      puts 'Warning: Terminal not found.'
+      $interactive = false
+    else
+      raise
+    end
+  end
+  $termios_loaded = true
+rescue Gem::LoadError
+  $termios_loaded = false
+end
+
+#-------------------------------------------------------------------------------
+
+git = Git.open('.')
+git.status.modified.each do |file|
+  TermInfo.screen_width # prevents "undefined method `yellow' for nil:NilClass" somehow
+  puts ('_'*TermInfo.screen_width).yellow
+
+  autostage = true
+
+  system %(git-diff #{file})
+  system %(git-diff --cached #{file})
+  print "#{file.magenta} : edit in (v)imdiff, compared to HEAD; (q)uit; any other key to continue" + " > ".cyan
+
+  resp = STDIN.getc.chr
+  exit if resp == 'q'
+  (autostage = false; resp = 'v') if resp == 'w'
+  case resp
+  when 'v'
+    system %(git-vimdiff #{file})
+    system %(git-add #{file}) if autostage
+  end
+end
+
+
