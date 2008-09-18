@@ -1,0 +1,5 @@
+# unfinished!
+
+# first, look for character that git diff marks red -- these are usually extra spaces at the end of the line
+git diff --color | grep --color=never '\[41'
+# open in vim or better yet fix via sed

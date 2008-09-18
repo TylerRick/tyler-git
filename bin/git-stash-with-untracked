@@ -1,5 +1,18 @@
 # this command can't be reversed with git-stash apply, unfortunately 
 # (what used to be untracked files will now be staged files), 
 # so that kind of limits its usefulness
+# To do: fix that
+
+# Save:
+
+# do a 2-step stash save, to keep the untracked ones in a separate stash
+#git-stash "$@"
 git-add `git-ls-files-by-status -U -1`
 git-stash "$@"
+
+
+# Load:
+#git-stash pop
+# untrack everything added by this stash
+#git-stash pop
+

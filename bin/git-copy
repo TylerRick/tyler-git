@@ -1,0 +1,5 @@
+# To do: doesn't work if you pass options, like -r
+[ -z $1 ] && (echo 'Usage: git cp file new_fie'; exit 1)
+cp "$1" "$2"
+git-add "$2"
+git-status "$2"

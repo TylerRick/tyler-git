@@ -2,6 +2,9 @@
 # and then switches back to the topic branch you were on
 # useful if you want to do a rebase: issue this command first to make sure the 'master' branch you are rebasing against is actually up-to-date!
 
+# alternatively, do a git fetch and then rebase against FETCH_HEAD
+# git rebase FETCH_HEAD master
+
 original_branch=`git-current-branch`
 git-checkout master
 git-pull

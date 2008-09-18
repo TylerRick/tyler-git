@@ -1,12 +1,13 @@
 #!/usr/bin/env ruby
 #-------------------------------------------------------------------------------
+# This is for *untracked* files as git add -p is for *unstaged* (but tracked) files
 
 
 
 #-------------------------------------------------------------------------------
 
 require 'rubygems' 
-require 'git'      # requires my local changes
+require 'git'      # requires my changes to ruby-git, (git.status.untracked)
 require 'colored'
 
 begin
@@ -40,16 +41,40 @@ end
 
 #-------------------------------------------------------------------------------
 
-git = Git.open('.')
-git.status.untracked.each do |file|
-  print "#{file.magenta} : (a)dd; (d)elete, (q)uit, ..." + " > ".cyan
+begin
+  git = Git.open('.')
+  repo_root = './'  # git.__?
+  git.status.untracked.each do |file|
+    print "#{file.magenta} : (a)dd; (v)iew, add to .git(i)gnore, (r)emove, (q)uit, ..., Enter/Space to skip" + " > ".cyan
 
-  resp = STDIN.getc.chr
-  exit if resp == 'a'
-  case resp
-  when 'a'
-    system %(git-add #{file})
+    resp = STDIN.getc.chr
+    case resp
+    when 'a'
+      system %(git-add "#{file}")
+      puts
+    when 'v'
+      system %(cat "#{file}")
+      puts
+      redo
+    when 'i'
+      system %(echo "#{file}" >> #{repo_root}.gitignore)
+      puts
+    when 'r'
+      print "Really delete".red + " #{file.magenta}" + "?? (y)es/(n)o > ".red
+      resp = STDIN.getc.chr
+      system %(rm "#{file}") if resp == 'y'
+      puts
+    when 'q'
+      raise Interrupt, ''
+    when ' ', "\n"
+    else
+      puts
+      redo
+    end
   end
+
+rescue Interrupt
+  puts
 end
 
-
+system %(git status)
