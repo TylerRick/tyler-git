@@ -92,7 +92,8 @@ function! GitVimCat(args)
   " This is so that it will get nice syntax highlighting
 endfunction
 
-command! -nargs=* Tig                     !cd %:h; tig % <args>
+"command! -nargs=* Tig                     !cd %:h; tig % <args>
+command! -nargs=* Tig                     !cd %:h; tig <args> -- --patch-with-stat %
 
 command! -nargs=* Gitcommit               !cd %:h; git commit -v % <args>
 command! -nargs=* Gitci                   :Gitcommit <args>
@@ -125,8 +126,6 @@ command! -nargs=1 -complete=custom,CurrentFileName Gitcp  :Gitcopy <args>
 command! -nargs=* Gitblame                !cd %:h; git blame % <args>
 command! -nargs=* Gitblamehead            !cd %:h; git blame % HEAD <args>
 
-
-command! -nargs=* Tig                     !cd %:h; tig <args> -- --patch-with-stat %
 
 command! -nargs=* Gitvimdiff              !cd %:h; git show master:% <args> > %.base ; vimdiff % %.base ; rm %.base
 " To do: The rm doesn't seem to ever get executed? So it leaves that temporary
