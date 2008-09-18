@@ -1,0 +1,25 @@
+[user]
+	email = 
+[branch "master"]
+[color]
+	diff = auto
+	status = auto
+	branch = auto
+[apply]
+	whitespace = nowarn
+[alias]
+    st = status
+    ci = commit
+    co = checkout
+    cp = copy
+    eu = each-unadded
+    sr = svn rebase
+    sdc = svn dcommit
+    uncommit = reset --soft HEAD^
+    pushinit = push origin master:refs/heads/master
+[branch]
+	autosetupmerge = true
+[core]
+	excludesfile = /home/tyler/.gitignore
+[merge]
+    tool = vimdiff
