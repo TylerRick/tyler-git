@@ -2,11 +2,9 @@
 
 #------------------------------------------
 
-alias grp='  git-rev-parse'
-alias grpH=' git-rev-parse HEAD'
-alias grpOH='git-rev-parse ORIG_HEAD'
-
 alias git-apply-commit='git-cherry-pick' # Apply the change introduced by an existing commit
+alias gcp='git-cherry-pick' # Apply the change introduced by an existing commit
+# TODO: how to apply changes from commit to only certain files and without committing
 
 #------------------------------------------
 
@@ -14,21 +12,43 @@ alias    gp='git pull'
 alias   gup='git update' #  [custom]
 
 #------------------------------------------
+# Branches
+
+alias  gcob='git checkout -b'          # Create and check out a new branch
+alias  gcot='git checkout --track -b'  # Create and check out a new branch that tracks a remote branch. example: gcot stable origin/stable'
 
 alias    gb='git branch'
 alias   gba='git branch -a -v'  # Show all branches (including remote branches) and which commit they are pointing to
 
+#------------------------------------------
+# Diff
 
 alias    gd='git diff --ignore-all-space'          # staged vs. unstaged (unstaged changes are +)
 alias   gdc='git diff --ignore-all-space --cached' # previous commit (cached?) vs. staged (staged changes are +)
-alias    gs='git status'
-alias gshow='git show'
-alias   gsb='git show-branch'
-
 
 #------------------------------------------
+# Getting state/status/metadata
+
+alias    gs='git status'
+
+alias grp='  git-rev-parse'
+alias grpH=' git-rev-parse HEAD'
+alias grpOH='git-rev-parse ORIG_HEAD'
+
+#------------------------------------------
+# Getting content
+
+alias gshow='git show'
+alias   gsb='git show-branch'
+# See also git-cat, git-cat-save
+
+alias   gvd='git-vimdiff'
+
+#------------------------------------------
+# Stashing
 
 alias   gst='git stash'
+alias  gstS='git stash save'    # use this if you want to specify a message
 alias  gstl='git stash list'
 alias  gsta='git stash apply'   # use pop instead
 alias  gstp='git stash pop'
@@ -45,14 +65,21 @@ alias gstsp2='git stash show -p stash@{2}'
 #------------------------------------------
 
 alias    gl='git log'
-alias   glp='git log --patch-with-stat'                 # See the actual lines that changed
+
+#alias   glp='git log --patch-with-stat'                 # See the actual lines that changed
+alias   glp='git log -p --numstat'                 # See the actual lines that changed
+
+#alias   gll='git log --stat'                                                        # git log long
+# I got tired of it truncating the beginnig of paths (making it impossible to copy and paste paths onto the command line, so I'm not using --numstat instead of --stat)
+alias   gll='git log --numstat'                                                        # git log long
+
 alias   gllast='git log --patch-with-stat -n1'          # What is the last thing to be committed? (probably by you)
+alias   glh='git log --color | head -n30'       # Only show the first 30 lines of the log. Also, since this isn't paginated, it will wrap long lines for you, so this one is useful if you want to use the mouse to copy and paste the commit message of a recent commit (into an invoice, f.e.).
+
 alias   gl1='git log --pretty=oneline'
 alias   gls='git log --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s"'    # git log short
 alias  glcl='git log --pretty=format:"%s"'    # git log "changelog" (show only the messages)
-alias   gll='git log --stat'                                                        # git log long
 alias   glc='git log --date-order'                                                  # git log (reverse) chronological
-alias   glh='git log --color | head -n30'       # Only show the first 30 lines of the log. Also, since this isn't paginated, it will wrap long lines for you, so this one is useful if you want to use the mouse to copy and paste the commit message of a recent commit (into an invoice, f.e.).
 
 # do a "pickaxe" search for the expression in the code; I think git-log is smart enough to not only only include the revisions that contain the search expression but also only the actual files and hunks that include it
 function git-search() { git log --patch-with-stat -S$1
@@ -61,45 +88,6 @@ function git-search() { git log --patch-with-stat -S$1
 # refs/
 #git-log refs/heads/master
 #git-log refs/remotes/origin/master
-
-#------------------------------------------
-
-function ext () { echo ${1##*.} ; }
-
-# cat a file from a certain rev
-# git-show <rev>:<path>
-function git-cat()      { git-show HEAD:$1 
-}
-function git-cat-prev() { git-show HEAD~1:$1 
-}
-# keep in mind that it will page results, so long lines won't be wrapped. If you need long lines to be wrapped (so you can select the output with your mouse and know that you're not going to be getting any truncated lines, you many want to pipe to cat - or
-# use git --no-pager show ...
-
-function git-cat-save()      { 
-  saved_as="$1.head.$(ext $1)"
-  git-show HEAD:$1   > $saved_as
-  echo "Saved as $saved_as"
-}
-function git-cat-prev-save() { 
-  saved_as="$1.head-1.$(ext $1)"
-  git-show HEAD~1:$1 > $saved_as
-  echo "Saved as $saved_as"
-}
-
-#------------------------------------------
-# Compare your working tree version with the HEAD version and interactively revert (copy from HEAD) changes you have made
-# This shows you the same thing as git diff but it's interactive: it lets you edit the file even while you're looking at the diff!
-# Useful if you overwrite your working version with a generated version (generated by the rails command, f.e.) and you want to incorporate some of the changes
-# from the generated version without losing what you had before. Well, during the overwrite you *will* lose what you had before, but this command lets you 
-# quickly get it back.
-# Somewhat similar to git-mergetool (when using vimdiff)
-function git-vimdiff()      { 
-  git-cat-save $1
-  vimdiff $saved_as $1
-  rm $saved_as
-}
-alias   gvd='git-vimdiff'
-
 
 #------------------------------------------
 alias  glsf='git ls-files'
@@ -139,7 +127,7 @@ alias  grbc='git rebase --continue'  # after resolving conflicts, do this to con
 #------------------------------------------
 alias  gmt='git mergetool'
 
-alias gmtm='git merge-to master'
+alias gmtm='git update; git rebase master; git merge-to master'
 
 
 #------------------------------------------
@@ -149,9 +137,15 @@ alias  gwip='git add -u; git commit -m WIP; git stash' # work in progress
 alias  gwipresume='git reset HEAD~1; git stash apply'   # resets [head] to the revision before your WIP commit (the actual changes from that commit should still be in your index); then apply the stash to get your working tree back to how it was
 # or just git reset anything that may be staged, and simply use git stash/stash apply (simpler), and forget about my silly WIP commit (overly complicated)!
 
+# switch back to a branch that has a WIP commit, undo commit, and resume work on that feature/branch/topic
+alias git-resume="TODO: git checkout {branch}; git reset HEAD~1"
+
 
 #------------------------------------------
 # Resetting
+
+# If you accidentally git add . in an svn working tree, you can use this to unadd/unstage those .svn directories:
+alias gitunaddsvn='find -name .svn | xargs git reset HEAD'
 
 # How do I unstage a file but keep my changes that I have in my working tree?? (Useful, for example, if you accidentally stage the wrong hunks using git add -p and you want to reset what's staged and stage some different hunks instead.)
 #alias  grsf='git reset HEAD'         # reset a file (path), which must follow HEAD or git will think it's a ref/commitish
@@ -180,7 +174,6 @@ alias grshardOH='git reset --hard ORIG_HEAD'
 #------------------------------------------
 # Checkout
 
-#alias gdisc='git checkout' # git "discard"
 # git checkout <branch>
 #       switches branches by updating the index and working tree to reflect <branch> and updating HEAD to be <branch>
 # git checkout <paths>
@@ -189,11 +182,11 @@ alias grshardOH='git reset --hard ORIG_HEAD'
 alias   gco='git checkout'
 alias  gcom='git checkout master'
 alias gcomerge='git checkout -m'
-# To check out a file from an older revision...
+# To check out a file from ("revert" a single file to) an older revision...
 #   gco d72a254c39b01eec17a35f42c59fb0a2bc8eab0e app/models/user.rb
 
-alias  gcob='git checkout -b'          # Create and check out a new branch
-alias  gcot='git checkout --track -b'  # Create and check out a new branch that tracks a remote branch. example: gcot stable origin/stable'
+# If you've already staged a file (added it to the index), then git checkout <file> will not reset it to HEAD, but to what you have staged! So you'd need to specify...
+alias gdisc='git checkout HEAD' # git "discard"
 
 
 # why doesn't co recognize the filename when I use symbolic ref but it does when I use sha (I was in master, and the file in question was untracked wrt master, but was committed in adoption branch)
@@ -212,11 +205,13 @@ alias  gcot='git checkout --track -b'  # Create and check out a new branch that 
 
 alias   gci='git commit -v'
 alias  gcia='git commit --amend'
-alias  gciA='git commit -a -v'   # (can't be used with paths, but that's not a problem because you don't need the -a flag when you specify paths -- git-commit will automatically add/stage any unstaged changes made to those paths)
+alias  gca='git commit -a -v'   # (can't be used with paths, but that's not a problem because you don't need the -a flag when you specify paths -- git-commit will automatically add/stage any unstaged changes made to those paths)
 alias  gcq='git commit -m "."'  # if you're just working on a personal repository that doesn't matter too much, we might let you get by with being lazy and not specifying a commit message...
+alias gciq='git commit -m "."'
 alias  gcqpu='git commit -m "."; git push origin master'      # even lazier still
-alias gcapu='git commit -a -m "."; git push origin master'  # can't get any lazier than this
-alias gcapud='git commit -a -m "."; git push origin master; cap staging deploy'  # can't get any lazier than this
+alias gciqpu='git commit -m "."; git push origin master'
+alias gacpu='git commit -a -m "."; git push origin master'  # can't get any lazier than this
+alias gacpud='git commit -a -m "."; git push origin master; cap staging deploy'  # can't get any lazier than this
 
 alias   gpm='git push origin master'
 

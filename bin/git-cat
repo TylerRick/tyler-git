@@ -3,6 +3,8 @@
 def usage
   puts "Usage: #{$0} [--save] path"
   puts "cat a file from a certain rev (HEAD assumed if none supplied)"
+  # keep in mind that it will page results, so long lines won't be wrapped. If you need long lines to be wrapped (so you can select the output with your mouse and know that you're not going to be getting any truncated lines, you many want to pipe to cat - or
+  # use git --no-pager show ...
   exit 1
 end
 
@@ -52,9 +54,18 @@ system command
 #
 #function git-cat()      { git-show HEAD:$1 
 #}
+#function git-cat-prev() { git-show HEAD~1:$1 
+#}
+#
+#function ext () { echo ${1##*.} ; }
 #function git-cat-save()      { 
 #  revision=${2:-HEAD}
 #  saved_as="$1.$revision.$(ext $1)"
 #  git-show $revision:$1   > $saved_as
+#  echo "Saved as $saved_as"
+#}
+#function git-cat-prev-save() { 
+#  saved_as="$1.head-1.$(ext $1)"
+#  git-show HEAD~1:$1 > $saved_as
 #  echo "Saved as $saved_as"
 #}
