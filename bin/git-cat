@@ -1,0 +1,60 @@
+#!/usr/bin/ruby
+
+def usage
+  puts "Usage: #{$0} [--save] path"
+  puts "cat a file from a certain rev (HEAD assumed if none supplied)"
+  exit 1
+end
+
+require 'pathname'
+
+require 'getoptlong'
+opts = GetoptLong.new(
+    [ '--save',                     GetoptLong::NO_ARGUMENT ],
+    [ '--quiet', '-q',              GetoptLong::NO_ARGUMENT ]
+)
+opts.each do | opt, arg |
+  case opt
+  when '--save'
+    @save = true
+  when '--quiet', '-q'
+    @quiet = true
+  end
+end
+
+if ARGV.size < 1
+  usage
+end
+
+if ARGV[0] =~ /([^:]+):(.*)/
+  revision = $1
+  path = $2
+else
+  revision = 'HEAD'
+  path = ARGV[0]
+end
+
+path_for_git_show = `git-absolute-path #{path}`.chomp
+
+if @save
+  extension = Pathname.new(path).extname    # Retain the extension so that editors (vim), etc. that look at the extension for syntax highlighting, etc. won't be confused
+  save_as="#{path}.#{revision}#{extension}"
+  command = "git-show #{revision}:#{path_for_git_show} > #{save_as}"
+else
+  command = "git-show #{revision}:#{path_for_git_show}"
+end
+
+puts   command unless @quiet
+system command
+
+#---------------------------------------------------------------------------------------------------
+# Original bash function version:
+#
+#function git-cat()      { git-show HEAD:$1 
+#}
+#function git-cat-save()      { 
+#  revision=${2:-HEAD}
+#  saved_as="$1.$revision.$(ext $1)"
+#  git-show $revision:$1   > $saved_as
+#  echo "Saved as $saved_as"
+#}
