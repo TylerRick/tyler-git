@@ -1,0 +1,59 @@
+#!/usr/bin/ruby
+
+def usage
+  puts <<End
+Usage: git-cherry-pick-other-repo /path/to/other_repo rev
+Example:
+  current_repo > git-cherry-pick-other-repo /path/to/other_repo f37g1
+End
+  exit 1
+end
+usage if ARGV.size < 2
+
+other_repo_dir = ARGV[0]
+rev =            ARGV[1]
+
+#---------------------------------------------------------------------------------------------------
+
+def run(command)
+  puts command
+  system command
+end
+
+# Let them specify a single commit. Do something intelligent with it, unlike git's default behavior.
+rev = "#{rev}^..#{rev}" unless rev =~ /\.\./
+
+first_repo_dir = Dir.getwd
+patches = []
+
+# Create patches and move them back to first_repo_dir
+Dir.chdir other_repo_dir do
+  command = "git-format-patch #{rev}"
+  patches = `#{command}`.chomp.split("\n")
+  p patches
+  patches.each do |patch|
+    run "mv #{patch} #{first_repo_dir}/"
+  end
+end
+
+# Apply patches
+success = true
+patches.each do |patch|
+  run "cat #{patch} | git-am"
+  success &= $?.success?
+  puts "success=#{success}"
+end
+
+if success
+  puts "Success!"
+  # Remove patches
+  patches.each do |patch|
+    run "rm #{patch}"
+  end
+else
+  puts "Detected failure. Leaving patches in current directory..."
+  puts "You may want to git-am --skip before trying this again."
+end
+#if (print "Remove patches? "; STDIN.gets[0].chr.downcase == 'y')
+
+
