@@ -1,18 +1,56 @@
+#!/bin/bash
+
 # this command can't be reversed with git-stash apply, unfortunately 
 # (what used to be untracked files will now be staged files), 
 # so that kind of limits its usefulness
-# To do: fix that
+# To do: fix that by doing a 2-step stash save/load
 
+if [ "$1" = "apply" ]; then
+  subcommand='apply'
+elif [ "$1" = "pop" ]; then
+  subcommand='pop'
+else
+  subcommand='save'
+fi
+
+#---------------------------------------------------------------------------------------------------
 # Save:
+if [ $subcommand = "save" ]; then
+{
 
-# do a 2-step stash save, to keep the untracked ones in a separate stash
-#git-stash "$@"
-git-add `git-ls-files-by-status -U -1`
-git-stash "$@"
+  # To do: do a 2-step stash save, to keep the untracked ones in a separate stash
+  #git-stash "$@"
 
+  echo "Adding untracked files: " `git-ls-files-by-status -U -1`
+  git-add `git-ls-files-by-status -U -1`
+  git-stash "$@"
+  # To do: append "(untracked)" to the name
 
-# Load:
-#git-stash pop
-# untrack everything added by this stash
-#git-stash pop
+  git status
+}
+#---------------------------------------------------------------------------------------------------
+# Apply:
+elif [ $subcommand = "apply" ]; then
+{
+  echo "Applying stash(es)"
 
+  # check if they supplied a name, otherwise assume it's the last 2 stashes they want
+
+  git-stash apply
+
+  # untrack everything added by this stash
+  # check if name of top stash contains "untracked"; if so, do the reset; if not, don't
+  git reset HEAD `git-ls-files-by-status -N -1`
+
+  #git-stash apply
+  # if we just applied an "untracked" stash, check to see if there is another stash directly before/after it with the same name except - "(untracked)"
+  # if we did not just apply an "untracked" stash, don't do another git-stash apply
+  #git-stash apply
+
+  git status
+}
+#---------------------------------------------------------------------------------------------------
+# Pop:
+else
+  echo "$subcommand not implemented"
+fi
