@@ -10,6 +10,7 @@ require 'rubygems'
 require 'git'      # requires my changes to ruby-git, (git.status.untracked)
 require 'colored'
 require 'pathname'
+require 'facets/blank'
 
 begin
   gem 'termios'
@@ -48,9 +49,9 @@ repo_root = base_dir = `git-base-dir`.chomp
 cdup = `git-rev-parse --show-cdup`.chomp
 
 begin
-  git = Git.open('..')
+  git = Git.open(repo_root)
   git.status.untracked.each do |filename|
-    path = File.join(cdup, filename)
+    path = cdup.blank? ? filename : File.join(cdup, filename)
     print "#{path.magenta} : (a)dd; (v)iew, add to .git(i)gnore, ignore for (m)e only, (r)emove, (q)uit, ..., Enter/Space to skip" + " > ".cyan
 
     resp = STDIN.getc.chr
