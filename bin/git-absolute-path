@@ -26,6 +26,6 @@ require 'pathname'
 input_path = Pathname.new(ARGV[0]).realpath
 
 base_dir = File.dirname(`git-rev-parse --git-dir`.chomp)
-base_dir = Pathname.new(base_dir)
+base_dir = Pathname.new(base_dir).realpath
 
 puts input_path.relative_path_from(base_dir)
