@@ -1,18 +1,25 @@
 #!/usr/bin/ruby
-# Given a valid absolute or relative path (relative to current working directory), this command will output the corresponding path relative to the root of your repository.
-#
-# Example:
-#   /path/to/test/integration/app > git-absolute-path config/database.yml
-#   test/integration/app/config/database.yml
-#
-#   /path/to/test/integration/app > git-absolute-path /path/to/test/integration/app/config/database.yml
-#   test/integration/app/config/database.yml
-#
-#   /path/to/test/integration/app > git-absolute-path ../../../test/integration/app/config/database.yml
-#   test/integration/app/config/database.yml
-#
-# The resulting path can be used with 'git-show rev:path', whereas when giving a normal relative paths it will say:
-#   fatal: ambiguous argument 'HEAD:../../../test/integration/app/config/database.yml': unknown revision or path not in the working tree.
+
+if ARGV.size < 1
+  puts <<End
+Usage: #{$0} path"
+Given a valid absolute or relative path (relative to current working directory), this command will output the corresponding path relative to the root of your repository.
+
+Example:
+  /path/to/rails_app/config > git-absolute-path database.yml
+  config/database.yml
+
+  /path/to/rails_app/config > git-absolute-path /path/to/rails_app/config/database.yml
+  config/database.yml
+
+  /path/to/rails_app/config > git-absolute-path ../config/database.yml
+  config/database.yml
+
+The resulting path can be used with 'git-show rev:path', whereas when giving a normal relative paths it will say:
+  fatal: ambiguous argument 'HEAD:../../../test/integration/app/config/database.yml': unknown revision or path not in the working tree.
+End
+  exit 1
+end
 
 require 'pathname'
 
