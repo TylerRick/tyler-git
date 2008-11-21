@@ -1,0 +1,7 @@
+# a wrapper for git revert that lets you specify that only certain paths are to be reverted
+
+commit = ARGV.shift
+target_paths = ARGV
+git revert commit
+all_staged_paths_except_target_paths = `git ls-files-by-status --cached --one-line`.to_a - target_paths
+git checkout HEAD all_staged_paths_except_target_paths
