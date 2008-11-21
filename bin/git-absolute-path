@@ -1,0 +1,24 @@
+#!/usr/bin/ruby
+# Given a valid absolute or relative path (relative to current working directory), this command will output the corresponding path relative to the root of your repository.
+#
+# Example:
+#   /path/to/test/integration/app > git-absolute-path config/database.yml
+#   test/integration/app/config/database.yml
+#
+#   /path/to/test/integration/app > git-absolute-path /path/to/test/integration/app/config/database.yml
+#   test/integration/app/config/database.yml
+#
+#   /path/to/test/integration/app > git-absolute-path ../../../test/integration/app/config/database.yml
+#   test/integration/app/config/database.yml
+#
+# The resulting path can be used with 'git-show rev:path', whereas when giving a normal relative paths it will say:
+#   fatal: ambiguous argument 'HEAD:../../../test/integration/app/config/database.yml': unknown revision or path not in the working tree.
+
+require 'pathname'
+
+input_path = Pathname.new(ARGV[0]).realpath
+
+base_dir = File.dirname(`git-rev-parse --git-dir`.chomp)
+base_dir = Pathname.new(base_dir)
+
+puts input_path.relative_path_from(base_dir)

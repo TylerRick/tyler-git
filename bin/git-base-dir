@@ -1,0 +1,3 @@
+#!/usr/bin/ruby
+base_dir = File.dirname(`git-rev-parse --git-dir`.chomp)
+puts base_dir
