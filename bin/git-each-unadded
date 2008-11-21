@@ -9,6 +9,7 @@
 require 'rubygems' 
 require 'git'      # requires my changes to ruby-git, (git.status.untracked)
 require 'colored'
+require 'pathname'
 
 begin
   gem 'termios'
@@ -41,36 +42,53 @@ end
 
 #-------------------------------------------------------------------------------
 
+repo_root = base_dir = `git-base-dir`.chomp
+#wd = Pathname.new(Dir.getwd)
+#cdup = Pathname.new(repo_root).realpath.relative_path_from(wd.realpath)
+cdup = `git-rev-parse --show-cdup`.chomp
+
 begin
-  git = Git.open('.')
-  repo_root = './'  # git.__?
-  git.status.untracked.each do |file|
-    print "#{file.magenta} : (a)dd; (v)iew, add to .git(i)gnore, (r)emove, (q)uit, ..., Enter/Space to skip" + " > ".cyan
+  git = Git.open('..')
+  git.status.untracked.each do |filename|
+    path = File.join(cdup, filename)
+    print "#{path.magenta} : (a)dd; (v)iew, add to .git(i)gnore, ignore for (m)e only, (r)emove, (q)uit, ..., Enter/Space to skip" + " > ".cyan
 
     resp = STDIN.getc.chr
     case resp
+
     when 'a'
-      system %(git-add "#{file}")
+      system %(git-add "#{path}")
       puts
+
     when 'v'
-      system %(cat "#{file}")
+      system %(cat "#{path}")
       puts
       redo
+
     when 'i'
-      system %(echo "#{file}" >> #{repo_root}.gitignore)
+      system %(echo "#{path}" >> #{repo_root}.gitignore)
       puts
+
+    when 'm'
+      system %(echo "#{path}" >> #{repo_root}.git/info/exclude)
+      puts
+
     when 'r'
-      print "Really delete".red + " #{file.magenta}" + "?? (y)es/(n)o > ".red
+      print "Really delete".red + " #{path.magenta}" + "?? (y)es/(r)eally/(n)o > ".red
       resp = STDIN.getc.chr
-      system %(rm "#{file}") if resp == 'y'
+      system %(rm "#{path}") if ['y', 'r'].include? resp.downcase
       puts
+
     when 'q'
       raise Interrupt, ''
+
     when ' ', "\n"
+
     else
       puts
       redo
     end
+
   end
 
 rescue Interrupt
