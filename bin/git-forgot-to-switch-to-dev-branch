@@ -1,0 +1,71 @@
+#!/usr/bin/ruby
+
+require 'fileutils'
+
+#---------------------------------------------------------------------------------------------------
+def usage
+  puts "Usage: #{$0} [<commit>] [-n <number-of-commits-to-rewind>] [<branch>]"
+  puts <<End
+Updates <branch> (f.e., dev) with changes from current branch (likely to be master), then goes back to that branch and does a reset --hard to rewind
+it back to the desired point in time. Goes back to <commit> if provided, otherwise goes back  <number-of-commits-to-rewind> if provided,
+otherwise goes back one commit at a time and asks you each time if you want to keep going back.
+
+Why should you not develop in your master branch? Mostly I use a dev branch so that I can rebase --interactive and edit/squash my commits before pushing. 
+It also helps avoid needless merge commits if you only develop in a dev/topic branch and only pull to 'master' (or 'upstream' or whatever) branch.
+
+If <branch> omitted, uses value of `git-config forgot-to-switch-to-dev-branch.default-branch` or 'dev'.
+End
+  exit 1
+end
+if ARGV.size < 1
+  usage
+end
+
+#---------------------------------------------------------------------------------------------------
+require 'getoptlong'
+opts = GetoptLong.new(
+    [ '-n',                     GetoptLong::REQUIRED_ARGUMENT ],
+    [ '--help',                 GetoptLong::NO_ARGUMENT ]
+)
+opts.each do | opt, arg |
+  case opt
+  when '-n'
+    @number_of_commits_to_rewind = arg
+  when '--help'
+    usage
+  end
+end
+
+`git-rev-parse --quiet --verify #{ARGV[0]}`
+if $?.success?
+  @commit = ARGV.shift
+end
+
+original_branch = `git-current-branch`
+if @new_branch
+  branch = @new_branch
+else
+  branch = ARGV[0] || `git-config forgot-to-switch-to-dev-branch.default-branch`.chomp || 'dev'
+end
+
+#---------------------------------------------------------------------------------------------------
+puts "Merging from #{original_branch} to #{branch}..."
+system "git-checkout #{branch} 2>/dev/null"
+system "git-checkout -b #{branch}"   if !$?.success?
+system "git-merge #{original_branch}"
+
+#---------------------------------------------------------------------------------------------------
+system "git-checkout #{original_branch}"
+if @commit
+  system "git reset --hard #{@commit}"
+elsif @number_of_commits_to_rewind
+  system "git reset --hard HEAD~#{@number_of_commits_to_rewind}"
+else
+  loop do
+    system "git reset --hard HEAD~1"
+    break unless (print "Go back again (yes or no)? "; STDIN.gets[0].chr.downcase == 'y')
+  end 
+end
+system "git-checkout #{branch}"
+
+#---------------------------------------------------------------------------------------------------
