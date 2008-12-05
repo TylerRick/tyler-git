@@ -51,8 +51,8 @@ command! -nargs=* Glp                     !cd %:h; git log --patch-with-stat %:t
 
 command! -nargs=* Glh                     !cd %:h; git log %:t <args> | head -n30
 
-command! -nargs=* Gitshowmaster           !cd %:h; git show master:%:t <args>
-command! -nargs=* Gitcat                  :Gitshowmaster
+command! -range=% -nargs=* Gitshowmaster  !git-cat % <args> | lines <line1> <line2>
+command! -range=% -nargs=* Gitcat         :<line1>,<line2>Gitshowmaster
 
 "----
 
@@ -125,8 +125,8 @@ function! GitCopy(targetFileName)
 endfunction
 command! -nargs=1 -complete=custom,CurrentFileName Gitcp  :Gitcopy <args>
 
-command! -nargs=* Gitblame                !cd %:h; git blame %:t <args>
-command! -nargs=* Gitblamehead            !cd %:h; git blame %:t HEAD <args>
+command! -range=% -nargs=* Gitblame       !cd %:h; git blame %:t      <args> | lines <line1> <line2>
+command! -range=% -nargs=* Gitblamehead   !cd %:h; git blame %:t HEAD <args> | lines <line1> <line2>
 
 
 command! -nargs=* Gitvimdiff              !cd %:h; git show master:%:t <args> > %.base ; vimdiff %:t %.base ; rm %.base
