@@ -1,1 +1,8 @@
-git-branch -d "$@"
+#!/bin/sh
+if [ "$1" = "-f" ]; then
+    echo "Forcing delete..."
+    shift
+    git-branch -D "$@"
+else
+    git-branch -d "$@"
+fi
