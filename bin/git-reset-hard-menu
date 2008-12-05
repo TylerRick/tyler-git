@@ -1,0 +1,1 @@
+git-reflog-menu --selected-command='git-reset --hard' --quit-on-select
