@@ -1,0 +1,9 @@
+#!/bin/sh
+
+git-rev-parse --quiet --verify HEAD >/dev/null
+if [ $? -eq 0 ]; then
+  git reset HEAD "$@" | grep -v 'needs update'
+else
+  # Initial commit, so HEAD doesn't exist yet
+  git rm --cached "$@"
+fi
