@@ -1,9 +1,15 @@
 #!/usr/bin/env ruby
 
 require 'rubygems' 
+require 'facets/blank'
 require 'git'      # requires my local changes
 
-git = Git.open('.')
+@repo_root = `git-base-dir`.chomp
+@cdup = `git-rev-parse --show-cdup`.chomp
+def relative_to_wd(path)
+  @cdup.blank? ? path : File.join(@cdup, path)
+end
+@git = Git.open(@repo_root)
 
 #puts git.status.untracked.map{|filename, o| filename}[0..10]
 
@@ -16,30 +22,26 @@ if ARGV.grep('-1').any? || ARGV.grep('--one-line').any?
   @one_line = true
 end
 
+files = []
+if ARGV.grep('-N').any? || ARGV.grep('--new').any?
+  files.concat @git.status.new
+end
+if ARGV.grep('-M').any? || ARGV.grep('--modified').any?
+  files.concat @git.status.modified
+end
+if ARGV.grep('-D').any? || ARGV.grep('--deleted').any?
+  files.concat @git.status.deleted
+end
+if ARGV.grep('-U').any? || ARGV.grep('--untracked').any?
+  files.concat @git.status.untracked
+end
+
+files.map! do |path|
+  relative_to_wd(path)
+end
+
 if @one_line
-  if ARGV.grep('-N').any? || ARGV.grep('--new').any?
-    puts git.status.new.join(' ')
-  end
-  if ARGV.grep('-M').any? || ARGV.grep('--modified').any?
-    puts git.status.modified.join(' ')
-  end
-  if ARGV.grep('-D').any? || ARGV.grep('--deleted').any?
-    puts git.status.deleted.join(' ')
-  end
-  if ARGV.grep('-U').any? || ARGV.grep('--untracked').any?
-    puts git.status.untracked.join(' ')
-  end
+  puts files.join(' ')
 else
-  if ARGV.grep('-N').any? || ARGV.grep('--new').any?
-    puts git.status.new
-  end
-  if ARGV.grep('-M').any? || ARGV.grep('--modified').any?
-    puts git.status.modified
-  end
-  if ARGV.grep('-D').any? || ARGV.grep('--deleted').any?
-    puts git.status.deleted
-  end
-  if ARGV.grep('-U').any? || ARGV.grep('--untracked').any?
-    puts git.status.untracked
-  end
+  puts files.join("\n")
 end
