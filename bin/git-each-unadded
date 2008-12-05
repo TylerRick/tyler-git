@@ -1,8 +1,7 @@
 #!/usr/bin/env ruby
 #-------------------------------------------------------------------------------
 # This is for *untracked* files as git add -p is for *unstaged* (but tracked) files
-
-
+# It is similar to git add -i and then selecting '[a]dd untracked' but is easier and more fun to use.
 
 #-------------------------------------------------------------------------------
 
@@ -43,17 +42,44 @@ end
 
 #-------------------------------------------------------------------------------
 
-repo_root = base_dir = `git-base-dir`.chomp
-cdup = `git-rev-parse --show-cdup`.chomp
+@repo_root = `git-base-dir`.chomp
+@cdup = `git-rev-parse --show-cdup`.chomp
+def relative_to_wd(path)
+  @cdup.blank? ? path : File.join(@cdup, path)
+end
+@git = Git.open(@repo_root)
+@lines_preview_to_show = 50
 
 begin
-  git = Git.open(repo_root)
-  git.status.untracked.each do |filename|
-    path = cdup.blank? ? filename : File.join(cdup, filename)
-    print "#{path.magenta} : (a)dd; (v)iew, add to .git(i)gnore, ignore for (m)e only, (r)emove, (q)uit, ..., Enter/Space to skip" + " > ".cyan
+  show_full = true
+
+  @git.status.untracked.each do |filename|
+    path = relative_to_wd(filename)
+
+    if show_full
+      puts ('_'*80).green
+      lines = `wc -l #{path}`.chomp.to_i
+      if @lines_preview_to_show >= 1 and lines >= 1
+        system %(head -n #{@lines_preview_to_show} #{path})
+        print ''.white
+        puts '...' unless !$?.success? || lines <= @lines_preview_to_show
+      elsif lines == 0
+        puts '[Empty file]'.cyan
+      end
+    else
+      show_full = true
+    end
+
+    print "#{path.magenta} [a/v/i/m/r/q/?] > ".cyan
 
     resp = STDIN.getc.chr
     case resp
+
+    when '?'
+      puts
+      puts "(a)dd; (v)iew, add to .git(i)gnore, ignore for (m)e only, (r)emove, (q)uit, ..., Enter/Space to skip"
+      show_full = false
+      redo
 
     when 'a'
       system %(git-add "#{path}")
@@ -62,6 +88,7 @@ begin
     when 'v'
       system %(cat "#{path}")
       puts
+      show_full = false
       redo
 
     when 'i'
@@ -73,18 +100,24 @@ begin
       puts
 
     when 'r'
-      print "Really delete".red + " #{path.magenta}" + "?? (y)es/(r)eally/(n)o > ".red
+      print "Really delete".red + " #{path.magenta}" + "?? (y)es/(n)o > ".red
       resp = STDIN.getc.chr
-      system %(rm "#{path}") if ['y', 'r'].include? resp.downcase
+      system %(rm "#{path}") if resp.downcase == 'y'
       puts
 
     when 'q'
       raise Interrupt, ''
 
-    when ' ', "\n"
+    when ' '
+      puts
+      # next
+ 
+    when "\n"
+      # next
 
     else
       puts
+      show_full = false
       redo
     end
 
