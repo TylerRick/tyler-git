@@ -19,35 +19,34 @@ end
 #-------------------------------------------------------------------------------
 require 'rubygems' 
 require 'facets'
-require 'facets/dictionary'
 require 'colored'
 require 'pathname'
 require 'facets/blank'
 require File.dirname(__FILE__) + '/../lib/getch'
+require File.dirname(__FILE__) + '/../lib/menu'
+require 'quality_extensions/string/with_knowledge_of_color'
 
 #---------------------------------------------------------------------------------------------------
 require 'getoptlong'
 
 @selected_command = 'git log -p --numstat'
 @quit_on_select = false
-@format = 'reflog'
 @i = 0
 @window_size = 5
 @lines_count = @window_size*2
 
 
 opts = GetoptLong.new(
-    [ '--selected-command',          GetoptLong::REQUIRED_ARGUMENT ],
-    [ '--help',                      GetoptLong::NO_ARGUMENT ],
-    [ '--quit-on-select',            GetoptLong::NO_ARGUMENT ]
-
+  [ '--help',                      GetoptLong::NO_ARGUMENT ],
+  [ '--selected-command',          GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--quit-on-select',            GetoptLong::NO_ARGUMENT ]
 )
 opts.each do | opt, arg |
   case opt
   when '--selected-command'
     @selected_command = arg
   when '--quit-on-select'
-    @quit_on_select = arg
+    @quit_on_select = true
   when '--help'
     usage
   end
@@ -57,33 +56,25 @@ end
 
 def raw_lines(count = @lines_count)
   if @raw_lines.nil? or count > @lines_count
-    if @format == 'reflog'
-      @raw_lines = `git reflog | head -n#{count}`.lines
-    else
-      raise "Unrecognized format"
-    end
+    @raw_lines = `git reflog | head -n#{count}`.lines
     @lines_count = @raw_lines.size
   end
   @raw_lines
 end
 
-Line = Struct.new(:commit, :line)
-def lines
-  if @format == 'reflog'
-    raw_lines.inject([]) do |lines, line|
-      commit = nil
-      pretty = line.chomp.gsub(/(\S+)\s(\S+)\s(.*)$/) {
-        # ed55e6b... HEAD@{0}: The rest ...
-        # \   $1   / \  $2   / \   $3     /
-        commit = $1.chomp('...')
+Commit = Struct.new(:commit, :line)
+def commits
+  raw_lines.inject([]) do |commits, line|
+    commit = nil
+    pretty = line.chomp.gsub(/(\S+)\s(\S+)\s(.*)$/) {
+      # ed55e6b... HEAD@{0}: The rest ...
+      # \   $1   / \  $2   / \   $3     /
+      commit = $1.chomp('...')
 
-        "#{$1.green} #{$2.blue} #{$3.cyan}"
-      }
-      lines << Line.new(commit, pretty)
-      lines
-    end
-  else
-    raise "Unrecognized format"
+      "#{$1.green} #{$2.blue} #{$3.cyan}"
+    }
+    commits << Commit.new(commit, pretty)
+    commits
   end
 end
 
@@ -95,28 +86,29 @@ end
 
 def menu
   response = nil
-  show_menu = true
-  current_commit = nil
+  show_list = true
+  selected_commit = nil
 
   catch :repeat do
-    if show_menu
-      lines.each_with_index do |line, i|
-        commit, line = line.commit, line.line
+    if show_list
+      commits.each_with_index do |commit, i|
+        commit, line = commit.commit, commit.line
         if i.in?(window)
-          current_commit = commit if i == @i
-          print (i == @i ? '->'.magenta : '  ')
+          selected        = i == @i
+          selected_commit = commit if selected
+
+          print selected ? '->'.magenta : '  '
           print "#{i.to_s.rjust(2)}. "
-          print line
+          print selected ? line.strip_color.green : line
           print "\n"
         end
       end
     else
-      show_menu = true
+      show_list = true
     end
 
     #-------------------------------------------------------------------------------------
     response = STDIN.getch(:downcase => true)
-    show_menu = true
     case response
       # Allow movement up and down in list
       when "\e[A", "\e\[D" # Previous (Up or Left)
@@ -143,7 +135,7 @@ def menu
         return :quit
 
       when "\n"
-        return :select, current_commit
+        return :select, selected_commit
 
       else
         # Invalid option. Do nothing.
@@ -151,7 +143,7 @@ def menu
         puts
         throw :repeat
 
-        #show_menu = false
+        #show_list = false
     end # case response
   end
 

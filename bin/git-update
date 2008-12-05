@@ -17,8 +17,8 @@ end
 #---------------------------------------------------------------------------------------------------
 require 'getoptlong'
 opts = GetoptLong.new(
-    [ '--ask',                 GetoptLong::NO_ARGUMENT ],
-    [ '--help',                 GetoptLong::NO_ARGUMENT ]
+  [ '--ask',                  GetoptLong::NO_ARGUMENT ],
+  [ '--help',                 GetoptLong::NO_ARGUMENT ]
 )
 opts.each do | opt, arg |
   case opt
@@ -41,9 +41,9 @@ end
 
 at_exit { system "git-checkout #{@original_branch}" }
 
-system "git-checkout #{@branch}"
+system %(git-checkout "#{@branch}")
 exit if !$?.success?
-system "git-pull"
+system %(git-pull)
 
 #---------------------------------------------------------------------------------------------------
 # Original sh version:

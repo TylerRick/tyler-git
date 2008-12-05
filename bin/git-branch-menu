@@ -1,2 +1,349 @@
-same as git-branch but let you use arrow keys to select branch
-and then c to check out, d to delete, aso.
+#!/usr/bin/ruby
+
+#---------------------------------------------------------------------------------------------------
+def usage
+  puts "Usage: #{$0} [--selected-command=<action>]"
+  puts <<End
+This is an interactive menu/wrapper for git-branch that lets you use the arrow keys to select branch
+and then choose which action to do with/to that branch, such as check out, rename, or delete.
+
+Plumbing commands:
+--selected-command: The default command, which will be executed when a branch is selected from the menu with Enter.
+--quit-on-select:   Quit after executing command
+End
+  exit 1
+end
+
+#-------------------------------------------------------------------------------
+# To do:
+# * (optionally) use ncurses so that we can redraw the screen when they move up or down
+#   * can we just use part of the screen?
+
+#-------------------------------------------------------------------------------
+require 'rubygems' 
+require 'facets'
+require 'colored'
+require 'pathname'
+require 'facets/blank'
+require File.dirname(__FILE__) + '/../lib/getch'
+require File.dirname(__FILE__) + '/../lib/menu'
+require 'quality_extensions/string/with_knowledge_of_color'
+
+#---------------------------------------------------------------------------------------------------
+require 'getoptlong'
+
+@selected_command = 'git checkout'
+@quit_on_select = false
+@format = 'reflog'
+@i = 0
+@window_size = 5
+@lines_count = @window_size*2
+
+
+opts = GetoptLong.new(
+  [ '--help',                      GetoptLong::NO_ARGUMENT ],
+  [ '--selected-command',          GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--quit-on-select',            GetoptLong::NO_ARGUMENT ]
+)
+opts.each do | opt, arg |
+  case opt
+  when '--selected-command'
+    @selected_command = arg
+  when '--quit-on-select'
+    @quit_on_select = true
+  when '--help'
+    usage
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
+
+def raw_lines(force = false)
+  if @raw_lines.nil? or force
+    @raw_lines = `git branch -v`.lines
+  end
+  @raw_lines
+end
+def refresh
+  raw_lines(true)
+end
+
+Branch = Struct.new(:name, :commit, :description, :checked_out)
+def branches
+  raw_lines.inject([]) do |branches, line|
+    # * dev                                   2f2c1d6 Added ...
+    #   junk                                  38d869a Changed ...
+    #   master                                a6d7d6b Fixed ...
+    #   really_really_really_long_branch_name 2f2c1d6 ...
+    line.chomp =~ /(.)\s(\S+)\s+(\S+)\s(.*)$/
+
+    checked_out = $1 == '*'
+    name        = $2
+    commit      = $3
+    description = $4
+    @longest_name = [name.length, @longest_name.to_i].max
+
+    branches << Branch.new(name, commit, description, checked_out)
+    branches
+  end
+end
+
+def reset_i(selected_branch)
+  # If you delete the currently selected branch, we will need to reset it to make sure there is a branch selected
+  @i = (
+    branches.each_with_index { |branch, i| break i if branch.commit == selected_branch.commit; nil } || 
+    branches.each_with_index { |branch, i| break i if branch.checked_out;                      nil } ||
+    0
+  )
+end
+
+
+def window
+  left = [@i, @window_size].min
+  right = 2*@window_size - left
+  @i-left .. @i+right
+end
+
+def menu(show_list = true)
+  response = nil
+  selected_branch = nil
+  show_menu = true
+
+  catch :repeat do
+    show_list = @show_list if !@show_list.nil?
+    show_menu = @show_menu if !@show_menu.nil?
+    @show_list = nil
+    @show_menu = nil
+
+    if show_list
+      puts
+
+      branches.each_with_index do |branch, i|
+        if i.in?(window)
+          selected        = i == @i
+          selected_branch = branch if selected
+          name = branch.name
+
+          print selected ? '->'.magenta : '  '
+          #print "#{i.to_s.rjust(2)}."
+          print ' '
+
+          _name = name.ljust(@longest_name)
+          print selected ? _name.green : _name
+          print ' '
+          print branch.description.magenta
+          print " (checked out)".yellow if branch.checked_out
+          print "\n"
+        end
+      end
+    else
+      show_list = true
+    end
+
+    #-------------------------------------------------------------------------------------
+    if show_menu
+      print(
+        "check out".menu_item(:green)                                              + ", " +
+        "merge from".menu_item(:cyan, 'm') + ' ' + "(to)".menu_item(:cyan, 't')    + ", " +
+        "rebase from".menu_item(:yellow, 'b') + ' ' + "(-i)".menu_item(:yellow, 'i')    + ", " +
+        "log".menu_item(:green, 'l') + ' ' + "(-p)".menu_item(:green, 'p')         + ", " +
+        "new".menu_item(:magenta)                                                  + ", " +
+        "rename".menu_item(:magenta)                                               + ", " +
+        "delete".menu_item(:red) + ' ' + "(D:force)".menu_item(:red, 'D')          + ", " +
+        "Pull".menu_item(:cyan, 'P') + '/' + "puSh".menu_item(:cyan, 'S') + '/' + "puBlish".menu_item(:cyan, 'B') + ", " +
+        "quit".menu_item(:magenta)                                                 + ", " +
+        "Enter for default (#{@selected_command})"                                 + " " +
+        "> ".cyan
+      )
+    else
+      show_menu = true
+    end
+
+    #-------------------------------------------------------------------------------------
+    response = STDIN.getch
+    show_list = true
+    case response
+      # Allow movement up and down in list
+      when "\e[A", "\e\[D", 'k', 'K' # Previous (Up or Left)
+        puts
+        @i = [0, @i-1].max
+        throw :repeat
+
+      when "\e\[B", "\e\[C", " ", 'j', 'J' # Next (Down or Right or Space)
+        puts
+        @i = [@i+1, raw_lines.size-1].min
+        throw :repeat
+
+      when "\n"
+        return :select, selected_branch
+
+      when 'c', 'C'
+        return :checkout, selected_branch
+
+      when 'm'
+        return :merge, selected_branch
+      when 't'
+        return :merge_to, selected_branch
+
+      when 'b'
+        return :rebase, selected_branch
+      when 'i'
+        return :rebase_interactive, selected_branch
+
+      when 'n'
+        return :new, selected_branch
+
+      when 'r'
+        return :rename, selected_branch
+
+      when 'l'
+        return :log, selected_branch
+      when 'p'
+        return :log_p, selected_branch
+
+      when 'd'
+        return :delete, selected_branch
+      when 'D'
+        return :delete_force, selected_branch
+
+      when 'P'
+        return :update, selected_branch
+      when 'S'
+        return :push, selected_branch
+      when 'B'
+        return :publish, selected_branch
+
+      when '?'
+        puts
+        print(
+          "Other commands: " +
+          "git reset".red + ' ' + "(R:--soft)".menu_item(:red, 'S') + ' ' + "(H:--hard)".menu_item(:red, 'H') + " HEAD~1".red  + " " +
+          "> ".cyan
+        )
+        @show_list = false
+        @show_menu = false
+        throw :repeat
+
+      when 'R'
+        return :reset_soft_1, selected_branch
+      when 'H'
+        return :reset_hard_1, selected_branch
+
+      when 'q', 'Q'
+        return :quit
+
+      else
+        # Invalid option. Do nothing.
+        puts
+        throw :repeat
+
+    end # case response
+  end
+
+  response
+end
+
+#---------------------------------------------------------------------------------------------------
+show_list = true
+loop do
+  response, branch = menu(show_list)
+  branch_name = branch && branch.name
+  puts
+
+  case response
+    when :select
+      system "#{@selected_command} #{branch_name}"
+      exit 0 if @quit_on_select
+      refresh
+
+    when :checkout
+      system %(git-checkout "#{branch_name}")
+      refresh
+
+    when :rebase
+      system "git rebase #{branch_name}"
+      refresh
+    when :rebase_interactive
+      system "git rebase -i #{branch_name}"
+      refresh
+
+    when :merge
+      system "git merge #{branch_name}"
+      refresh
+    when :merge_to
+      system "git merge-to #{branch_name}"
+      refresh
+
+
+    when :rename
+      print "New name? "
+      new_name = STDIN.gets
+      unless new_name.blank?
+        system "git branch-mv #{branch_name} #{new_name}"
+        refresh
+      end
+
+    when :new
+      print "Name of new branch to be started from #{branch_name}? "
+      new_name = STDIN.gets
+      unless new_name.blank?
+        system "git checkout -b #{new_name} #{branch_name}"
+        refresh
+      end
+
+    when :log
+      system "git log #{branch_name}"
+    when :log_p
+      system "git log -p --stat #{branch_name}"
+
+    when :delete
+      if confirm("Really delete? ".red) == 'y'
+        system "git branch-rm #{branch_name}"
+        reset_i(branch)
+        refresh
+      end
+
+    # TODO: rather than have this a separate option, capture output of first attempt and prompt "Do you want to force it?" if it gives an error message that indicates it failed but can be forced
+    when :delete_force
+      if confirm("Really force delete? ".red) == 'y'
+        system "git branch-rm -f #{branch_name}"
+        reset_i(branch)
+        refresh
+      end
+
+    when :update
+      puts 'Please wait...'.cyan
+      system "git update #{branch_name}"
+      refresh
+
+    when :push
+      puts 'Please wait...'.cyan
+      remote = 'origin'
+      system %(git-push "#{remote}" "#{branch_name}")
+
+    when :publish
+      system %(git-publish-branch "#{branch_name}")
+
+    when :reset_soft_1
+      system %(git-checkout "#{branch_name}") unless branch.checked_out
+      if $?.success?
+        system %(git-reset --soft HEAD~1)
+        refresh
+      end
+      
+    when :reset_hard_1
+      system %(git-checkout "#{branch_name}") unless branch.checked_out
+      if $?.success?
+        system %(git-reset-hard-safe HEAD~1)
+        refresh
+      end
+
+    when :quit
+      exit 0
+
+  end # case response
+
+end
+
+
+#---------------------------------------------------------------------------------------------------
