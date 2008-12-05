@@ -1,0 +1,5 @@
+# Idea:
+# Usually it is when I am writing the commit message for a commit that I realize/decide that I want to squash/move a commit.
+# So I often will include a (temporary) note/flag in my commit message like 'squash' or 'squash with commit 3 commits ago' (meaning, move up 3 lines and squash)
+# or 'tip' (meaning move to bottom so that it becomes the tip even if it is not the tip when I do the rebase)
+# So it would be nice if rebase interactive could notice those flags and automatically apply them.
