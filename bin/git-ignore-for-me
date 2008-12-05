@@ -1,0 +1,25 @@
+#!/usr/bin/env ruby
+
+#---------------------------------------------------------------------------------------------------
+require 'getoptlong'
+opts = GetoptLong.new(
+  [ '--force', '-f',            GetoptLong::NO_ARGUMENT ]
+)
+@force_flag = ''
+opts.each do | opt, arg |
+  case opt
+  when '--force', '-f'
+    @force_flag = '-f'
+  when '--help'
+    #usage
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
+@repo_root = `git-base-dir`.chomp
+paths = ARGV.dup
+paths.each do |path|
+  system %(echo "#{path}" >> #{@repo_root}/.git/info/exclude)
+  system %(git rm --cached #{@force_flag} "#{path}" 2>/dev/null)
+end
+

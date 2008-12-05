@@ -44,8 +44,6 @@ end
 #-------------------------------------------------------------------------------
 
 repo_root = base_dir = `git-base-dir`.chomp
-#wd = Pathname.new(Dir.getwd)
-#cdup = Pathname.new(repo_root).realpath.relative_path_from(wd.realpath)
 cdup = `git-rev-parse --show-cdup`.chomp
 
 begin
@@ -67,11 +65,11 @@ begin
       redo
 
     when 'i'
-      system %(echo "#{path}" >> #{repo_root}.gitignore)
+      system %(git-ignore "#{path}")
       puts
 
     when 'm'
-      system %(echo "#{path}" >> #{repo_root}.git/info/exclude)
+      system %(git-ignore-for-me "#{path}")
       puts
 
     when 'r'
