@@ -17,8 +17,14 @@ alias   gup='git update' #  [custom]
 alias  gcob='git checkout -b'          # Create and check out a new branch
 alias  gcot='git checkout --track -b'  # Create and check out a new branch that tracks a remote branch. example: gcot stable origin/stable'
 
-alias    gb='git branch'
-alias   gba='git branch -a -v'  # Show all branches (including remote branches) and which commit they are pointing to
+alias    gb='git-branch-menu'
+alias   gbv='git branch -v'    # Show all branches and which commit they are pointing to
+#alias   gbv='git branch -v ?'    # Show all branches (including remote branches) and which commit they are pointing to
+alias  gbrm='git-branch-rm' # remove
+alias  gbmv='git-branch-mv' # move
+
+alias git-branch-set-merge-defaults='git config branch.master.remote origin; git config branch.master.merge refs/heads/master'
+
 
 #------------------------------------------
 # Diff
@@ -81,7 +87,7 @@ alias   gls='git log --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s"'
 alias  glcl='git log --pretty=format:"%s"'    # git log "changelog" (show only the messages)
 alias   glc='git log --date-order'                                                  # git log (reverse) chronological
 
-# do a "pickaxe" search for the expression in the code; I think git-log is smart enough to not only only include the revisions that contain the search expression but also only the actual files and hunks that include it
+# do a "pickaxe" search for the expression in the code; I think git-log is smart enough to not only only include the commits that contain the search expression but also only the actual files and hunks that include it
 function git-search() { git log --patch-with-stat -S$1
 }
 
@@ -99,7 +105,11 @@ alias  glrl='git log -g HEAD'
 
 #------------------------------------------
 alias    ga='git add'
-alias   gau='git add -u; git status'        # update staged with latest changes for all files that say "Changed but not updated" (can be undone with 'git reset')
+
+# update staged with latest changes for all files that say "Changed but not updated" (can be undone with 'git reset')
+#function gau='git add -u; git status'
+function gau() { git add -u $1; git status
+}
 
 # Interactive / loop-through-each - type commands
 alias   gai='git add -i'        # interactive
@@ -112,17 +122,12 @@ alias   geu='git each-unadded'      # tyler-git
 #------------------------------------------
 alias   grm='git rm'
 
-# git "unstage"
-alias   gus='git rm --cached' # git "unadd"/unstage. "remove the paths only from the index, leaving working tree files."
-                                # Appears to be equivalent to git reset, except that git reset only works if it's in the cache (in a previous commit). Otherwise you'd get:
-                                # fatal: Failed to resolve '...' [HEAD, for instance, if you just init'd a new repository] as a valid ref.
-                                # Also, this seems to actually mark file as "deleted"???
-                                # no, didn't that time...
+alias   gus='git unstage' # [custom]
 
 #------------------------------------------
 alias   grb='git update; git rebase master'  # don't forget to pass -i if you want interactive
 alias  grbm='git update; git rebase master'
-alias  grbi='git update; git rebase master -i'
+alias  grbi='git update; git rebase -i master'
 alias  grbc='git rebase --continue'  # after resolving conflicts, do this to continue
 
 #------------------------------------------
@@ -161,9 +166,10 @@ alias      grss='git reset --soft'
 alias     grss1='git reset --soft HEAD~1'
 alias    grssOH='git reset --soft ORIG_HEAD'
 # don't forget that you can do gci -c ORIG_HEAD after you grss1 and make changes. That's the manual alternative to gci --amend
-alias   grshard='git reset --hard'
-alias  grshard1='git reset --hard HEAD~1'
-alias grshardOH='git reset --hard ORIG_HEAD'
+alias   grshard='git-reset-hard-safe'
+alias     grshm='git-reset-hard-menu'
+alias  grshard1='git-reset-hard-safe HEAD~1'
+alias grshardOH='git-reset-hard-safe ORIG_HEAD'
 
 
 # How do I discard my changes I've made to the working tree?
@@ -180,15 +186,16 @@ alias grshardOH='git reset --hard ORIG_HEAD'
 # git checkout <paths>
 #       updates the named paths in the working tree from the index file (i.e. it runs git-checkout-index -f -u), or from a named commit.
 # So if you've staged some changes from <file> but have made other changes since then that you want to discard, git checkout <file> is safe, because it replaces file with the version that is staged (in index), not the version that is [cached] (HEAD)
-alias   gco='git checkout'
-alias  gcom='git checkout master'
+alias   gco='git-checkout'
+alias  gcom='git-checkout master'
+alias  gcod='git-checkout dev'
 alias gcomerge='git checkout -m'
 # To check out a file from ("revert" a single file to) an older revision...
 #   gco d72a254c39b01eec17a35f42c59fb0a2bc8eab0e app/models/user.rb
 
 # If you've already staged a file (added it to the index), then git checkout <file> will not reset it to HEAD, but to what you have staged! So you'd need to specify...
-alias gdisc='git checkout HEAD' # git "discard"
-
+# git "discard" -- discard changes to working copy and replace with fresh version from HEAD
+alias gdisc='git checkout HEAD'
 
 # why doesn't co recognize the filename when I use symbolic ref but it does when I use sha (I was in master, and the file in question was untracked wrt master, but was committed in adoption branch)
 #> gco heads/adoption -- config/initializers/time_extensions.rb 
@@ -214,7 +221,7 @@ alias gciqpu='git commit -m "."; git push origin master'
 alias gacpu='git commit -a -m "."; git push origin master'  # can't get any lazier than this
 alias gacpud='git commit -a -m "."; git push origin master; cap staging deploy'  # can't get any lazier than this
 
-alias   gpm='git push origin master'
+alias  gpsm='git push origin master'
 
 alias gbs='git bisect'
 

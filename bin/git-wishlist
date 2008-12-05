@@ -1,9 +1,4 @@
 
-# I wish I could have the same interactive functionality provided by git rebase -i to squash/reorder commits even when not doing a rebase...
-#
-# git-filter-branch looks it might be able to do some of those things but it's way too hard to use and not interactive.
-
-
 # it's kind of annoying that you have to commit any modifications so that your working tree is not dirty before you do certain operations
 # fortunately, it's easy to create a new branch (co -b) for whatever you aren't ready to commit and to commit it in the new branch as a WIP and then switch back...
 # but you hope that you don't forget about your WIP or accidentally merge/push it!
