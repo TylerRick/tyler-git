@@ -1,3 +1,5 @@
+require 'rubygems'
+
 begin
   gem 'termios'
   require 'termios'

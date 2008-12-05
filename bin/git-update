@@ -1,11 +1,53 @@
-# switches to the master branch (or whichever one you specify), does a git pull, (assumes the merge will be successful because you are doing all your changes in a topic branch and *not* in master),
-# and then switches back to the topic branch you were on
-# useful if you want to do a rebase: issue this command first to make sure the 'master' branch you are rebasing against is actually up-to-date!
+#!/usr/bin/ruby
 
-# alternatively, do a git fetch and then rebase against FETCH_HEAD
-# git rebase FETCH_HEAD master
+#---------------------------------------------------------------------------------------------------
+def usage
+  #puts "Usage: #{$0}"
+  puts <<End
+Switches to the master branch (or whichever one you specify), does a git pull, (assumes the merge will be successful because you are doing all your changes in a topic branch and *not* in master),
+and then switches back to the topic branch you were on.
+Useful if you want to do a rebase: issue this command first to make sure the 'master' branch you are rebasing against is actually up-to-date!
 
-original_branch=`git-current-branch`
-git-checkout master
-git-pull
-git-checkout $original_branch
+Alternatively, you could do a git fetch and then rebase against FETCH_HEAD.
+  git rebase FETCH_HEAD master
+End
+  exit 1
+end
+
+#---------------------------------------------------------------------------------------------------
+require 'getoptlong'
+opts = GetoptLong.new(
+    [ '--ask',                 GetoptLong::NO_ARGUMENT ],
+    [ '--help',                 GetoptLong::NO_ARGUMENT ]
+)
+opts.each do | opt, arg |
+  case opt
+  when '--ask'
+    @ask = true
+  when '--help'
+    usage
+  end
+end
+
+@branch = ARGV.shift || 'master'
+@original_branch = `git-current-branch`
+
+#---------------------------------------------------------------------------------------------------
+require File.dirname(__FILE__) + '/../lib/getch'
+
+if @ask
+  exit unless (print "Do you want to do a git pull on #{@branch} first (y/N)? "; STDIN.getch(:case_insensitive => true) == 'y')
+end
+
+at_exit { system "git-checkout #{@original_branch}" }
+
+system "git-checkout #{@branch}"
+exit if !$?.success?
+system "git-pull"
+
+#---------------------------------------------------------------------------------------------------
+# Original sh version:
+#original_branch=`git-current-branch`
+#git-checkout master
+#git-pull
+#git-checkout $original_branch

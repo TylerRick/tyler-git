@@ -125,9 +125,10 @@ alias   grm='git rm'
 alias   gus='git unstage' # [custom]
 
 #------------------------------------------
-alias   grb='git update; git rebase master'  # don't forget to pass -i if you want interactive
-alias  grbm='git update; git rebase master'
-alias  grbi='git update; git rebase -i master'
+alias   grb='git update --ask; git rebase ${1:-master}'  # don't forget to pass -i if you want interactive
+alias  grbm='git update --ask; git rebase ${1:-master}'
+alias  grbi='git update --ask; git rebase -i ${1:-master}'
+alias grbia='git rebase -i --abort'  # abort a rebase interactive
 alias  grbc='git rebase --continue'  # after resolving conflicts, do this to continue
 
 #------------------------------------------

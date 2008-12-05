@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # prints the name of the branch to stdout if we are in a git repo and there is a current branch
 # or exits 1 if we are not
 
