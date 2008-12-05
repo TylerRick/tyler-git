@@ -93,7 +93,8 @@ function git-search() { git log --patch-with-stat -S$1
 alias  glsf='git ls-files'
 alias  glss='git ls-files-by-status'
 
-alias   grl='git reflog | head -n10'
+#alias   grl='git reflog | head -n10'
+alias   grl='git-reflog-menu'
 alias  glrl='git log -g HEAD'
 
 #------------------------------------------

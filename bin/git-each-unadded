@@ -10,34 +10,14 @@ require 'git'      # requires my changes to ruby-git, (git.status.untracked)
 require 'colored'
 require 'pathname'
 require 'facets/blank'
+require File.dirname(__FILE__) + '/../lib/getch'
 
 begin
-  gem 'termios'
-  require 'termios'
-  begin
-    # Set up termios so that it returns immediately when you press a key.
-    # (http://blog.rezra.com/articles/2005/12/05/single-character-input)
-    t = Termios.tcgetattr(STDIN)
-    save_terminal_attributes = t.dup
-    t.lflag &= ~Termios::ICANON
-    Termios.tcsetattr(STDIN, 0, t)
-
-    # Set terminal_attributes back to how we found them...
-    at_exit { Termios.tcsetattr(STDIN, 0, save_terminal_attributes) }
-  rescue RuntimeError => exception    # Necessary for automated testing.
-    if exception.message =~ /can't get terminal parameters/
-      # :todo: Can we detect if they are piping/redirecting stdout? Don't show warning if they are simply piping stdout.
-      # On the other hand, when ELSE do we expect to not find a terminal? Is this message *ever* helpful?
-      # Only testing? Then maybe the tests should set an environment variable or *something* to communicate that they want non-interactive mode.
-      puts 'Warning: Terminal not found.'
-      $interactive = false
-    else
-      raise
-    end
-  end
-  $termios_loaded = true
-rescue Gem::LoadError
-  $termios_loaded = false
+  require 'terminfo' #http://www.a-k-r.org/ruby-terminfo/
+  $screen_width=TermInfo.screen_width
+rescue LoadError
+  STDERR.puts "Warning: Could not load terminfo"
+  $screen_width=80
 end
 
 #-------------------------------------------------------------------------------
@@ -55,11 +35,15 @@ begin
 
   @git.status.untracked.each do |filename|
     path = relative_to_wd(filename)
+    pathname = Pathname.new(path)
 
     if show_full
-      puts ('_'*80).green
-      lines = `wc -l #{path}`.chomp.to_i
-      if @lines_preview_to_show >= 1 and lines >= 1
+      puts ('_'*$screen_width).green
+      lines = `wc -l #{path}`.chomp.to_i unless pathname.directory?
+      if pathname.directory?
+        puts '[Directory]'.cyan
+        system %(ls -al #{path})
+      elsif @lines_preview_to_show >= 1 and lines >= 1
         system %(head -n #{@lines_preview_to_show} #{path})
         print ''.white
         puts '...' unless !$?.success? || lines <= @lines_preview_to_show
@@ -70,7 +54,7 @@ begin
       show_full = true
     end
 
-    print "#{path.magenta} [a/v/i/m/r/q/?] > ".cyan
+    print path.green + " [a/v/i/m/r/q/?] > ".cyan
 
     resp = STDIN.getc.chr
     case resp

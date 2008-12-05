@@ -3,36 +3,14 @@
 require 'rubygems' 
 require 'colored'
 require 'git' 
-require 'terminfo' #http://www.a-k-r.org/ruby-terminfo/
-#.strftime('%Y-%m-%d %H:%M:%S')}
+require File.dirname(__FILE__) + '/../lib/getch'
 
 begin
-  gem 'termios'
-  require 'termios'
-  begin
-    # Set up termios so that it returns immediately when you press a key.
-    # (http://blog.rezra.com/articles/2005/12/05/single-character-input)
-    t = Termios.tcgetattr(STDIN)
-    save_terminal_attributes = t.dup
-    t.lflag &= ~Termios::ICANON
-    Termios.tcsetattr(STDIN, 0, t)
-
-    # Set terminal_attributes back to how we found them...
-    at_exit { Termios.tcsetattr(STDIN, 0, save_terminal_attributes) }
-  rescue RuntimeError => exception    # Necessary for automated testing.
-    if exception.message =~ /can't get terminal parameters/
-      # :todo: Can we detect if they are piping/redirecting stdout? Don't show warning if they are simply piping stdout.
-      # On the other hand, when ELSE do we expect to not find a terminal? Is this message *ever* helpful?
-      # Only testing? Then maybe the tests should set an environment variable or *something* to communicate that they want non-interactive mode.
-      puts 'Warning: Terminal not found.'
-      $interactive = false
-    else
-      raise
-    end
-  end
-  $termios_loaded = true
-rescue Gem::LoadError
-  $termios_loaded = false
+  require 'terminfo' #http://www.a-k-r.org/ruby-terminfo/
+  $screen_width=TermInfo.screen_width
+rescue LoadError
+  STDERR.puts "Warning: Could not load terminfo"
+  $screen_width=80
 end
 
 
@@ -51,7 +29,7 @@ git.log(10).each do |commit|
   next if commit.author.name =~ /^tyler/i
 
 
-  puts ('_'*TermInfo.screen_width).yellow #.on_cyan
+  puts ('_'*$screen_width).yellow #.on_cyan
   puts commit.sha.yellow + ' ' + commit.author.name.red + ' ' + commit.author_date.strftime('%Y-%m-%d %H:%M:%S').blue
   puts commit.message
 
