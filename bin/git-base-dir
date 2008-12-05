@@ -1,3 +1,4 @@
 #!/usr/bin/ruby
+# Gets the root or base directory of the current repository. Assumes you are in a git repository.
 base_dir = File.dirname(`git-rev-parse --git-dir`.chomp)
 puts base_dir
