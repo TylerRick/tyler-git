@@ -1,1 +1,1 @@
-git branch -m "$@"
+git-branch -m "$@"
