@@ -1,4 +1,40 @@
 #!/usr/bin/ruby
-# Gets the root or base directory of the current repository. Assumes you are in a git repository.
-base_dir = File.dirname(`git-rev-parse --git-dir`.chomp)
-puts base_dir
+
+def usage
+  puts <<End
+Usage: #{File.basename($0)} [<path>]
+
+Gets the root or base directory of a repository.
+
+If <path> is omitted, assumes you are in a git repository and operates on that repository.
+If <path> is supplied, operates on the repository which contains that file/dir.
+End
+  exit 1
+end
+
+#---------------------------------------------------------------------------------------------------
+require 'pathname'
+require 'getoptlong'
+
+opts = GetoptLong.new(
+    [ '--help', '-h',              GetoptLong::NO_ARGUMENT ]
+)
+opts.each do | opt, arg |
+  case opt
+  when '--help', '-h'
+    usage
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
+
+dir = ARGV[0] || '.'
+dir = Pathname.new(dir)
+if dir.file?
+  dir = dir.dirname
+end
+
+Dir.chdir dir do
+  base_dir = File.dirname(`git-rev-parse --git-dir`.chomp)
+  puts base_dir
+end
