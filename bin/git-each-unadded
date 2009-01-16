@@ -34,31 +34,15 @@ end
 @lines_preview_to_show = 50
 
 begin
-  show_full = true
+  show_full = false
 
   @git.status.untracked.each do |filename|
     path = relative_to_wd(filename)
     pathname = Pathname.new(path)
 
     if show_full
-      puts ('_'*$screen_width).green
-      if pathname.directory?
-        puts '[Directory]'.cyan
-        system %(ls -al #{path})
-      elsif FileTest.binary_file?(path)
-        puts "(Binary file -- cannot show preview)".bold
-      else
-        lines = `wc -l #{path}`.chomp.to_i unless pathname.directory?
-        if @lines_preview_to_show >= 1 and lines >= 1
-          system %(head -n #{@lines_preview_to_show} #{path})
-          print ''.white
-          puts '...' unless !$?.success? || lines <= @lines_preview_to_show
-        elsif lines == 0
-          puts '[Empty file]'.cyan
-        end
-      end
     else
-      show_full = true
+      #show_full = true
     end
 
     print path.green + " [a/v/i/m/r/q/?] > ".cyan
@@ -77,8 +61,22 @@ begin
       puts
 
     when 'v'
-      system %(cat "#{path}")
-      puts
+      puts ('_'*$screen_width).green
+      if pathname.directory?
+        puts '[Directory]'.cyan
+        system %(ls -al #{path})
+      elsif FileTest.binary_file?(path)
+        puts "(Binary file -- cannot show preview)".bold
+      else
+        lines = `wc -l #{path}`.chomp.to_i unless pathname.directory?
+        if @lines_preview_to_show >= 1 and lines >= 1
+          system %(head -n #{@lines_preview_to_show} #{path})
+          print ''.white
+          puts '...' unless !$?.success? || lines <= @lines_preview_to_show
+        elsif lines == 0
+          puts '[Empty file]'.cyan
+        end
+      end
       show_full = false
       redo
 
@@ -91,9 +89,14 @@ begin
       puts
 
     when 'r'
-      print "Really delete".red + " #{path.magenta}" + "?? (y)es/(n)o > ".red
-      resp = STDIN.getc.chr
-      system %(rm "#{path}") if resp.downcase == 'y'
+      path_obj = Pathname.new(path)
+      if path_obj.directory? and path_obj.children.any?
+        print "Really delete".red + " #{path.magenta}" + " and its contents?? (y)es/(n)o > ".red
+        resp = STDIN.getc.chr
+        path_obj.rmtree if resp.downcase == 'y'
+      else
+        path_obj.delete
+      end
       puts
 
     when 'q'
