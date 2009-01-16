@@ -73,6 +73,7 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
+# TODO: find another way to get this information (perhaps directly from .git/refs) so that if same name is listed twice (is both a local and remote branch), we can distinguish between the two and perhaps show full ref path (refs/heads/... or refs/remotes/...) (for all branches or only ambiguous ones?)
 def raw_lines(force = false)
   if @raw_lines.nil? or force
     @raw_lines = `git-branch -a -v --no-color`.lines
@@ -83,14 +84,30 @@ def refresh
   raw_lines(true)
 end
 
+# TODO: this should be abstracted better and be a method of a Branch class perhaps
+def local_branch_exists?(name)
+  `git-rev-parse --quiet --verify 'refs/heads/#{name}'`
+  $?.success?
+end
+
+# TODO: should this use git-rev-parse or rely on our cached list?
+def branch_exists?(name)
+  branches.detect {|branch| branch.name == name}
+end
+
 Branch = Struct.new(:name, :commit, :description, :checked_out)
 class Branch
   def remote?
-    # Never mind, I guess not all remote branches look like 'origin/whatever'...
+    # I was using this, and assuming that all remote branches look like 'origin/whatever'...
+    # But after doing a git-svn fetch, I ended up with some remote branches that didn't have a "namespace". I don't think that's supposed to happen though -- maybe a bug? (Because after creating a local tracking branch for that remote and trying to check it out, I got error "warning: refname 'current' is ambiguous.".)
     #name =~ %r{/}
 
-    remotes = `git-branch -r --no-color`.lines.map {|line| line.chomp.strip}
-    remotes.include? name
+    # This would work... but if we have a remote and local branch with the same name, it will only show up once,
+    # and we want it to show up as local
+    #remotes = `git-branch -r --no-color`.lines.map {|line| line.chomp.strip}
+    #remotes.include? name
+
+    !local_branch_exists?(name)
   end
 end
 
@@ -111,9 +128,6 @@ def branches
     branches << Branch.new(name, commit, description, checked_out)
     branches
   end
-end
-def branch_exists?(name)
-  branches.detect {|branch| branch.name == name}
 end
 
 def reset_i(selected_branch)
@@ -411,10 +425,11 @@ loop do
 
     when :track
       base_name = branch_name.gsub(/.*\//, '')
-      merge_config = `git-config branch.#{base_name}.merge`
+
       continue = false
-      if branch_exists?(base_name)
+      if local_branch_exists?(base_name)
         puts "Local branch '#{base_name}' already exists!".red
+        merge_config = `git-config branch.#{base_name}.merge`
         if merge_config.empty?
           # set it up anyway?
         else
