@@ -85,10 +85,22 @@ def refresh
 end
 
 # TODO: this should be abstracted better and be a method of a Branch class perhaps
+# See also: git show-ref --verify
 def local_branch_exists?(name)
   `git rev-parse --quiet --verify 'refs/heads/#{name}'`
   $?.success?
 end
+
+def remote_branch_exists?(name)
+  `git rev-parse --quiet --verify 'refs/remotes/#{name}'`
+  $?.success?
+end
+
+## This was necessary because I was getting "error: branch '1.10.0' not found." when I tried to git branch -D '1.10.0' (the ambiguous name reported by git branch)
+#def full_branch_name(name)
+#  local_branch_exists?(name) ? "heads/#{name}" \
+#                             : "remotes/#{name}"
+#end
 
 # TODO: should this use git rev-parse or rely on our cached list?
 def branch_exists?(name)
