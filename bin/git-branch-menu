@@ -47,7 +47,7 @@ require 'quality_extensions/string/with_knowledge_of_color'
 require 'getoptlong'
 
 @menu_style = 'plain'
-@selected_command = 'git-checkout'
+@selected_command = 'git checkout'
 @quit_on_select = false
 @format = 'reflog'
 @i = 0
@@ -76,7 +76,7 @@ end
 # TODO: find another way to get this information (perhaps directly from .git/refs) so that if same name is listed twice (is both a local and remote branch), we can distinguish between the two and perhaps show full ref path (refs/heads/... or refs/remotes/...) (for all branches or only ambiguous ones?)
 def raw_lines(force = false)
   if @raw_lines.nil? or force
-    @raw_lines = `git-branch -a -v --no-color`.lines
+    @raw_lines = `git branch -a -v --no-color`.lines
   end
   @raw_lines
 end
@@ -86,11 +86,11 @@ end
 
 # TODO: this should be abstracted better and be a method of a Branch class perhaps
 def local_branch_exists?(name)
-  `git-rev-parse --quiet --verify 'refs/heads/#{name}'`
+  `git rev-parse --quiet --verify 'refs/heads/#{name}'`
   $?.success?
 end
 
-# TODO: should this use git-rev-parse or rely on our cached list?
+# TODO: should this use git rev-parse or rely on our cached list?
 def branch_exists?(name)
   branches.detect {|branch| branch.name == name}
 end
@@ -99,12 +99,12 @@ Branch = Struct.new(:name, :commit, :description, :checked_out)
 class Branch
   def remote?
     # I was using this, and assuming that all remote branches look like 'origin/whatever'...
-    # But after doing a git-svn fetch, I ended up with some remote branches that didn't have a "namespace". I don't think that's supposed to happen though -- maybe a bug? (Because after creating a local tracking branch for that remote and trying to check it out, I got error "warning: refname 'current' is ambiguous.".)
+    # But after doing a git svn fetch, I ended up with some remote branches that didn't have a "namespace". I don't think that's supposed to happen though -- maybe a bug? (Because after creating a local tracking branch for that remote and trying to check it out, I got error "warning: refname 'current' is ambiguous.".)
     #name =~ %r{/}
 
     # This would work... but if we have a remote and local branch with the same name, it will only show up once,
     # and we want it to show up as local
-    #remotes = `git-branch -r --no-color`.lines.map {|line| line.chomp.strip}
+    #remotes = `git branch -r --no-color`.lines.map {|line| line.chomp.strip}
     #remotes.include? name
 
     !local_branch_exists?(name)
@@ -159,7 +159,7 @@ def menu_curses(show_list = true)
   # branch ->
   #   push ->
   #     select remote ->
-  #       all remotes (origin, gitorious, rubyforge) [defined in git-config push.all.branches]
+  #       all remotes (origin, gitorious, rubyforge) [defined in git config push.all.branches]
   #       origin
   #       rubyforge
   #     push all branches ->
@@ -231,7 +231,7 @@ def menu_plain(show_list = true)
         print(
           "More commands: " +
           "check out".menu_item(:green) + ' ' + "(force".menu_item(:green, 'f') + "/merge)".menu_item(:green, 'm')     + ", " +
-          "git-reset".red + ' ' + "(R:--soft)".menu_item(:red, 'R') + ' ' + "(H:--hard)".menu_item(:red, 'H') + " HEAD~1".red  + ", " +
+          "git reset".red + ' ' + "(R:--soft)".menu_item(:red, 'R') + ' ' + "(H:--hard)".menu_item(:red, 'H') + " HEAD~1".red  + ", " +
           "Enter for default (#{@selected_command})"                                 + " " +
           "> ".cyan
         )
@@ -328,34 +328,34 @@ loop do
       refresh
 
     when :checkout
-      system %(git-checkout "#{branch_name}")
+      system %(git checkout "#{branch_name}")
       if !$?.success?
         case confirm("Normal checkout failed. Do you want to check it out anyway?", ["No".menu_item(:green), "Force".menu_item(:red), "Merge".menu_item(:magenta)])
         when 'f'
-          system %(git-checkout -f "#{branch_name}")
+          system %(git checkout -f "#{branch_name}")
         when 'm'
-          system %(git-checkout -m "#{branch_name}")
+          system %(git checkout -m "#{branch_name}")
         end
       end
 
       refresh
 
 #    when :checkout_force
-#      system %(git-checkout -f "#{branch_name}")
+#      system %(git checkout -f "#{branch_name}")
 #      refresh
 
     when :rebase
-      system "git-rebase '#{branch_name}'"
+      system "git rebase '#{branch_name}'"
       refresh
     when :rebase_interactive
-      system "git-rebase -i '#{branch_name}'"
+      system "git rebase -i '#{branch_name}'"
       refresh
 
     when :merge
-      system "git-merge '#{branch_name}'"
+      system "git merge '#{branch_name}'"
       refresh
     when :merge_to
-      system "git-merge-to '#{branch_name}'"
+      system "git merge-to '#{branch_name}'"
       refresh
 
 
@@ -363,7 +363,7 @@ loop do
       print "New name? "
       new_name = STDIN.gets.strip
       unless new_name.blank?
-        system "git-branch-mv '#{branch_name}' '#{new_name}'"
+        system "git branch-mv '#{branch_name}' '#{new_name}'"
         refresh
       end
 
@@ -371,18 +371,18 @@ loop do
       print "Name of new branch to be started from #{branch_name}? "
       new_name = STDIN.gets.strip
       unless new_name.blank?
-        system "git-checkout -b '#{new_name}' '#{branch_name}'"
+        system "git checkout -b '#{new_name}' '#{branch_name}'"
         refresh
       end
 
     when :log
-      system "git-log #{branch_name}"
+      system "git log #{branch_name}"
     when :log_p
-      system "git-log -p --stat '#{branch_name}'"
+      system "git log -p --stat '#{branch_name}'"
 
     when :delete
       if confirm("Really delete? ".red) == 'y'
-        system "git-branch-rm '#{branch_name}'"
+        system "git branch-rm '#{branch_name}'"
         reset_i(branch)
         refresh
       end
@@ -390,36 +390,36 @@ loop do
     # TODO: rather than have this a separate option, capture output of first attempt and prompt "Do you want to force it?" if it gives an error message that indicates it failed but can be forced
     when :delete_force
       if confirm("Really force delete? ".red) == 'y'
-        system "git-branch-rm -f '#{branch_name}'"
+        system "git branch-rm -f '#{branch_name}'"
         reset_i(branch)
         refresh
       end
 
     when :update
       puts 'Please wait...'.cyan
-      system "git-update #{branch_name}"
+      system "git update #{branch_name}"
       refresh
 
     when :push
       puts 'Please wait...'.cyan
       remote = 'origin'
-      system %(git-push "#{remote}" "#{branch_name}")
+      system %(git push "#{remote}" "#{branch_name}")
 
     when :publish
-      system %(git-publish-branch "#{branch_name}")
+      system %(git publish-branch "#{branch_name}")
       refresh
 
     when :reset_soft_1
-      system %(git-checkout "#{branch_name}") unless branch.checked_out
+      system %(git checkout "#{branch_name}") unless branch.checked_out
       if $?.success?
-        system %(git-reset --soft HEAD~1)
+        system %(git reset --soft HEAD~1)
         refresh
       end
       
     when :reset_hard_1
-      system %(git-checkout "#{branch_name}") unless branch.checked_out
+      system %(git checkout "#{branch_name}") unless branch.checked_out
       if $?.success?
-        system %(git-reset-hard-safe HEAD~1)
+        system %(git reset-hard-safe HEAD~1)
         refresh
       end
 
@@ -429,7 +429,7 @@ loop do
       continue = false
       if local_branch_exists?(base_name)
         puts "Local branch '#{base_name}' already exists!".red
-        merge_config = `git-config branch.#{base_name}.merge`
+        merge_config = `git config branch.#{base_name}.merge`
         if merge_config.empty?
           # set it up anyway?
         else
@@ -440,7 +440,7 @@ loop do
       end
       if continue
         puts "Creating local branch '#{base_name}' to track remote branch '#{branch_name}'...".green
-        system "git-branch --track  '#{base_name}' '#{branch_name}'"
+        system "git branch --track  '#{base_name}' '#{branch_name}'"
         refresh
       end
 
