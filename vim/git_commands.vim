@@ -96,6 +96,18 @@ endfunction
 command! -nargs=* Tig                     !cd %:h; tig <args> -- --patch-with-stat %:t
 
 command! -nargs=* Gitcommit               !cd %:h; git commit -v %:t <args>
+
+" The previous version had the problem that special characters (to vim) like #
+" get expanded (see help expand for a list of such characters). It appears
+" that this only happens when using !, not when calling system. (Although I
+" don't know if there are any other side effects/differences between the two
+" methods... I assumed that 'echo'ing the return value of system was at least
+" close enough to the way ! prints the output from the command.)
+"command! -nargs=* Gitcommit               :echo system("cd " . expand("%:h") . "; git commit -v " . expand("%:t") . " " . <q-args>)
+" The problem with this version is I get this error:
+"Vim: Warning: Output is not to a terminal
+"Vim: Warning: Input is not from a terminal
+
 command! -nargs=* Gitci                   :Gitcommit <args>
 command! -nargs=* Gci                     :Gitcommit <args>
 
