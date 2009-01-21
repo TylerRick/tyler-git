@@ -3,6 +3,18 @@
 require 'fileutils'
 
 #---------------------------------------------------------------------------------------------------
+class NilClass
+  def blank?
+    true
+  end
+end
+class String
+  def blank?
+    empty?
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
 def usage
   puts "Usage: #{$0} [<commit>] [-n <number-of-commits-to-rewind>] [<branch>]"
   puts <<End
@@ -41,11 +53,13 @@ if $?.success?
   @commit = ARGV.shift
 end
 
-original_branch = `git-current-branch`
+original_branch = `git-current-branch`.chomp
 if @new_branch
   branch = @new_branch
 else
-  branch = ARGV[0] || `git-config forgot-to-switch-to-dev-branch.default-branch`.chomp || 'dev'
+  branch = ARGV[0]
+  branch = `git-config forgot-to-switch-to-dev-branch.default-branch`.chomp if branch.blank?
+  branch = 'dev' if branch.blank?
 end
 
 #---------------------------------------------------------------------------------------------------
