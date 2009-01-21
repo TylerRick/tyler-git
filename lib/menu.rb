@@ -14,13 +14,14 @@ class String
   end
 end
 
-def confirm(question, options = ['Yes', 'No'])
+def confirm(question, options = ["Yes".menu_item(:red), "No".menu_item(:green)])
   print question + " " +
-    "Yes".menu_item(:red) + ", " +
-    "No".menu_item(:green) + 
+    options.join(', ') +
     " > "
   response = ''
   # Currently allow user to press Enter to accept the default.
-  response = $stdin.getch.downcase while !['y', 'n', "\n"].include?(begin response.downcase!; response end)
+  option_letters = options.map {|o| o.strip_color[0..0].downcase} + ["\n"]
+  response = $stdin.getch.downcase while !option_letters.include?((response.downcase!; response))
+  response = option_letters.first if response == "\n"
   response
 end
