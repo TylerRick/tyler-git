@@ -1,5 +1,7 @@
 #!/usr/bin/ruby
 
+# To do: Add a --quiet option
+
 if ARGV.size < 1
   puts <<End
 Usage: #{$0} path"
@@ -23,9 +25,16 @@ end
 
 require 'pathname'
 
-input_path = Pathname.new(ARGV[0]).realpath
+input_path = ARGV[0]
 
-base_dir = File.dirname(`git-rev-parse --git-dir`.chomp)
-base_dir = Pathname.new(base_dir).realpath
+begin
+  input_path = Pathname.new(input_path).realpath
 
-puts input_path.relative_path_from(base_dir)
+  base_dir = File.dirname(`git-rev-parse --git-dir`.chomp)
+  base_dir = Pathname.new(base_dir).realpath
+
+  puts input_path.relative_path_from(base_dir)
+rescue Errno::ENOENT
+  STDERR.puts "Error: #{input_path} does not exist"
+  exit 1
+end
