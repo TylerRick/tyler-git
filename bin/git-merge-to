@@ -1,5 +1,9 @@
-
-to=${1:-master}
+#!/bin/bash
+to=$1
+if [ "$to" = "" ]; then
+  echo "Which branch do you want to merge to?"
+  exit 1
+fi
 original_branch=`git-current-branch`
 git-checkout $to
 git-merge $original_branch
