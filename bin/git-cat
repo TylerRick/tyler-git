@@ -1,7 +1,8 @@
 #!/usr/bin/ruby
 
 def usage
-  puts "Usage: #{$0} [--save] path"
+  puts "Usage: #{$0} [--save|--overwrite] <path>"
+  puts "   or: #{$0} [--save|--overwrite] <commit>:<path>"
   puts "cat a file from a certain rev (HEAD assumed if none supplied)"
   # keep in mind that it will page results, so long lines won't be wrapped. If you need long lines to be wrapped (so you can select the output with your mouse and know that you're not going to be getting any truncated lines, you many want to pipe to cat - or
   # use git --no-pager show ...
@@ -10,15 +11,19 @@ end
 
 require 'pathname'
 
+#---------------------------------------------------------------------------------------------------
 require 'getoptlong'
 opts = GetoptLong.new(
     [ '--save',                     GetoptLong::NO_ARGUMENT ],
+    [ '--overwrite',                GetoptLong::NO_ARGUMENT ],
     [ '--quiet', '-q',              GetoptLong::NO_ARGUMENT ]
 )
 opts.each do | opt, arg |
   case opt
   when '--save'
     @save = true
+  when '--overwrite'
+    @overwrite = true
   when '--quiet', '-q'
     @quiet = true
   end
@@ -36,11 +41,22 @@ else
   path = ARGV[0]
 end
 
-path_for_git_show = `git-absolute-path #{path}`.chomp
+#---------------------------------------------------------------------------------------------------
+
+path_for_git_show = `git-absolute-path #{path} 2>/dev/null`.chomp
+if !$?.success?
+  # In case, for example, the file has been deleted and doesn't exist in current [index]
+  path_for_git_show = path
+end
 
 if @save
   extension = Pathname.new(path).extname    # Retain the extension so that editors (vim), etc. that look at the extension for syntax highlighting, etc. won't be confused
-  save_as="#{path}.#{revision}#{extension}"
+  if @overwrite
+    save_as = path
+  else
+    save_as="#{path}.#{revision}#{extension}"
+  end
+
   command = "git-show #{revision}:#{path_for_git_show} > #{save_as}"
 else
   command = "git-show #{revision}:#{path_for_git_show}"
