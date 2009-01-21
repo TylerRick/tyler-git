@@ -1,0 +1,124 @@
+#!/bin/sh
+
+#---------------------------------------------------------------------------------------------------
+
+# Like commit --amend, but lets you easily change things like timestamps
+# Unlike commit --amend, preserves commit timestamp by default rather than changing it to timestamp for now
+# Unlike commit --amend, doesn't work to edit initial commit (because tries to go back to HEAD~1)
+
+# see /home/tyler/dev/git/git/git-rebase--interactive.sh
+
+#-----------------
+# Usage:
+
+# git-commit-modify   # repeats commit; should result in exactly the same SHA1 as before, as all commit data should be preserved
+
+# GIT_COMMITTER_DATE='1232532483 -0800' git-commit-modify
+
+# Overwrite both author and committer date (useful when you are both author and committer):
+# date='2009-01-21 02:08:05' git-commit-modify ; gsf
+
+#-----------------
+# To do:
+# * allow CL arguments, like --date=<date> -m <message>
+# * name: is commit-modify too similar to commit-amend? what else could we use? re-commit? repeat-commit? commit-repeat?
+# * publish/RFC on git list
+
+#---------------------------------------------------------------------------------------------------
+# Dependencies/lib
+
+. git-sh-setup
+
+get_committer_ident_from_commit () {
+  script='
+  /^committer /{
+    s/'\''/'\''\\'\'\''/g
+    h
+    s/^committer \([^<]*\) <[^>]*> .*$/\1/
+    s/'\''/'\''\'\'\''/g
+    s/.*/GIT_COMMITTER_NAME='\''&'\''/p
+
+    g
+    s/^committer [^<]* <\([^>]*\)> .*$/\1/
+    s/'\''/'\''\'\'\''/g
+    s/.*/GIT_COMMITTER_EMAIL='\''&'\''/p
+
+    g
+    s/^committer [^<]* <[^>]*> \(.*\)$/\1/
+    s/'\''/'\''\'\'\''/g
+    s/.*/GIT_COMMITTER_DATE='\''&'\''/p
+
+    q
+  }
+  '
+  encoding=$(git config i18n.commitencoding || echo UTF-8)
+  git show -s --pretty=raw --encoding="$encoding" "$1" -- |
+  LANG=C LC_ALL=C sed -ne "$script"
+}
+
+#---------------------------------------------------------------------------------------------------
+# Options
+
+rev=HEAD
+
+preserved_GIT_AUTHOR_NAME="$GIT_AUTHOR_NAME"
+preserved_GIT_AUTHOR_EMAIL="$GIT_AUTHOR_EMAIL"
+preserved_GIT_AUTHOR_DATE="$GIT_AUTHOR_DATE"
+preserved_GIT_COMMITTER_NAME="$GIT_COMMITTER_NAME"
+preserved_GIT_COMMITTER_EMAIL="$GIT_COMMITTER_EMAIL"
+preserved_GIT_COMMITTER_DATE="$GIT_COMMITTER_DATE"
+
+#---------------------------------------------------------------------------------------------------
+# Record current (pre-change) commit data
+
+echo GIT_AUTHOR_DATE=$GIT_AUTHOR_DATE
+echo GIT_COMMITTER_DATE=$GIT_COMMITTER_DATE
+
+eval "$(get_author_ident_from_commit    $rev)"
+eval "$(get_committer_ident_from_commit $rev)"
+
+# User-supplied values should overwride pre-existing values
+test ! -z "$preserved_GIT_AUTHOR_NAME"     && GIT_AUTHOR_NAME="$preserved_GIT_AUTHOR_NAME"
+test ! -z "$preserved_GIT_AUTHOR_EMAIL"    && GIT_AUTHOR_EMAIL="$preserved_GIT_AUTHOR_EMAIL"
+test ! -z "$preserved_GIT_AUTHOR_DATE"     && GIT_AUTHOR_DATE="$preserved_GIT_AUTHOR_DATE"
+test ! -z "$preserved_GIT_COMMITTER_NAME"  && GIT_COMMITTER_NAME="$preserved_GIT_COMMITTER_NAME"
+test ! -z "$preserved_GIT_COMMITTER_EMAIL" && GIT_COMMITTER_EMAIL="$preserved_GIT_COMMITTER_EMAIL"
+test ! -z "$preserved_GIT_COMMITTER_DATE"  && GIT_COMMITTER_DATE="$preserved_GIT_COMMITTER_DATE"
+
+test ! -z "$date" && GIT_AUTHOR_DATE="$date"
+test ! -z "$date" && GIT_COMMITTER_DATE="$date"
+
+echo "After:"
+echo GIT_AUTHOR_DATE=$GIT_AUTHOR_DATE
+echo GIT_COMMITTER_DATE=$GIT_COMMITTER_DATE
+
+git cat-file commit "$rev" | sed "1,/^$/d" > .git/git-commit-modify-message
+cat .git/git-commit-modify-message
+
+
+#---------------------------------------------------------------------------------------------------
+# Re-commit
+
+failed=f
+
+git reset --soft HEAD^1 ||
+  die "Cannot rewind the HEAD"
+
+GIT_AUTHOR_NAME="$GIT_AUTHOR_NAME"         \
+GIT_AUTHOR_EMAIL="$GIT_AUTHOR_EMAIL"       \
+GIT_AUTHOR_DATE="$GIT_AUTHOR_DATE"         \
+GIT_COMMITTER_NAME="$GIT_COMMITTER_NAME"   \
+GIT_COMMITTER_EMAIL="$GIT_COMMITTER_EMAIL" \
+GIT_COMMITTER_DATE="$GIT_COMMITTER_DATE"   \
+git commit --no-verify -F .git/git-commit-modify-message || failed=t
+
+#---------------------------------------------------------------------------------------------------
+# Clean up
+
+if test $failed = t ; then
+  echo "Detected failure!"
+else
+  echo "Success"
+fi
+
+rm .git/git-commit-modify-message
