@@ -1,9 +1,11 @@
 #!/bin/bash
 
+# TODO: move these aliases to .gitconfig
+
 #------------------------------------------
 
-alias git-apply-commit='git-cherry-pick' # Apply the change introduced by an existing commit
-alias gcp='git-cherry-pick' # Apply the change introduced by an existing commit
+alias git apply-commit='git cherry-pick' # Apply the change introduced by an existing commit
+alias gcp='git cherry-pick' # Apply the change introduced by an existing commit
 # TODO: how to apply changes from commit to only certain files and without committing
 
 #------------------------------------------
@@ -17,11 +19,12 @@ alias   gup='git update' #  [custom]
 alias  gcob='git checkout -b'          # Create and check out a new branch
 alias  gcot='git checkout --track -b'  # Create and check out a new branch that tracks a remote branch. example: gcot stable origin/stable'
 
-alias    gb='git-branch-menu'
+alias    gb='git branch-wrapper'
+alias   gbm='git branch-menu'
 alias   gbv='git branch -v'    # Show all branches and which commit they are pointing to
 #alias   gbv='git branch -v ?'    # Show all branches (including remote branches) and which commit they are pointing to
-alias  gbrm='git-branch-rm' # remove
-alias  gbmv='git-branch-mv' # move
+alias  gbrm='git branch-rm' # remove
+alias  gbmv='git branch-mv' # move
 
 alias git-branch-set-merge-defaults='git config branch.master.remote origin; git config branch.master.merge refs/heads/master'
 
@@ -30,16 +33,16 @@ alias git-branch-set-merge-defaults='git config branch.master.remote origin; git
 # Diff
 
 alias    gd='git diff --ignore-all-space'          # staged vs. unstaged (unstaged changes are +)
-alias   gdc='git diff --ignore-all-space --cached' # previous commit (cached?) vs. staged (staged changes are +)
+alias   gds='git diff --ignore-all-space --staged' # HEAD   vs. staged   (staged changes are +)
 
 #------------------------------------------
 # Getting state/status/metadata
 
 alias    gs='git status'
 
-alias grp='  git-rev-parse'
-alias grpH=' git-rev-parse HEAD'
-alias grpOH='git-rev-parse ORIG_HEAD'
+alias grp='  git rev-parse'
+alias grpH=' git rev-parse HEAD'
+alias grpOH='git rev-parse ORIG_HEAD'
 
 #------------------------------------------
 # Getting content
@@ -48,7 +51,7 @@ alias gshow='git show'
 alias   gsb='git show-branch'
 # See also git-cat, git-cat-save
 
-alias   gvd='git-vimdiff'
+alias   gvd='git vimdiff'
 
 #------------------------------------------
 # Stashing
@@ -75,9 +78,11 @@ alias    gl='git log'
 #alias   glp='git log --patch-with-stat'                 # See the actual lines that changed
 alias   glp='git log -p --numstat'                 # See the actual lines that changed
 
-#alias   gll='git log --stat'                                                        # git log long
-# I got tired of it truncating the beginnig of paths (making it impossible to copy and paste paths onto the command line, so I'm not using --numstat instead of --stat)
-alias   gll='git log --numstat'                                                        # git log long
+# gll="git log long"
+#alias   gll='git log --stat'
+# I got tired of it truncating the beginnig of paths (making it impossible to copy and paste paths onto the command line, so I'm now using --numstat instead of --stat)
+# alias   gll='git log --numstat'
+alias   gll='git whatchanged'
 
 alias   gllast='git log --patch-with-stat -n1'          # What is the last thing to be committed? (probably by you)
 alias   glh='git log --color | head -n30'       # Only show the first 30 lines of the log. Also, since this isn't paginated, it will wrap long lines for you, so this one is useful if you want to use the mouse to copy and paste the commit message of a recent commit (into an invoice, f.e.).
@@ -85,22 +90,34 @@ alias   glh='git log --color | head -n30'       # Only show the first 30 lines o
 alias   gl1='git log --pretty=oneline'
 alias   gls='git log --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s"'    # git log short
 alias  glcl='git log --pretty=format:"%s"'    # git log "changelog" (show only the messages)
-alias   glc='git log --date-order'                                                  # git log (reverse) chronological
+alias   glc='git log --date-order'                                                  # git log (reverse) chronological -- maybe not...
 
-# do a "pickaxe" search for the expression in the code; I think git-log is smart enough to not only only include the commits that contain the search expression but also only the actual files and hunks that include it
+alias   glr='git log --reverse'                                                     # git log (reverse) chronological order. User glrf to specify a specific commit to start at or use -n5 instead
+function  glrf() {                                                                  # git log reverse from a specific a commit.
+  commit="$1"
+  shift
+  git log --reverse $commit...HEAD "$@"
+}
+function  glrfp() {                                                                  # git log reverse from a specific a commit.
+  commit="$1"
+  shift
+  git log -p --numstat --reverse $commit...HEAD "$@"
+}
+
+# do a "pickaxe" search for the expression in the code; I think git log is smart enough to not only only include the commits that contain the search expression but also only the actual files and hunks that include it
 function git-search() { git log --patch-with-stat -S$1
 }
 
 # refs/
-#git-log refs/heads/master
-#git-log refs/remotes/origin/master
+#git log refs/heads/master
+#git log refs/remotes/origin/master
 
 #------------------------------------------
 alias  glsf='git ls-files'
 alias  glss='git ls-files-by-status'
 
 #alias   grl='git reflog | head -n10'
-alias   grl='git-reflog-menu'
+alias   grl='git reflog-menu'
 alias  glrl='git log -g HEAD'
 
 #------------------------------------------
@@ -122,18 +139,21 @@ alias   geu='git each-unadded'      # tyler-git
 #------------------------------------------
 alias   grm='git rm'
 
-alias   gus='git unstage' # [custom]
+alias   gus='git unstage' # tyler-git
 
 #------------------------------------------
-alias   grb='git update --ask; git rebase ${1:-master}'  # don't forget to pass -i if you want interactive
-alias  grbm='git update --ask; git rebase ${1:-master}'
-alias  grbi='git update --ask; git rebase -i ${1:-master}'
-alias grbia='git rebase -i --abort'  # abort a rebase interactive
+alias   grb='git rebase    ${1:-master}'  # don't forget to pass -i if you want interactive
+alias  grbm='git rebase    ${1:-master}'
+alias  grbi='git rebase -i ${1:-master}'
+#alias grbiabort='git rebase -i --abort'  # abort a rebase interactive
+alias grbabort='git rebase --abort'
+alias  grbskip='git rebase --skip'
 alias  grbc='git rebase --continue'  # after resolving conflicts, do this to continue
 
 #------------------------------------------
 alias  gmt='git mergetool'
 
+alias   gm='git merge'
 alias gmtm='git update; git rebase master; git merge-to master'
 
 
@@ -151,7 +171,7 @@ alias git-resume="TODO: git checkout {branch}; git reset HEAD~1"
 #------------------------------------------
 # Resetting
 
-# If you accidentally git add . in an svn working tree, you can use this to unadd/unstage those .svn directories:
+# If you accidentally git-add . in an svn working tree, you can use this to unadd/unstage those .svn directories:
 alias gitunaddsvn='find -name .svn | xargs git reset HEAD'
 
 # How do I unstage a file but keep my changes that I have in my working tree?? (Useful, for example, if you accidentally stage the wrong hunks using git add -p and you want to reset what's staged and stage some different hunks instead.)
@@ -167,10 +187,10 @@ alias      grss='git reset --soft'
 alias     grss1='git reset --soft HEAD~1'
 alias    grssOH='git reset --soft ORIG_HEAD'
 # don't forget that you can do gci -c ORIG_HEAD after you grss1 and make changes. That's the manual alternative to gci --amend
-alias   grshard='git-reset-hard-safe'
-alias     grshm='git-reset-hard-menu'
-alias  grshard1='git-reset-hard-safe HEAD~1'
-alias grshardOH='git-reset-hard-safe ORIG_HEAD'
+alias   grshard='git reset-hard-safe'
+alias     grshm='git reset-hard-menu'
+alias  grshard1='git reset-hard-safe HEAD~1'
+alias grshardOH='git reset-hard-safe ORIG_HEAD'
 
 
 # How do I discard my changes I've made to the working tree?
@@ -185,11 +205,11 @@ alias grshardOH='git-reset-hard-safe ORIG_HEAD'
 # git checkout <branch>
 #       switches branches by updating the index and working tree to reflect <branch> and updating HEAD to be <branch>
 # git checkout <paths>
-#       updates the named paths in the working tree from the index file (i.e. it runs git-checkout-index -f -u), or from a named commit.
+#       updates the named paths in the working tree from the index file (i.e. it runs git checkout-index -f -u), or from a named commit.
 # So if you've staged some changes from <file> but have made other changes since then that you want to discard, git checkout <file> is safe, because it replaces file with the version that is staged (in index), not the version that is [cached] (HEAD)
-alias   gco='git-checkout'
-alias  gcom='git-checkout master'
-alias  gcod='git-checkout dev'
+alias   gco='git checkout'
+alias  gcom='git checkout master'
+alias  gcod='git checkout dev'
 alias gcomerge='git checkout -m'
 # To check out a file from ("revert" a single file to) an older revision...
 #   gco d72a254c39b01eec17a35f42c59fb0a2bc8eab0e app/models/user.rb
@@ -214,7 +234,7 @@ alias gdisc='git checkout HEAD'
 
 alias   gci='git commit -v'
 alias  gcia='git commit --amend'
-alias  gca='git commit -a -v'   # (can't be used with paths, but that's not a problem because you don't need the -a flag when you specify paths -- git-commit will automatically add/stage any unstaged changes made to those paths)
+alias  gca='git commit -a -v'   # (can't be used with paths, but that's not a problem because you don't need the -a flag when you specify paths -- git commit will automatically add/stage any unstaged changes made to those paths)
 alias  gcq='git commit -m "."'  # if you're just working on a personal repository that doesn't matter too much, we might let you get by with being lazy and not specifying a commit message...
 alias gciq='git commit -m "."'
 alias  gcqpu='git commit -m "."; git push origin master'      # even lazier still
@@ -222,6 +242,8 @@ alias gciqpu='git commit -m "."; git push origin master'
 alias gacpu='git commit -a -m "."; git push origin master'  # can't get any lazier than this
 alias gacpud='git commit -a -m "."; git push origin master; cap staging deploy'  # can't get any lazier than this
 
+# TODO: create custom git push-all (gpsa) command which pushes to all remotes listed in git config push_all.remotes (or similar)
+alias   gps='git push origin'
 alias  gpsm='git push origin master'
 
 alias gbs='git bisect'
