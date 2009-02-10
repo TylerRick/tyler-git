@@ -1,17 +1,17 @@
-git-add
-git-branches-commit-is-in
-git-branch-menu
-git-copy
-git-current-branch
-git-diff-interactive
-git-each-unadded     : This is for *untracked* files as git add -p is for *unstaged* (but tracked) files
-git-fix-bad-spaces
-git-ls-files-by-status
-git-merge-to
-git-play-their-log
-git-restore
-git-save-untracked-files-to-branch
-git-stash-with-untracked
-git-their-log
-git-update
-git-vimdiff
+git add
+git branches-commit-is-in
+git branch-menu
+git copy
+git current-branch
+git diff-interactive
+git each-unadded     : This is for *untracked* files as git add -p is for *unstaged* (but tracked) files
+git fix-bad-spaces
+git ls-files-by-status
+git merge-to
+git play-their-log
+git restore
+git save-untracked-files-to-branch
+git stash-with-untracked
+git their-log
+git update
+git vimdiff

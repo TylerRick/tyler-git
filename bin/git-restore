@@ -1,4 +1,4 @@
-# the reverse of git-rm
-# (restores a git-rm'ed file)
+# the reverse of git rm
+# (restores a git rm'ed file)
 git reset -- "$@" # restore it to the index
 git checkout "$@" # restores it to the working tree

@@ -16,7 +16,7 @@ opts.each do | opt, arg |
 end
 
 #---------------------------------------------------------------------------------------------------
-@repo_root = `git-base-dir`.chomp
+@repo_root = `git base-dir`.chomp
 paths = ARGV.dup
 paths.each do |path|
   system %(echo "#{path}" >> #{@repo_root}/.git/info/exclude)

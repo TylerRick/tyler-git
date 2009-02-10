@@ -2,9 +2,9 @@
 
 def usage
   puts <<End
-Usage: git-cherry-pick-other-repo /path/to/other_repo rev
+Usage: git cherry-pick-other-repo /path/to/other_repo rev
 Example:
-  current_repo > git-cherry-pick-other-repo /path/to/other_repo f37g1
+  current_repo > git cherry-pick-other-repo /path/to/other_repo f37g1
 End
   exit 1
 end
@@ -28,7 +28,7 @@ patches = []
 
 # Create patches and move them back to first_repo_dir
 Dir.chdir other_repo_dir do
-  command = "git-format-patch #{rev}"
+  command = "git format-patch #{rev}"
   patches = `#{command}`.chomp.split("\n")
   p patches
   patches.each do |patch|
@@ -39,7 +39,7 @@ end
 # Apply patches
 success = true
 patches.each do |patch|
-  run "cat #{patch} | git-am"
+  run "cat #{patch} | git am"
   success &= $?.success?
   puts "success=#{success}"
 end
@@ -52,7 +52,7 @@ if success
   end
 else
   puts "Detected failure. Leaving patches in current directory..."
-  puts "You may want to git-am --skip before trying this again."
+  puts "You may want to git am --skip before trying this again."
 end
 #if (print "Remove patches? "; STDIN.gets[0].chr.downcase == 'y')
 

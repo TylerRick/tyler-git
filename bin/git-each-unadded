@@ -25,8 +25,8 @@ end
 
 #-------------------------------------------------------------------------------
 
-@repo_root = `git-base-dir`.chomp
-@cdup = `git-rev-parse --show-cdup`.chomp
+@repo_root = `git base-dir`.chomp
+@cdup = `git rev-parse --show-cdup`.chomp
 def relative_to_wd(path)
   @cdup.blank? ? path : File.join(@cdup, path)
 end
@@ -57,7 +57,7 @@ begin
       redo
 
     when 'a'
-      system %(git-add "#{path}")
+      system %(git add "#{path}")
       puts
 
     when 'v'
@@ -81,11 +81,11 @@ begin
       redo
 
     when 'i'
-      system %(git-ignore "#{path}")
+      system %(git ignore "#{path}")
       puts
 
     when 'm'
-      system %(git-ignore-for-me "#{path}")
+      system %(git ignore-for-me "#{path}")
       puts
 
     when 'r'

@@ -1,8 +1,8 @@
 #!/usr/bin/ruby
 if ARGV.size == 0
   # Default behavior
-  #system %(git-branch -a -v)
-  system %(git-branch-menu)
+  #system %(git branch -a -v)
+  system %(git branch-menu)
 else
-  system %(git-branch #{ARGV.join(' ')})
+  system %(git branch #{ARGV.join(' ')})
 end

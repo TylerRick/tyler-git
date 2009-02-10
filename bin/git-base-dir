@@ -35,6 +35,6 @@ if dir.file?
 end
 
 Dir.chdir dir do
-  base_dir = File.dirname(`git-rev-parse --git-dir`.chomp)
+  base_dir = File.dirname(`git rev-parse --git-dir`.chomp)
   puts base_dir
 end

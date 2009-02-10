@@ -1,6 +1,6 @@
 #!/bin/sh
 
-git-rev-parse --quiet --verify HEAD >/dev/null
+git rev-parse --quiet --verify HEAD >/dev/null
 if [ $? -eq 0 ]; then
   git reset HEAD "$@" | grep -v 'needs update'
 else

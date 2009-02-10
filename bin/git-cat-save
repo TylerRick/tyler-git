@@ -1,4 +1,4 @@
 #!/usr/bin/ruby
 
 # TODO: make the ARGV.join work even if arguments have spaces, etc.
-exec "git-cat --save #{ARGV.join(' ')}"
+exec "git cat --save #{ARGV.join(' ')}"

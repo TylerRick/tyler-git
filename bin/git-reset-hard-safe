@@ -4,7 +4,7 @@
 def usage
   puts "Usage: #{$0} [-f] ..."
   puts <<End
-Takes the same options as git-reset since this is simply a wrapper for git-reset.
+Takes the same options as git reset since this is simply a wrapper for git reset.
 
 -f: Force without confirmation. (Warning: not safe)
 End
@@ -38,7 +38,7 @@ require File.dirname(__FILE__) + '/../lib/getch'
 
 #---------------------------------------------------------------------------------------------------
 
-files_with_changes_about_to_be_lost=`git-ls-files-by-status -M`.chomp
+files_with_changes_about_to_be_lost=`git ls-files-by-status -M`.chomp
 if files_with_changes_about_to_be_lost.any? and !@force
   puts "Halt! You have uncommitted modifications to the following files. If you continue, these changes will be lost permanently!".red
   puts files_with_changes_about_to_be_lost.magenta
@@ -46,5 +46,3 @@ if files_with_changes_about_to_be_lost.any? and !@force
 else
   system %(git-reset --hard #{ARGV.join(' ')})
 end
-
-

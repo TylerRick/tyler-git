@@ -8,16 +8,16 @@ Usage: #{$0} path"
 Given a valid absolute or relative path (relative to current working directory), this command will output the corresponding path relative to the root of your repository.
 
 Example:
-  /path/to/rails_app/config > git-absolute-path database.yml
+  /path/to/rails_app/config > git absolute-path database.yml
   config/database.yml
 
-  /path/to/rails_app/config > git-absolute-path /path/to/rails_app/config/database.yml
+  /path/to/rails_app/config > git absolute-path /path/to/rails_app/config/database.yml
   config/database.yml
 
-  /path/to/rails_app/config > git-absolute-path ../config/database.yml
+  /path/to/rails_app/config > git absolute-path ../config/database.yml
   config/database.yml
 
-The resulting path can be used with 'git-show rev:path', whereas when giving a normal relative paths it will say:
+The resulting path can be used with 'git show rev:path', whereas when giving a normal relative paths it will say:
   fatal: ambiguous argument 'HEAD:../../../test/integration/app/config/database.yml': unknown revision or path not in the working tree.
 End
   exit 1
@@ -30,7 +30,7 @@ input_path = ARGV[0]
 begin
   input_path = Pathname.new(input_path).realpath
 
-  base_dir = File.dirname(`git-rev-parse --git-dir`.chomp)
+  base_dir = File.dirname(`git rev-parse --git-dir`.chomp)
   base_dir = Pathname.new(base_dir).realpath
 
   puts input_path.relative_path_from(base_dir)

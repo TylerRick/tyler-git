@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 #-------------------------------------------------------------------------------
 
-# git-add -i/-p are of limited usefulness because they only let you choose which hunks to *stage*; they don't give you the option to delete a hunk, for example.
+# git add -i/-p are of limited usefulness because they only let you choose which hunks to *stage*; they don't give you the option to delete a hunk, for example.
 # This command aims to provide that missing functionality. For each modified file, you can open it in your editor (vimdiff) and actually *delete* or edit a hunk
 # before staging it.
 # By default, it assumes when you are finished editing a hunk, that you are ready to stage it, and so it will auto-stage them as soon as you return from the editor;
@@ -32,8 +32,8 @@ git.status.modified.each do |file|
 
   autostage = true
 
-  system %(git-diff #{file})
-  system %(git-diff --cached #{file})
+  system %(git diff #{file})
+  system %(git diff --cached #{file})
   print "#{file.magenta} : edit in (v)imdiff, compared to HEAD; (q)uit; any other key to continue" + " > ".cyan
 
   resp = STDIN.getc.chr
@@ -41,8 +41,8 @@ git.status.modified.each do |file|
   (autostage = false; resp = 'v') if resp == 'w'
   case resp
   when 'v'
-    system %(git-vimdiff #{file})
-    system %(git-add #{file}) if autostage
+    system %(git vimdiff #{file})
+    system %(git add #{file}) if autostage
   end
 end
 

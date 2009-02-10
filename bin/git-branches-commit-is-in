@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-# I was able to do git-log <sha> for a commit that a saw a notification for
+# I was able to do git log <sha> for a commit that a saw a notification for
 # but it wasn't listed in the log for master and I wanted to know which
 # branch it WAS in (if not master)....
 

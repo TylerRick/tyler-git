@@ -4,7 +4,7 @@
 def usage
   puts "Usage: #{$0} [--selected-command=<action>]"
   puts <<End
-This is an interactive menu/wrapper for git-branch that lets you use the arrow keys to select branch
+This is an interactive menu/wrapper for git branch that lets you use the arrow keys to select branch
 and then choose which action to do with/to that branch, such as check out, rename, or delete.
 
 Plumbing commands:

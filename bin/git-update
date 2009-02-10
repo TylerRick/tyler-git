@@ -30,7 +30,7 @@ opts.each do | opt, arg |
 end
 
 @branch = ARGV.shift || 'master'
-@original_branch = `git-current-branch`
+@original_branch = `git current-branch`
 
 #---------------------------------------------------------------------------------------------------
 require File.dirname(__FILE__) + '/../lib/getch'
@@ -39,15 +39,15 @@ if @ask
   exit unless (print "Do you want to do a git pull on #{@branch} first (y/N)? "; STDIN.getch(:case_insensitive => true) == 'y')
 end
 
-at_exit { system "git-checkout #{@original_branch}" }
+at_exit { system "git checkout #{@original_branch}" }
 
-system %(git-checkout "#{@branch}")
+system %(git checkout "#{@branch}")
 exit if !$?.success?
-system %(git-pull)
+system %(git pull)
 
 #---------------------------------------------------------------------------------------------------
 # Original sh version:
-#original_branch=`git-current-branch`
-#git-checkout master
-#git-pull
-#git-checkout $original_branch
+#original_branch=`git current-branch`
+#git checkout master
+#git pull
+#git checkout $original_branch

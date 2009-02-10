@@ -6,17 +6,17 @@
 # Unlike commit --amend, preserves commit timestamp by default rather than changing it to timestamp for now
 # Unlike commit --amend, doesn't work to edit initial commit (because tries to go back to HEAD~1)
 
-# see /home/tyler/dev/git/git/git-rebase--interactive.sh
+# see /home/tyler/dev/git/git/git rebase--interactive.sh
 
 #-----------------
 # Usage:
 
-# git-commit-modify   # repeats commit; should result in exactly the same SHA1 as before, as all commit data should be preserved
+# git commit-modify   # repeats commit; should result in exactly the same SHA1 as before, as all commit data should be preserved
 
-# GIT_COMMITTER_DATE='1232532483 -0800' git-commit-modify
+# GIT_COMMITTER_DATE='1232532483 -0800' git commit-modify
 
 # Overwrite both author and committer date (useful when you are both author and committer):
-# date='2009-01-21 02:08:05' git-commit-modify ; gsf
+# date='2009-01-21 02:08:05' git commit-modify ; gsf
 
 #-----------------
 # To do:

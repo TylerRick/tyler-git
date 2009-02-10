@@ -43,7 +43,7 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-path_for_git_show = `git-absolute-path #{path} 2>/dev/null`.chomp
+path_for_git_show = `git absolute-path #{path} 2>/dev/null`.chomp
 if !$?.success?
   # In case, for example, the file has been deleted and doesn't exist in current [index]
   path_for_git_show = path
@@ -57,9 +57,9 @@ if @save
     save_as="#{path}.#{revision}#{extension}"
   end
 
-  command = "git-show #{revision}:#{path_for_git_show} > #{save_as}"
+  command = "git show #{revision}:#{path_for_git_show} > #{save_as}"
 else
-  command = "git-show #{revision}:#{path_for_git_show}"
+  command = "git show #{revision}:#{path_for_git_show}"
 end
 
 puts   command unless @quiet
@@ -68,20 +68,20 @@ system command
 #---------------------------------------------------------------------------------------------------
 # Original bash function version:
 #
-#function git-cat()      { git-show HEAD:$1 
+#function git-cat()      { git show HEAD:$1 
 #}
-#function git-cat-prev() { git-show HEAD~1:$1 
+#function git-cat-prev() { git show HEAD~1:$1 
 #}
 #
 #function ext () { echo ${1##*.} ; }
 #function git-cat-save()      { 
 #  revision=${2:-HEAD}
 #  saved_as="$1.$revision.$(ext $1)"
-#  git-show $revision:$1   > $saved_as
+#  git show $revision:$1   > $saved_as
 #  echo "Saved as $saved_as"
 #}
 #function git-cat-prev-save() { 
 #  saved_as="$1.head-1.$(ext $1)"
-#  git-show HEAD~1:$1 > $saved_as
+#  git show HEAD~1:$1 > $saved_as
 #  echo "Saved as $saved_as"
 #}
