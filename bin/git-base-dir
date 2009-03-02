@@ -17,12 +17,15 @@ require 'pathname'
 require 'getoptlong'
 
 opts = GetoptLong.new(
-    [ '--help', '-h',              GetoptLong::NO_ARGUMENT ]
+    [ '--help', '-h',              GetoptLong::NO_ARGUMENT ],
+    [ '--full',                    GetoptLong::NO_ARGUMENT ]
 )
 opts.each do | opt, arg |
   case opt
   when '--help', '-h'
     usage
+  when '--full'
+    @full = true
   end
 end
 
@@ -36,5 +39,9 @@ end
 
 Dir.chdir dir do
   base_dir = File.dirname(`git rev-parse --git-dir`.chomp)
-  puts base_dir
+  if @full
+    puts Pathname.new(base_dir).realpath
+  else
+    puts base_dir
+  end
 end
