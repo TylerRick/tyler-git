@@ -1,0 +1,54 @@
+#!/usr/bin/ruby
+
+#---------------------------------------------------------------------------------------------------
+
+def usage
+  puts <<End
+Usage: #{File.basename($0)} <subdir>"
+
+Rewrite history, moving all files in the repository into a subdirectory as if they were that way to begin with.
+
+Warning: This will rewrite history. If you require the same thing without rewriting history, I believe the technique described at http://www.kernel.org/pub/software/scm/git/docs/howto/using-merge-subtree.html will give you that.
+End
+  exit 1
+end
+
+require 'pathname'
+#require 'quality_extensions/pathname'
+
+# "system verbose"
+def system_v(*args)
+  puts "Executing: " + args.join(' ') if @verbose
+  system *args
+end
+
+#---------------------------------------------------------------------------------------------------
+require 'getoptlong'
+opts = GetoptLong.new(
+    [ '--verbose',              GetoptLong::NO_ARGUMENT ]
+)
+opts.each do | opt, arg |
+  case opt
+  when '--verbose'
+    @verbose = true
+  end
+end
+
+if ARGV.size < 1
+  usage; exit 1
+end
+
+@subdir = Pathname.new(ARGV[0])
+
+#---------------------------------------------------------------------------------------------------
+
+@repo_root = Pathname.new(`git base-dir --full`.chomp)
+
+Dir.chdir @repo_root do
+  system_v %(git filter-branch --index-filter '
+               git ls-files -s | sed "s-\\t-&#{@subdir}/-" |
+                           GIT_INDEX_FILE=$GIT_INDEX_FILE.new \
+                                   git update-index --index-info &&
+                    mv $GIT_INDEX_FILE.new $GIT_INDEX_FILE
+             ' HEAD)
+end
