@@ -8,7 +8,21 @@ Usage: #{File.basename($0)} <subdir>"
 
 Rewrite history, moving all files in the repository into a subdirectory as if they were that way to begin with.
 
-Warning: This will rewrite history. If you require the same thing without rewriting history, I believe the technique described at http://www.kernel.org/pub/software/scm/git/docs/howto/using-merge-subtree.html will give you that.
+Example:
+  > #{File.basename($0)} example.com/httpdocs
+  > ls -a
+  .git example.com
+  > git whatchanged
+  :000000 100644 0000000... 1fef2dd... A  example.com/httpdocs/.htaccess
+  :000000 100644 0000000... 7e9fb42... A  example.com/httpdocs/index.html
+
+Warning: This will rewrite history. Use with care. The author is not responsible if you lose data as a result of using this program. This software is provided "as is", with no warranty whatsoever.
+
+When done, it will have created .git/refs/original, which you may want to remove with:
+rm -r .git/refs/original
+You will need to remove it before you can run another rewrite filter in the same repository.
+
+Because it will attempt to move files, if your user doesn't have permission to do you may have to run this as root.
 End
   exit 1
 end
@@ -25,12 +39,16 @@ end
 #---------------------------------------------------------------------------------------------------
 require 'getoptlong'
 opts = GetoptLong.new(
-    [ '--verbose',              GetoptLong::NO_ARGUMENT ]
+    [ '--verbose',              GetoptLong::NO_ARGUMENT ],
+    [ '--no-move',              GetoptLong::NO_ARGUMENT ]
 )
+@move_untracked = true
 opts.each do | opt, arg |
   case opt
   when '--verbose'
     @verbose = true
+  when '--no-move'
+    @move_untracked = false
   end
 end
 
@@ -40,15 +58,188 @@ end
 
 @subdir = Pathname.new(ARGV[0])
 
+if Pathname.new(@subdir).exist?
+  STDERR.puts "Error: Directory #{@subdir} already exists"; exit 1
+end
+
+
+
+
+#---------------------------------------------------------------------------------------------------
+# from merge_dirs
+
+require 'pathname'
+require 'quality_extensions/pathname'
+require 'quality_extensions/string/shell_escape'
+require 'rubygems'
+require 'colored'
+
+class TreeMerger
+  attr_accessor :options
+
+  def initialize(paths, dest)
+    @source = Pathname.new('.')
+    @paths  = paths
+    @dest   = Pathname.new(dest)
+    @options = {}
+  end
+
+  def dest(path)
+    @dest + path
+  end
+
+  def merge
+    puts "Merging '#{@source}' to '#{@dest}'".green if verbose?
+    puts "Options: #{@options.inspect}" if verbose?
+
+    Dir.chdir @source do
+    @paths.each do |path|
+      dest = dest(path)
+
+      if path.directory?
+        puts "Examining source dir '#{@source + path}'".green if verbose?
+      end
+
+      # If they gave a list of files rather than doing a find (which automatically includes dirs in addition to the files they contain), add the dirs back in...
+      if !dest.parent.exist?
+        puts "Destination directory '#{dest.parent}' doesn't exist. Creating...".yellow if verbose?
+        (dest.parent.mkpath unless no_act?) rescue p $!
+      end
+      if dest.directory? && !dest.exist?
+        puts "Destination directory '#{dest}' doesn't exist. Creating...".yellow if verbose?
+        (dest.mkpath unless no_act?) rescue p $!
+      end
+
+      if !path.directory? # is a file
+        action = nil
+        if dest.exist?
+          if verbose? || if_already_exists == :prompt
+            print "Destination file '".red + "#{dest}".bold.red + "' already exists. ".red 
+
+            if verbose?
+              puts
+              system %(ls -l #{(@source + path).to_s.shell_escape})
+              system %(ls -l #{dest.to_s.shell_escape})
+            end
+          end
+
+          puts "Overwriting '#{dest.to_s.bold}' with '#{(@source + path).to_s.bold}" if verbose?
+        else # !dest.exist?
+        end
+
+        unless action == :skip || action == :delete_source
+          mv_options = {}
+          mv_options[:verbose] = true if verbose?
+          mv_options[:noop] = true if no_act?
+          path.mv dest, mv_options
+        end
+
+      end # is a file
+    end
+
+    puts "Removing empty directories from source..." if verbose?
+    dirs_to_try_deleting = []
+    # start at @source instead of '.' because we can't rmdir '.'; so that we don't get '/usr/lib/ruby/1.8/pathname.rb:978:in `rmdir': Invalid argument - . (Errno::EINVAL)'
+    #Pathname(@source).find do |path|
+    @paths.each do |path|
+      if path.directory?
+        dirs_to_try_deleting << path
+      end
+      # If they gave a list of files rather than doing a find (which automatically includes dirs in addition to the files they contain), add the dirs back in...
+      path.parents.each do |part|
+        #puts "#{part}? #{part.directory?} #{!dirs_to_try_deleting.include?(part)}"
+        if part.directory? && !dirs_to_try_deleting.include?(part)
+          dirs_to_try_deleting << part
+        end
+      end
+    end
+    # Delete deepest dirs first so that by the time we get back up to the containing dirs, they too will hopefully be empty
+    dirs_to_try_deleting.reverse.each do |path|
+      if path.children.empty?
+        puts "Source directory '#{path}' is empty. Deleting...".green if verbose?
+        path.rmdir unless no_act?
+      else
+        puts "Source directory '#{path}' is not empty.".yellow if verbose?
+      end
+    end
+    end # chdir
+  end
+
+  # TODO: condense
+  def verbose?; options[:verbose]; end
+  def no_act?;  options[:no_act]; end
+end
+
+
+
+
 #---------------------------------------------------------------------------------------------------
 
 @repo_root = Pathname.new(`git base-dir --full`.chomp)
 
+puts "cd #{@repo_root}"
 Dir.chdir @repo_root do
+  # Grab a snapshot of all files in tree
+  untracked_files = []
+  if @move_untracked
+  # If we did this then we would also be trying to move tracked files that have already been moved by the git filter-branch. We could do it after that step, though...
+#   Pathname('.').find do |path|
+#     puts path.parts_s[0], Pathname.new(@subdir).parts_s[0]
+#     if path.to_s == '.git' or path.parts_s[0] == Pathname.new(@subdir).parts_s[0]
+#       puts "Pruning #{path.to_s}"
+#       Find.prune
+#     end
+#     untracked_files << path
+#   end
+  # The problem with this is that although all untracked *files* will be moved, with git ls-files (unlike #find), empty *directories* (like anon_ftp/pub) would not be reported and therefore not moved.
+#   `git ls-files -o`.lines.map {|line| Pathname.new(line.chomp)}.each do |path|
+#     untracked_files << path
+#   end
+  # We could do this, to get all top-level untracked dirs (like anon_ftp) and top-level untracked files, but we'd have to do do a find on each directory and move/merge their contents...
+#   untracked_dirs = []
+#   `git ls-files -o --directory`.lines.map {|line| Pathname.new(line.chomp)}.each do |path|
+#     untracked_dirs << path
+#   end
+  end
+
+
+  #---------------------------------------------------------------------------------------------------
+  puts "Rewriting history and moving all tracked files into #{@subdir} for each commit..."
   system_v %(git filter-branch --index-filter '
                git ls-files -s | sed "s-\\t-&#{@subdir}/-" |
                            GIT_INDEX_FILE=$GIT_INDEX_FILE.new \
                                    git update-index --index-info &&
                     mv $GIT_INDEX_FILE.new $GIT_INDEX_FILE
              ' HEAD)
+
+  if !$?.success?
+    puts 'Aborting'; exit 1
+  end
+  #---------------------------------------------------------------------------------------------------
+
+
+  if @move_untracked
+  Pathname('.').find do |path|
+    #puts path.parts_s[0], Pathname.new(@subdir).parts_s[0]
+    if path.to_s == '.git' or path.parts_s[0] == Pathname.new(@subdir).parts_s[0]
+      puts "Pruning #{path.to_s}"
+      Find.prune
+    end
+    untracked_files << path
+  end
+
+  # The problem with this might be that it uses mv and therefore doesn't preserve ownership, timestamps, permissions
+  puts "Merging any remaining (untracked) files into #{@subdir}..."
+  options = {}
+  options[:verbose] = true
+#  options[:no_act] = true
+  merger = TreeMerger.new(untracked_files, @subdir)
+  merger.options = options
+  merger.merge
+
+  # Perhaps this approach would be better:
+  #system_v %(git ls-files -o | xargs --verbose -I : sudo cp -a --parents : ../#{@subdir})
+
+  end
 end
+puts "cd #{Dir.getwd}"

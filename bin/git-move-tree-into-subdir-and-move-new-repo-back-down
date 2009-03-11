@@ -1,0 +1,126 @@
+#!/usr/bin/ruby
+
+#---------------------------------------------------------------------------------------------------
+
+def usage
+  puts <<End
+Usage: #{File.basename($0)} <repo>"
+
+Where <repo> is a directory containing a git repository.
+
+This is similar to git-move-tree-into-subdir, but git-move-tree-into-subdir leaves you with an extra directory under <repo> with the same name: <repo>/<repo>. This command aims to automate the common task of moving the extra directory back down.
+
+This command will:
+1. Make a backup copy of <repo> (so that we can ensure that this entire operation is atomic)
+2. Rewrite the history of <repo>, moving all files in the repository into a subdirectory (also called <repo>) as if they were that way to begin with.
+3. Move that repository <repo> back into the working directory.
+
+Unlike plain old git-move-tree-into-subdir (which this command wraps), the <repo> directory must already exist (relative to the current directory).
+
+Example:
+  a/ > #{File.basename($0)} subdir
+  a/ > ls -a
+  .git subdir other_dir
+  a/ > git whatchanged
+  :000000 100644 0000000... 1fef2dd... A  subdir/.htaccess
+  :000000 100644 0000000... 7e9fb42... A  subdir/index.html
+  a/ > git add other_dir
+
+Warning: This will rewrite history. Use with care. The author is not responsible if you lose data as a result of using this program. This software is provided "as is", with no warranty whatsoever.
+End
+  exit 1
+end
+
+require 'pathname'
+#require 'quality_extensions/pathname'
+
+# "system verbose"
+def system_v(*args)
+  puts "Executing: " + args.join(' ') if @verbose
+  system *args
+end
+
+def abort_on_error
+  if !$?.success?
+    STDERR.puts "Aborting"; exit 1
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
+require 'getoptlong'
+opts = GetoptLong.new(
+    [ '--verbose',              GetoptLong::NO_ARGUMENT ]
+)
+opts.each do | opt, arg |
+  case opt
+  when '--verbose'
+    @verbose = true
+  end
+end
+
+if ARGV.size < 1
+  usage; exit 1
+end
+
+
+#---------------------------------------------------------------------------------------------------
+require 'pathname'
+require 'rubygems'
+require 'quality_extensions/pathname'
+
+@subdir = Pathname.new(ARGV[0])
+@backup_dir = @subdir.add_suffix('.backup_before_git_move_tree_into_subdir')
+@scratch_dir = @subdir.add_suffix('.git_move_tree_into_subdir_temp')
+
+cdup = `git rev-parse --show-cdup 2>/dev/null`.chomp
+# Could also check if `git rev-parse --git-dir` == '.git', but is that more reliable? What if they use a nonstandard git dir other than .git?
+if $?.success? && cdup == '' or Pathname.new('.git').exist?
+  STDERR.puts "Error: Working directory appears to be a git repository. This command works by moving the .git dir from a subdir repository into the working directory, but we can't do that if it already has one. See git-move-tree-into-subdir-and-pull-new-repo instead."; exit 1
+end
+
+if !Pathname.new(@subdir).exist?
+  STDERR.puts "Error: Directory #{@subdir} does not exist"; exit 1
+end
+if Pathname.new(@backup_dir).exist?
+  STDERR.puts "Error: Backup directory #{@backup_dir} already exists"; exit 1
+end
+if Pathname.new(@scratch_dir).exist?
+  STDERR.puts "Error: Scratch directory #{@scratch_dir} already exists"; exit 1
+end
+
+
+
+
+#---------------------------------------------------------------------------------------------------
+require 'quality_extensions/string/shell_escape'
+
+puts "Saving a backup copy of #{@subdir} at #{@backup_dir} . You may delete it when this is done."
+system %(mv #{@subdir} #{@backup_dir})
+abort_on_error
+
+puts "Creating scratch directory..."
+system %(cp -a #{@subdir} #{@scratch_dir})
+abort_on_error
+
+Dir.chdir @scratch_dir do
+  system %(git status >/dev/null) # Sometimes it complains with "Cannot rewrite branch(es) with a dirty working directory." (for no good reason) unless I do this
+  system %(git move-tree-into-subdir #{@subdir})
+  abort_on_error
+end
+
+system_v %(mv #{@scratch_dir}/#{@subdir} ./)
+abort_on_error
+system_v %(mv #{@scratch_dir}/.git ./)
+abort_on_error
+
+if @scratch_dir.children.empty?
+  @scratch_dir.rmdir
+else
+  STDERR.puts "Warning: #{@scratch_dir} not empty. You will need to manually remove this directory."
+  system_v %(ls -l #{@scratch_dir}/)
+end
+
+puts "Finished! Remember to manually remove #{@backup_dir} if everything looks okay."
+
+
+

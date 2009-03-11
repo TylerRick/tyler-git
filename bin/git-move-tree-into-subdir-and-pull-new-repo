@@ -1,0 +1,118 @@
+#!/usr/bin/ruby
+
+#---------------------------------------------------------------------------------------------------
+
+def usage
+  puts <<End
+Usage: #{File.basename($0)} <repo>"
+
+Where <repo> is a directory containing a git repository. <repo> is also taken to be the subdir that you want the tree contained at <repo> to be moved into.
+
+This is similar to git-move-tree-into-subdir, but git-move-tree-into-subdir leaves you with an extra directory under <repo> with the same name: <repo>/<repo>.
+
+This command aims to automate the common task of moving that subdir back up a level, merging the newly rewritten repository into a new "parent" repository, which (currently) must be your current working directory.
+
+This command will:
+1. Make a scratch copy of <repo> (the original directory is left untouched) so that you can easily undo the operation if something goes wrong
+2. Rewrite the history of scratch <repo>, moving all files in the repository into a subdirectory with the name <repo>
+3. From your initial working directory repository, add the new scratch <repo> as a remote, pull from it, and merge into master.
+
+Example use case:
+1. You start tracking files on your home computer with git. You start by doing a git init in your /home/me/Documents directory, and then later you do a git init in /home/me so that you can track all your dot files.
+2. That is working great, but after a while, you realize that those 2 repositories should have actually been one to begin with so you want to consolidate them.
+3. Since one is a subdirectory of the other, you can simply run this command!
+   /home/me > #{File.basename($0)} Documents
+4. If everything goes smoothly, Documents (and all its version history) will now be part of the repository located at /home/me -- you'll only have one repository!
+
+Question: What if you want to have files in disparate locations like /etc and /home/me all stored in the same repository?
+* I suppose one solution would be to keep your repository at / and then those will be subdirectories of / so you can use this command.
+* But I wish there were another way, like in Subversion how you can check out just a part of your repository tree somewhere and still work with it just like usual...
+
+Note: Unlike plain old git-move-tree-into-subdir (which this command wraps), your working directory needs to be one level *above* the repo that you want to rewrite and then pull from before you invoke this command.
+In other words, the <repo> directory must already exist (relative to the current directory).
+Its contents will be moved into <repo>/<repo>, which most not already exist.
+
+Warning: I have used this with success but it may not work well for you. This command makes a lot of assumptions and may not be what you need. Please review/modify script before running.
+
+Warning: This is a dangerous command and not very well tested. The author is not responsible if you lose data as a result of using this program. This software is provided "as is", with no warranty whatsoever.
+
+Warning: This will rewrite history. Use with care.
+
+Warning: An entire copy of the <repo>/ tree will be created. If it is large, this will waste space and take a long time. (But hopefully it is safer.)
+
+End
+  exit 1
+end
+
+require 'pathname'
+#require 'quality_extensions/pathname'
+
+# "system verbose"
+def system_v(*args)
+  puts "Executing: " + args.join(' ') if @verbose
+  system *args
+end
+
+def abort_on_error
+  if !$?.success?
+    STDERR.puts "Aborting"; exit 1
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
+require 'getoptlong'
+@verbose = true
+opts = GetoptLong.new(
+    [ '--verbose',              GetoptLong::NO_ARGUMENT ],
+    [ '--no-verbose',              GetoptLong::NO_ARGUMENT ]
+)
+opts.each do | opt, arg |
+  case opt
+  when '--verbose'
+    @verbose = true
+  when '--no-verbose'
+    @verbose = false
+  end
+end
+
+if ARGV.size < 1
+  usage; exit 1
+end
+
+
+#---------------------------------------------------------------------------------------------------
+require 'pathname'
+require 'rubygems'
+require 'quality_extensions/pathname'
+
+@subdir = Pathname.new(ARGV[0]).cleanpath   # without the cleanpath if @subdir has trailing path, I get 'Ignoring path whatever.com//.gitignore' while rewriting 1/20, and total failure
+@remote = @subdir.to_s
+@backup_dir = @subdir.add_suffix('.backup_before_git_move_tree_into_subdir')
+@scratch_dir = @subdir.add_suffix('.git_move_tree_into_subdir_temp')
+
+cdup = `git rev-parse --show-cdup 2>/dev/null`.chomp
+if ($?.success? && cdup != '') or !Pathname.new('.git').exist?
+  STDERR.puts "Error: Working directory does not appear to be a git repository. This command works by pulling from git repository B into an existing git repository A. Please cd into repository A and try again."; exit 1
+end
+
+`git diff-files --quiet && git diff-index --cached --quiet HEAD --ignore-submodules --`
+if !$?.success?
+  STDERR.puts "Error: Working tree or index is dirty."; exit 1
+end
+
+system_v %(git pull #{@remote} master)
+abort_on_error
+
+system_v %(git remote rm #{@remote})
+system_v %(sudo rm -rf #{@scratch_dir})
+
+puts "cd #{@backup_dir}"
+Dir.chdir @backup_dir do
+  system_v %(git ls-files -o | xargs --verbose -I : sudo cp -a --parents : ../#{@subdir})
+end
+puts "cd #{Dir.getwd}"
+
+puts "Finished! Remember to manually remove #{@backup_dir} if everything looks okay."
+
+
+
