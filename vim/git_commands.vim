@@ -47,9 +47,9 @@ command! -nargs=* Gdc                     :Gitdiffcached <args>
 command! -nargs=* Gitlog                  !cd %:h; git log %:t <args>
 command! -nargs=* Gl                      :Gitlog <args>
 
-command! -nargs=* Glp                     !cd %:h; git log --patch-with-stat %:t <args>
+command! -nargs=* Glp                     !cd %:h; git log -p --numstat <args> %:t
 
-command! -nargs=* Glh                     !cd %:h; git log %:t <args> | head -n30
+command! -nargs=* Glh                     !cd %:h; git log <args> %:t | head -n30
 
 command! -range=% -nargs=* Gitshowmaster  !git cat % <args> | lines <line1> <line2>
 command! -range=% -nargs=* Gitcat         :<line1>,<line2>Gitshowmaster

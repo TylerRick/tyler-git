@@ -4,13 +4,18 @@
 
 #------------------------------------------
 
-alias git apply-commit='git cherry-pick' # Apply the change introduced by an existing commit
+alias git-apply-commit='git cherry-pick' # Apply the change introduced by an existing commit
 alias gcp='git cherry-pick' # Apply the change introduced by an existing commit
 # TODO: how to apply changes from commit to only certain files and without committing
 
 #------------------------------------------
 
+alias    gf='git fetch'
 alias    gp='git pull'
+# git pull is fine if you do all your work in your own local development branches or if you don't mind (unnecessary and easily avoidable) merge commits, but I prefer doing a fetch/rebase instead to avoid the unnecessary merge commit:
+# "git fetch rebase"
+#alias gfrb='git checkout master; gwip; git fetch; git rebase origin/master; grss1'
+alias gfrb='git stash; git checkout master; git fetch; git rebase origin/master; git stash pop'
 alias   gup='git update' #  [custom]
 
 #------------------------------------------
@@ -72,6 +77,14 @@ alias gstsp1='git stash show -p stash@{1}'
 alias gstsp2='git stash show -p stash@{2}'
 
 #------------------------------------------
+# Show
+
+alias   gsf='git show --pretty=fuller'
+
+#------------------------------------------
+# Log
+
+alias   glm='git log-menu'
 
 alias    gl='git log'
 
@@ -81,8 +94,8 @@ alias   glp='git log -p --numstat'                 # See the actual lines that c
 # gll="git log long"
 #alias   gll='git log --stat'
 # I got tired of it truncating the beginnig of paths (making it impossible to copy and paste paths onto the command line, so I'm now using --numstat instead of --stat)
-# alias   gll='git log --numstat'
-alias   gll='git whatchanged'
+alias   gll='git log --numstat'
+alias   gwc='git whatchanged'
 
 alias   gllast='git log --patch-with-stat -n1'          # What is the last thing to be committed? (probably by you)
 alias   glh='git log --color | head -n30'       # Only show the first 30 lines of the log. Also, since this isn't paginated, it will wrap long lines for you, so this one is useful if you want to use the mouse to copy and paste the commit message of a recent commit (into an invoice, f.e.).
@@ -112,6 +125,11 @@ function git-search() { git log --patch-with-stat -S$1
 #git log refs/heads/master
 #git log refs/remotes/origin/master
 
+alias  gH='git-rev-parse       HEAD'
+alias gMH='git-rev-parse MERGE_HEAD'
+# To browse the log of your merge head, use: glm `gMH`
+# To browse the log of your merge head for a specific file, use: glm `gMH` <file>
+
 #------------------------------------------
 alias  glsf='git ls-files'
 alias  glss='git ls-files-by-status'
@@ -134,6 +152,7 @@ alias   gai='git add -i'        # interactive
 alias   gap='git add -p'        # interactive
 alias   gdi='git diff-interactive'  # tyler-git
 alias   geu='git each-unadded'      # tyler-git
+alias  geum='git each-unmerged'      # tyler-git
 
 
 #------------------------------------------
@@ -142,10 +161,21 @@ alias   grm='git rm'
 alias   gus='git unstage' # tyler-git
 
 #------------------------------------------
-alias   grb='git rebase    ${1:-master}'  # don't forget to pass -i if you want interactive
-alias  grbm='git rebase    ${1:-master}'
-alias  grbi='git rebase -i ${1:-master}'
-#alias grbiabort='git rebase -i --abort'  # abort a rebase interactive
+# These didn't work. That expanded to master followed by the supplied $1, when we wanted it to expand to only the supplied $1 if there was one...
+#alias   grb='git rebase    ${1:-master}'  # don't forget to pass -i if you want interactive
+#alias  grbm='git rebase    ${1:-master}'
+#alias  grbi='echo git rebase -i ${1:-master}'
+
+function  grb() {
+	branch=${1:-master}
+	shift
+	git rebase $branch "$@"
+}
+function grbi() {
+	branch=${1:-master}
+	shift
+	git rebase -i $branch "$@"
+}
 alias grbabort='git rebase --abort'
 alias  grbskip='git rebase --skip'
 alias  grbc='git rebase --continue'  # after resolving conflicts, do this to continue
@@ -160,9 +190,12 @@ alias gmtm='git update; git rebase master; git merge-to master'
 #------------------------------------------
 # Interruption managagement
 
-alias  gwip='git add -u; git commit -m WIP; git stash' # work in progress
-alias  gwipresume='git reset HEAD~1; git stash apply'   # resets [head] to the revision before your WIP commit (the actual changes from that commit should still be in your index); then apply the stash to get your working tree back to how it was
+#alias  gwip='git add -u; git commit -m WIP; git stash' # work in progress
+#alias  gwipresume='git stash apply; git reset HEAD~1'   # resets [head] to the revision before your WIP commit (the actual changes from that commit should still be in your index); then apply the stash to get your working tree back to how it was
 # or just git reset anything that may be staged, and simply use git stash/stash apply (simpler), and forget about my silly WIP commit (overly complicated)!
+alias gwip='git unstage .; git stash' # ?
+
+alias gsavesnapshot='gwip; git stash pop' # ?
 
 # switch back to a branch that has a WIP commit, undo commit, and resume work on that feature/branch/topic
 alias git-resume="TODO: git checkout {branch}; git reset HEAD~1"
@@ -191,6 +224,7 @@ alias   grshard='git reset-hard-safe'
 alias     grshm='git reset-hard-menu'
 alias  grshard1='git reset-hard-safe HEAD~1'
 alias grshardOH='git reset-hard-safe ORIG_HEAD'
+alias      grmc='git rm --cached -r'		    # For example, you notice that after you added some back directory, one of its subdirectories was a backup dir and shouldn't be added, so you want to remove the entire subdir from the cache.
 
 
 # How do I discard my changes I've made to the working tree?
