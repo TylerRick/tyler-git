@@ -31,45 +31,46 @@
 " :Gitst               :Gitstatus
 " :Gitci               :Gitcommit
 
-command! -complete=file -nargs=+ Git      !cd %:h; git <args>
+command! -complete=file -nargs=+ Git      !cd %:p:h; git <args>
 
-command! -nargs=* Gitstatus               !cd %:h; git status %:t <args>
+command! -nargs=* Gitstatus               !cd %:p:h; git status %:p:t <args>
 command! -nargs=* Gitst                   :Gitstatus <args>
 command! -nargs=* Gs                      :Gitstatus <args>
 
-command! -nargs=* Gitdiff                 !cd %:h; git diff <args> -- %:t
+"command! -nargs=* Gitdiff                 !cd %:p:h; cd `git rev-parse --show-cdup`; git diff %:p <args>
+command! -nargs=* Gitdiff                 !cd %:p:h; git diff <args> -- %:p:t
 command! -nargs=* Gitdi                   :Gitdiff <args>
 command! -nargs=* Gd                      :Gitdiff <args>
 
-command! -nargs=* Gitdiffcached           !cd %:h; git add %; git diff --cached %:t <args>
+command! -nargs=* Gitdiffcached           !cd %:p:h; git add %; git diff --cached %:p:t <args>
 command! -nargs=* Gdc                     :Gitdiffcached <args>
 
-command! -nargs=* Gitlog                  !cd %:h; git log %:t <args>
+command! -nargs=* Gitlog                  !cd %:p:h; git log %:p:t <args>
 command! -nargs=* Gl                      :Gitlog <args>
 
-command! -nargs=* Glp                     !cd %:h; git log -p --numstat <args> %:t
+command! -nargs=* Glp                     !cd %:p:h; git log -p --numstat <args> %:p:t
 
-command! -nargs=* Glh                     !cd %:h; git log <args> %:t | head -n30
+command! -nargs=* Glh                     !cd %:p:h; git log <args> %:p:t | head -n30
 
 command! -range=% -nargs=* Gitshowmaster  !git cat % <args> | lines <line1> <line2>
 command! -range=% -nargs=* Gitcat         :<line1>,<line2>Gitshowmaster
 
 "----
 
-command! -nargs=* Gitadd                  !cd %:h; git add %:t <args>
+command! -nargs=* Gitadd                  !cd %:p:h; git add %:p:t <args>
 command! -nargs=* Ga                      :Gitadd <args>
 
-command! -nargs=* Gitunadd                !cd %:h; git rm --cached %:t <args>
+command! -nargs=* Gitunadd                !cd %:p:h; git rm --cached %:p:t <args>
 command! -nargs=* Gua                     :Gitunadd <args>
 
-command! -nargs=* Gitreset                !cd %:h; git reset %:t <args>
+command! -nargs=* Gitreset                !cd %:p:h; git reset %:p:t <args>
 command! -nargs=* Gitunstage              :Gitreset <args>
 command! -nargs=* Gus                     :Gitreset <args>
 
-command! -nargs=* Gitcheckout             !cd %:h; git checkout %:t <args>
+command! -nargs=* Gitcheckout             !cd %:p:h; git checkout %:p:t <args>
 command! -nargs=* Gitco                   :Gitcheckout <args>
 
-command! -nargs=* Gitremove               !cd %:h; git rm %:t <args>
+command! -nargs=* Gitremove               !cd %:p:h; git rm %:p:t <args>
 command! -nargs=* Gitrm                   :Gitremove <args>
 
 
@@ -92,10 +93,10 @@ function! GitVimCat(args)
   " This is so that it will get nice syntax highlighting
 endfunction
 
-"command! -nargs=* Tig                     !cd %:h; tig %:t <args>
-command! -nargs=* Tig                     !cd %:h; tig <args> -- --patch-with-stat %:t
+"command! -nargs=* Tig                     !cd %:p:h; tig %:p:t <args>
+command! -nargs=* Tig                     !cd %:p:h; tig <args> -- --patch-with-stat %:p:t
 
-command! -nargs=* Gitcommit               !cd %:h; git commit -v %:t <args>
+command! -nargs=* Gitcommit               !cd %:p:h; git commit -v %:p:t <args>
 
 " The previous version had the problem that special characters (to vim) like #
 " get expanded (see help expand for a list of such characters). It appears
@@ -103,7 +104,7 @@ command! -nargs=* Gitcommit               !cd %:h; git commit -v %:t <args>
 " don't know if there are any other side effects/differences between the two
 " methods... I assumed that 'echo'ing the return value of system was at least
 " close enough to the way ! prints the output from the command.)
-"command! -nargs=* Gitcommit               :echo system("cd " . expand("%:h") . "; git commit -v " . expand("%:t") . " " . <q-args>)
+"command! -nargs=* Gitcommit               :echo system("cd " . expand("%:p:h") . "; git commit -v " . expand("%:p:t") . " " . <q-args>)
 " The problem with this version is I get this error:
 "Vim: Warning: Output is not to a terminal
 "Vim: Warning: Input is not from a terminal
@@ -118,14 +119,14 @@ command! -nargs=* Gci                     :Gitcommit <args>
 "     Gitmv example_of_trees_\(with_leaves\)
 command! -nargs=1 -complete=custom,CurrentFileName Gitmove call GitMove(<q-args>)
 function! GitMove(targetFileName)
-  "let newPath =  expand("%:h") . "/" . a:targetFileName
+  "let newPath =  expand("%:p:h") . "/" . a:targetFileName
   let newPath =  a:targetFileName
-  echomsg "!cd " . expand("%:h") . "; git mv " . expand("%:t") . " " . newPath
-  execute "!cd " . expand("%:h") . "; git mv " . expand("%:t") . " " . newPath
+  echomsg "!cd " . expand("%:p:h") . "; git mv " . expand("%:p:t") . " " . newPath
+  execute "!cd " . expand("%:p:h") . "; git mv " . expand("%:p:t") . " " . newPath
   execute "bd"             | " Delete the buffer (since that file won't exist anymore)
   " Reload the new file...
   " In case they had split windows, use split instead of e...
-  execute "sp " . expand("%:h") . "/" . newPath
+  execute "sp " . expand("%:p:h") . "/" . newPath
 endfunction
 command! -nargs=1 -complete=custom,CurrentFileName Gitmv   :Gitmove <args>
 
@@ -137,20 +138,20 @@ function! GitCopy(targetFileName)
 endfunction
 command! -nargs=1 -complete=custom,CurrentFileName Gitcp  :Gitcopy <args>
 
-command! -range=% -nargs=* Gitblame       !cd %:h; git blame %:t      <args> | lines <line1> <line2>
-command! -range=% -nargs=* Gitblamehead   !cd %:h; git blame %:t HEAD <args> | lines <line1> <line2>
+command! -range=% -nargs=* Gitblame       !cd %:p:h; git blame %:p:t      <args> | lines <line1> <line2>
+command! -range=% -nargs=* Gitblamehead   !cd %:p:h; git blame %:p:t HEAD <args> | lines <line1> <line2>
 
 
-command! -nargs=* Gitvimdiff              !cd %:h; git show master:%:t <args> > %.base ; vimdiff %:t %.base ; rm %.base
+command! -nargs=* Gitvimdiff              !cd %:p:h; git show master:%:p:t <args> > %.base ; vimdiff %:p:t %.base ; rm %.base
 " To do: The rm doesn't seem to ever get executed? So it leaves that temporary
 " file lying around.
 
 " Hint:
 "   % gets the full path of %. 
-"   %:h gets the full path of % with the last path component removed (that is, the full path of the directory that *contains* %).
-command! Gitstatusdir                     !cd %:h; git status .
-command! Gitdiffdir                       !cd %:h; git diff .
-command! -nargs=* Gitcommitdir            !cd %:h; git commit . <args>
+"   %:p:h gets the full path of % with the last path component removed (that is, the full path of the directory that *contains* %).
+command! Gitstatusdir                     !cd %:p:h; git status .
+command! Gitdiffdir                       !cd %:p:h; git diff .
+command! -nargs=* Gitcommitdir            !cd %:p:h; git commit . <args>
 command! -nargs=* Gitcidir                :Gitcommit <args>
 
 
