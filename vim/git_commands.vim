@@ -33,44 +33,45 @@
 
 command! -complete=file -nargs=+ Git      !cd %:p:h; git <args>
 
-command! -nargs=* Gitstatus               !cd %:p:h; git status %:p:t <args>
+command! -nargs=* Gitstatus               !cd %:p:h; git status "%:p:t" <args>
 command! -nargs=* Gitst                   :Gitstatus <args>
 command! -nargs=* Gs                      :Gitstatus <args>
 
 "command! -nargs=* Gitdiff                 !cd %:p:h; cd `git rev-parse --show-cdup`; git diff %:p <args>
-command! -nargs=* Gitdiff                 !cd %:p:h; git diff <args> -- %:p:t
+command! -nargs=* Gitdiff                 !cd %:p:h; git diff <args> -- "%:p:t"
 command! -nargs=* Gitdi                   :Gitdiff <args>
 command! -nargs=* Gd                      :Gitdiff <args>
 
-command! -nargs=* Gitdiffcached           !cd %:p:h; git add %; git diff --cached %:p:t <args>
+command! -nargs=* Gitdiffcached           !cd %:p:h; git add %; git diff --cached "%:p:t" <args>
+command! -nargs=* Gds                     :Gitdiffcached <args>
 command! -nargs=* Gdc                     :Gitdiffcached <args>
 
-command! -nargs=* Gitlog                  !cd %:p:h; git log %:p:t <args>
+command! -nargs=* Gitlog                  !cd %:p:h; git log "%:p:t" <args>
 command! -nargs=* Gl                      :Gitlog <args>
 
-command! -nargs=* Glp                     !cd %:p:h; git log -p --numstat <args> %:p:t
+command! -nargs=* Glp                     !cd %:p:h; git log -p --numstat --ignore-all-space <args> "%:p:t"
 
-command! -nargs=* Glh                     !cd %:p:h; git log <args> %:p:t | head -n30
+command! -nargs=* Glh                     !cd %:p:h; git log <args> "%:p:t" | head -n30
 
 command! -range=% -nargs=* Gitshowmaster  !git cat % <args> | lines <line1> <line2>
 command! -range=% -nargs=* Gitcat         :<line1>,<line2>Gitshowmaster
 
 "----
 
-command! -nargs=* Gitadd                  !cd %:p:h; git add %:p:t <args>
+command! -nargs=* Gitadd                  !cd %:p:h; git add "%:p:t" <args>
 command! -nargs=* Ga                      :Gitadd <args>
 
-command! -nargs=* Gitunadd                !cd %:p:h; git rm --cached %:p:t <args>
+command! -nargs=* Gitunadd                !cd %:p:h; git rm --cached "%:p:t" <args>
 command! -nargs=* Gua                     :Gitunadd <args>
 
-command! -nargs=* Gitreset                !cd %:p:h; git reset %:p:t <args>
+command! -nargs=* Gitreset                !cd %:p:h; git reset "%:p:t" <args>
 command! -nargs=* Gitunstage              :Gitreset <args>
 command! -nargs=* Gus                     :Gitreset <args>
 
-command! -nargs=* Gitcheckout             !cd %:p:h; git checkout %:p:t <args>
+command! -nargs=* Gitcheckout             !cd %:p:h; git checkout "%:p:t" <args>
 command! -nargs=* Gitco                   :Gitcheckout <args>
 
-command! -nargs=* Gitremove               !cd %:p:h; git rm %:p:t <args>
+command! -nargs=* Gitremove               !cd %:p:h; git rm "%:p:t" <args>
 command! -nargs=* Gitrm                   :Gitremove <args>
 
 
@@ -93,10 +94,10 @@ function! GitVimCat(args)
   " This is so that it will get nice syntax highlighting
 endfunction
 
-"command! -nargs=* Tig                     !cd %:p:h; tig %:p:t <args>
-command! -nargs=* Tig                     !cd %:p:h; tig <args> -- --patch-with-stat %:p:t
+"command! -nargs=* Tig                     !cd %:p:h; tig "%:p:t" <args>
+command! -nargs=* Tig                     !cd %:p:h; tig <args> -- --patch-with-stat "%:p:t"
 
-command! -nargs=* Gitcommit               !cd %:p:h; git commit -v %:p:t <args>
+command! -nargs=* Gitcommit               !cd %:p:h; git commit -v "%:p:t" <args>
 
 " The previous version had the problem that special characters (to vim) like #
 " get expanded (see help expand for a list of such characters). It appears
@@ -138,11 +139,11 @@ function! GitCopy(targetFileName)
 endfunction
 command! -nargs=1 -complete=custom,CurrentFileName Gitcp  :Gitcopy <args>
 
-command! -range=% -nargs=* Gitblame       !cd %:p:h; git blame %:p:t      <args> | lines <line1> <line2>
-command! -range=% -nargs=* Gitblamehead   !cd %:p:h; git blame %:p:t HEAD <args> | lines <line1> <line2>
+command! -range=% -nargs=* Gitblame       !cd %:p:h; git blame "%:p:t"      <args> | lines <line1> <line2>
+command! -range=% -nargs=* Gitblamehead   !cd %:p:h; git blame "%:p:t" HEAD <args> | lines <line1> <line2>
 
 
-command! -nargs=* Gitvimdiff              !cd %:p:h; git show master:%:p:t <args> > %.base ; vimdiff %:p:t %.base ; rm %.base
+command! -nargs=* Gitvimdiff              !cd %:p:h; git show master:"%:p:t" <args> > %.base ; vimdiff "%:p:t" %.base ; rm %.base
 " To do: The rm doesn't seem to ever get executed? So it leaves that temporary
 " file lying around.
 
