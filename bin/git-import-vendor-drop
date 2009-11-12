@@ -1,0 +1,66 @@
+#!/usr/bin/ruby
+
+def usage
+  puts <<End
+Usage: #{File.basename($0)} <path_to_vendor_drop_dir> [-m <commit_message]"
+
+Make sure you have cd'd into the directory to receive the vendor drop first.
+
+Then run this to copy the files, stage them, and commit them.
+End
+  exit 1
+end
+
+require 'pathname'
+require 'facets'
+
+#---------------------------------------------------------------------------------------------------
+require 'getoptlong'
+opts = GetoptLong.new(
+    [ '--message', '-m',              GetoptLong::REQUIRED_ARGUMENT ]
+)
+opts.each do | opt, arg |
+  case opt
+  when '--message', '-m'
+    @message = arg
+  end
+end
+
+if ARGV.size < 1
+  usage
+end
+
+vendor_drop_path = ARGV[0]
+
+#---------------------------------------------------------------------------------------------------
+
+if Pathname.new('.git').exist?
+  STDERR.puts ".git dir exists! Aborting. Make sure you cd to the dir to receive the vendor drop and then run this again."
+  exit 1
+else
+  puts "No .git dir. Continuing..."
+end
+
+Dir.chdir vendor_drop_path do
+  @commit = `git-rev-parse HEAD`.chomp
+  if @commit.blank?
+    STDERR.puts "git-rev-parse HEAD failed. Aborting..."
+    exit 1
+  end
+end
+
+if !@message
+  name = Pathname.new(vendor_drop_path).basename.to_s
+  @message = "Imported #{name} #{@commit}"
+end
+
+system %(cp -r #{vendor_drop_path}/. ./)
+system %(rm -rf .git)  # dangerous! that's why we made sure we weren't in a git dir to begin with
+system %(git add -u)
+system %(git add .)
+system %(git status | cat -)
+
+if @message
+  # TODO: escape "'"s
+  system %(git commit -m '#{@message}')
+end
