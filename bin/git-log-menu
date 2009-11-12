@@ -2,6 +2,370 @@
 
 #-------------------------------------------------------------------------------
 # To do:
+# * !! tag a commit
 # * refactor to reuse code from git reflog-menu
 
+# * ability to flag/"tag" a change (as 'interesting', 'uninteresting', or 'discuss this', or 'fix this', or 'bug introduced', or 'fix style', ...)
+#   * you can flag multiple different commits with the same flag (unlike git's built-in tag command)
+#   * flag a whole commit, a file/diff/object/blob within a commit, a hunk within a diff, or a line within a diff, or a char within a line (unlike git's built-in tag command)
+#   * stored in .git/git-flags or .gitflags or a separate branch or repository (so it can be shared)
+#   * once flagged as uninteresting, don't show it the next time you run this/view the log (requires user to only call wrapped commands)
+# * similarly, let you annotate (add your own notes/discussion) a change
+
+# squash/delete/edit/reorder commits:
+# * should be able to say "squash" with previous commit and initiate a (non-interactive, if I can figure out how to wrap it/work with it) git rebase -i that does the squash
+# * similarly, should be able to delete a commit from here
+# * similarly, should be able to edit a commit from here
+# * similarly, should be able to move/reorder a commit from here; maybe provide single button to "move to tip"
+# * Don't show this option if you've already pushed your changes
+
+# Recover deleted code:
+# should be able to search for some text that was removed, identify the hunk or lines from a hunk that you want to unremove, and unremove that code
+# so you identify file app/helpers/layout_helper.rb from the commit f5806e7d9b12ee7e9a27b59d474b33d06345958b in which it was REMOVED
+# and it basically does a git-cat-save f5806e7d9b12ee7e9a27b59d474b33d06345958b^:app/helpers/layout_helper.rb
+# and optionally attempts to merge it for you
+
+# Usage/info:
+#
+# The problem:
+#
+# You want to browse the history/log (esp. others, see git-their-log) and see all interesting changes
+# but there are all those uninteresting changes in the way that clutter up your log and hinder your log-viewing experience and decrease its pleasure
+# sometimes pages and pages (20...) of uninteresting changes which you have to page down/space through to get to the next interetsing change
+#
+# you could search for "commit" or "author" or something to skip to the next one
+# but that's less than ideal, not very smooth, and not failsafe
+# (you may skip too much; f.e., what if there's an interesting file changed amid 20 non-interesting ones in a commit? you'd spot it if you looked at list of files first instead of having the whole diffs thrown at you )
+#
+# Solution:
+# start with list of commits... browse them (or turn on showing file list by default, whihc is probably what I'd do) till you find one of interest
+# right arrow or enter to select it and get list of files changed (--numstat or --stat)
+# left arrow to go back to commits list
+# or select a file to get a diff for that file!
+#
+# when you're doing a git-their-log, 
+# * order commits oldest-first so that you go from top to bottom in a more natural manner
+# * resume from where you were last at (place cursor there, but let you browse backwards if you want)
+#
+# can't accidentally scroll too far and go to next file (make that optional); instead, when you get to end, have message flash at bottom saying "at end of file" 
+# but let them hit a different key to switch to next file, which is then repositioned at top of screen for easier reading
+# if they go back a file (left/right keys?), position it at to of screen too
+# no more running the files together as if you had cat'd them!
+
+# change timestamp of commit:
+# currently involves:
+#   finding commit with timestamp you want to take (should give you a menu, summarize commits in ref-log, sort by time, and show timestamps for each)
+#   grbi
+#   e
+#   save message from current commit
+#   git commit --amend -c <commit-with-timestamp>
+#   reinsert message
+
+# Let user search for a commit, message, date, author, etc. by pressing / and then search term.
+
+#---------------------------------------------------------------------------------------------------
+def usage
+  puts "Usage: #{$0} [--default-command=<action>] <args-for-git-log>"
+  puts <<End
+--default-command:  The command to execute when a commit is selected from the menu.
+--quit-on-select:   Quit after executing command
+End
+  exit 1
+end
+
 #-------------------------------------------------------------------------------
+require 'rubygems' 
+require 'facets'
+require 'colored'
+require 'pathname'
+require 'facets/blank'
+require File.dirname(__FILE__) + '/../lib/getch'
+require File.dirname(__FILE__) + '/../lib/menu'
+require 'quality_extensions/string/with_knowledge_of_color'
+
+#---------------------------------------------------------------------------------------------------
+require 'getoptlong'
+
+#@selected_command = 'git log -p --numstat'
+@selected_command = 'git show --pretty=fuller'
+@quit_on_select = false
+@i = 0
+@window_size = 5
+@lines_count = @window_size*2
+
+
+opts = GetoptLong.new(
+  [ '--help',                      GetoptLong::NO_ARGUMENT ],
+  [ '--default-command',           GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--quit-on-select',            GetoptLong::NO_ARGUMENT ]
+)
+opts.each do | opt, arg |
+  case opt
+  when '--default-command'
+    @selected_command = arg
+  when '--quit-on-select'
+    @quit_on_select = true
+  when '--help'
+    usage
+  end
+end
+
+@args_for_wrapped_command = ARGV
+
+#---------------------------------------------------------------------------------------------------
+
+def raw_lines(force = false, count = @lines_count)
+  if @raw_lines.nil? or count > @lines_count or force
+    #@raw_lines = `git-rev-list --pretty=raw HEAD | head -n#{count}`.lines
+    @raw_lines = `git log --pretty=format:"%h | %ai | %an | %s" \
+                  #{@args_for_wrapped_command.join(' ')} \
+                 | head -n#{count}` \
+                 .lines
+    @lines_count = @raw_lines.size
+  end
+  @raw_lines
+end
+def refresh
+  raw_lines(true)
+end
+
+Commit = Struct.new(:commit, :committed_at, :author, :message)
+def commits
+  raw_lines.inject([]) do |commits, line|
+
+    commit = nil
+    if line.chomp =~ /([^|]+)\|([^|]+)\|([^|]+)\|(.*)$/
+      # bf24c18 | 2009-01-16 12:49:48 -0800 | Tyler Rick | Imported ...
+      # \ $1  /   \  $2                   /   \   $3   /   \   $4     /
+
+      commit  = $1.strip
+      date    = $2.strip
+      author  = $3.strip
+      message = $4.strip
+
+      commits << Commit.new(commit, date, author, message)
+    else
+      STDERR.puts "Could not parse line '#{line}'"
+    end
+
+    commits
+  end
+end
+
+def window
+  left = [@i, @window_size].min
+  right = 2*@window_size - left
+  @i-left .. @i+right
+end
+
+def menu(show_list = true)
+  response = nil
+  selected = nil
+  show_menu = true
+
+  catch :repeat do
+    show_list = @show_list if !@show_list.nil?
+    show_menu = @show_menu if !@show_menu.nil?
+    @show_list = nil
+    @show_menu = nil
+
+    if show_list
+      puts
+      commits.each_with_index do |commit, i|
+        if i.in?(window)
+          is_selected = i == @i
+          selected    = commit if is_selected
+
+          # TODO: speed; slows it down considerably right now
+          #tags = `git describe --tags --exact-match #{commit.commit} 2>/dev/null`.chomp
+          #tags = `git tags-for-commit #{commit.commit} 2>/dev/null`.split
+          tags = []
+
+          print is_selected ? '->'.magenta : '  '
+          print ' ' + commit.commit.red
+          print ' ' + commit.committed_at.green
+          print ' ' + commit.author.blue.ljust(20)
+          print ' ' + tags.map {|tag| tag.black.on_yellow}.join(' ')   if tags.any?
+          print ' ' + commit.message
+          print "\n"
+        end
+      end
+    else
+      show_list = true
+    end
+
+    #-------------------------------------------------------------------------------------
+    if show_menu
+      print(
+        "show".menu_item(:green) + ''                                         + ", " +
+        "tag".menu_item(:yellow) + ", " +
+        "rebase -i".menu_item(:magenta)                                               + ", " +
+        "modify".menu_item(:magenta)                                               + ", " +
+        "edit".menu_item(:yellow)                                               + ", " +
+        "squash".menu_item(:magenta)                                               + ", " +
+        "move down".menu_item(:yellow)                                               + ", " +
+        "delete".menu_item(:red)          + ", " +
+        "check out".menu_item(:green) + ''                                         + ", " +
+        "flag".menu_item(:green) + ", " +
+        "annotate".menu_item(:green) + ", " +
+        "filter list".menu_item(:magenta)                                               + ", " +
+        "quit".menu_item(:magenta)                                                 + ", " +
+        "?:help".menu_item(:white)                                                 + " " +
+        "> ".cyan
+      )
+    else
+      show_menu = true
+    end
+
+    #-------------------------------------------------------------------------------------
+    response = STDIN.getch
+    show_list = true
+    case response
+      when '?'
+        puts
+        print(
+          "More commands: " +
+          "git reset".red + ' ' + "(R:--soft)".menu_item(:red, 'R') + ' ' + "(H:--hard)".menu_item(:red, 'H') + " ".red  + ", " +
+          "Enter for default (#{@selected_command})"                                 + " " +
+          "> ".cyan
+        )
+        @show_list = false
+        @show_menu = false
+        throw :repeat
+
+      # Allow movement up and down in list
+      when "\e[A", "\e\[D", 'k', 'K' # Previous (Up or Left)
+        puts
+        @i = [0, @i-1].max
+        throw :repeat
+
+      when "\e\[B", "\e\[C", " ", 'j', 'J' # Next (Down or Right or Space)
+        puts
+        #@i = [@i+1, raw_lines.size-1].min
+        max_i_needed = @i + 1 + window.last
+        if max_i_needed > raw_lines.size-1
+          raw_lines(false, @lines_count * 4) # forces reload
+          if @i+1 > raw_lines.size-1
+            puts "At end".red
+          else
+            @i+=1
+          end
+        else
+          @i+=1
+        end
+        throw :repeat
+
+      # TODO:
+      when "PageUp"
+        throw :repeat
+      when "PageDown"
+        throw :repeat
+
+      when "\n"
+        return :select, selected
+
+      when 's'
+        return :show, selected
+
+      when 't'
+        return :tag, selected
+
+      when 'c'
+        return :checkout, selected
+
+      when 'r'
+        return :rebase_interactive, selected
+
+      when 'R'
+        return :reset_soft, selected
+      when 'H'
+        return :reset_hard, selected
+
+      when 'q', 'Q'
+        return :quit
+
+      else
+        # Invalid option. Do nothing.
+        puts
+        throw :repeat
+
+    end # case response
+  end
+
+  response
+end
+
+#---------------------------------------------------------------------------------------------------
+show_list = true
+loop do
+  response, selected = menu(show_list)
+  commit = selected && selected.commit
+  puts
+
+  case response
+    when :select
+      puts "Using default command: #{@selected_command} #{commit}"
+      system "#{@selected_command} #{commit}"
+      exit 0 if @quit_on_select
+      #refresh
+
+    when :checkout
+      system %(git checkout "#{commit}")
+      if !$?.success?
+        case confirm("Normal checkout failed. Do you want to check it out anyway?", ["No".menu_item(:green), "Force".menu_item(:red), "Merge".menu_item(:magenta)])
+        when 'f'
+          system %(git checkout -f "#{commit}")
+        when 'm'
+          system %(git checkout -m "#{commit}")
+        end
+      end
+      #refresh
+
+#    when :rebase
+#      system "git rebase '#{commit}'"
+#      refresh
+
+    when :rebase_interactive
+      system "git rebase -i '#{commit}'"
+      refresh
+
+    when :show
+      #system "git show --pretty=fuller #{commit}"
+      system "git show --pretty=fuller #{commit} #{@args_for_wrapped_command.join(' ')}"
+
+    when :tag
+      print "Tag name? "
+      new_name = STDIN.gets.strip
+      unless new_name.blank?
+        output = `git tag '#{new_name}' #{commit} 2>&1`
+        puts output
+        if output =~ /already exists/
+          case confirm("Branch already exists. Do you want to delete the old tag first?", ["No".menu_item(:green), "Delete old tag and create new tag with same name".menu_item(:red)])
+          when 'd'
+            system "git tag -d '#{new_name}'"
+            system "git tag '#{new_name}' #{commit}"
+          end
+        end
+      end
+      refresh
+
+    when :delete
+      if confirm("Really delete? ".red) == 'y'
+        # TODO
+      end
+      refresh
+
+    when :reset_soft
+      system %(git reset --soft "#{commit}")
+      
+    when :reset_hard_1
+      system %(git reset-hard-safe "#{commit}")
+
+    when :quit
+      exit 0
+
+  end # case response
+
+end
+
+#---------------------------------------------------------------------------------------------------
