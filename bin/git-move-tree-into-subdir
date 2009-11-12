@@ -23,6 +23,8 @@ rm -r .git/refs/original
 You will need to remove it before you can run another rewrite filter in the same repository.
 
 Because it will attempt to move files, if your user doesn't have permission to do you may have to run this as root.
+
+This command makes it so you don't have to worry about having a grand plan for all your various (private/unshared) repositories up front. Go ahead and make a bunch of repositories all over your file system, knowing that you can later consolidate/merge them at any point in the future that you should so choose.
 End
   exit 1
 end

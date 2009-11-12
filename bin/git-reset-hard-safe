@@ -39,10 +39,10 @@ require File.dirname(__FILE__) + '/../lib/getch'
 #---------------------------------------------------------------------------------------------------
 
 files_with_changes_about_to_be_lost=`git ls-files-by-status -M`.chomp
-if files_with_changes_about_to_be_lost.any? and !@force
+if files_with_changes_about_to_be_lost.lines.any? and !@force
   puts "Halt! You have uncommitted modifications to the following files. If you continue, these changes will be lost permanently!".red
   puts files_with_changes_about_to_be_lost.magenta
   exit unless (puts "Do you want to continue? (y/N) ".red; STDIN.getch(:case_insensitive => true) == 'y')
-else
-  system %(git-reset --hard #{ARGV.join(' ')})
 end
+
+system %(git-reset --hard #{ARGV.join(' ')})

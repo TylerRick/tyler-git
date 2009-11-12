@@ -3,3 +3,22 @@
 # So I often will include a (temporary) note/flag in my commit message like 'squash' or 'squash with commit 3 commits ago' (meaning, move up 3 lines and squash)
 # or 'tip' (meaning move to bottom so that it becomes the tip even if it is not the tip when I do the rebase)
 # So it would be nice if rebase interactive could notice those flags and automatically apply them.
+
+
+# when editing the list of commits, all it gives you is line1 from commit
+# that's why it would be better to work with git-log-menu (which can give you full diff/commit-message on request) and initiate a squash/delete/etc. from there instead
+
+
+# keep a log of all grbi activity , so that you can use it for a post-mortem / to help recover lost commits / etc. if something goes wrong
+# similar in concept to git-ref-log
+# it would basically save a before and after snapshot: the original contents of the commit list that pops up in an editor, and then save your modified version
+
+
+# so it should check to see if you're on a tracking branch and, 
+# if so:
+#   check if commit has already been pushed to remote
+#   if so:
+#     abort, as it's too late to try to amend/delete that commit
+#   if not:
+#     ask them if they want to do a git-forgot-to-switch-to-dev-branch so that they can rebase against the current branch
+#     better yet, make it reliable enough that we don't even have to ask them: just create a temporary branch, rewind previous branch, and rebase against it

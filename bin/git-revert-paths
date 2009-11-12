@@ -1,4 +1,5 @@
 # a wrapper for git revert that lets you specify that only certain paths are to be reverted
+# probably doesn't work as well when you have a whole directory/tree you want to "revert" (checkout), but maybe...?
 
 commit = ARGV.shift
 target_paths = ARGV

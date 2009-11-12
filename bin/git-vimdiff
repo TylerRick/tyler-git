@@ -3,7 +3,7 @@
 require 'fileutils'
 
 if ARGV.size < 1
-  puts "Usage: #{$0} path"
+  puts "Usage: #{$0} <path>"
   puts <<End
 Compare your working tree version with the HEAD version and interactively revert (copy from HEAD) changes you have made
 This shows you the same thing as git diff but it's interactive: it lets you edit the file even while you're looking at the diff!

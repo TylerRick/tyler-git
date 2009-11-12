@@ -1,5 +1,11 @@
 #!/bin/sh
 
+# Hint: to unstage *everything*, simply do 'git unstage .'
+# This is useful, for example, if you just did:
+#   git commit file_a file_b
+# and now want to do a git commit --amend.
+# If you do that without unstaging everything else first, everything else will get committed with your amended commit -- not just file_a and file_b like you probably intended.
+
 git rev-parse --quiet --verify HEAD >/dev/null
 if [ $? -eq 0 ]; then
   git reset HEAD "$@" | grep -v 'needs update'

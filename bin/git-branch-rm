@@ -2,7 +2,8 @@
 if [ "$1" = "-f" ]; then
     echo "Forcing delete..."
     shift
-    git branch -D "$@"
+		# the -- is necessary in case you accidentally created a branch called --track, for example, by doing git checkout -b --track whatever
+    git branch -D -- "$@"
 else
-    git branch -d "$@"
+    git branch -d -- "$@"
 fi

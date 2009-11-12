@@ -1,3 +1,5 @@
+#!/bin/bash
+# (for pushd, otherwise would use:)
 #!/bin/sh
 
 #---------------------------------------------------------------------------------------------------
@@ -11,23 +13,28 @@
 #-----------------
 # Usage:
 
-# git commit-modify   # repeats commit; should result in exactly the same SHA1 as before, as all commit data should be preserved
+# git commit-modify   # does a reset --soft HEAD^1 to rewind HEAD and then repeats commit; should result in exactly the same SHA1 as before, as all commit data should be preserved
 
 # GIT_COMMITTER_DATE='1232532483 -0800' git commit-modify
 
 # Overwrite both author and committer date (useful when you are both author and committer):
 # date='2009-01-21 02:08:05' git commit-modify ; gsf
 
+# Note that this only rewrites existing commits, so if you want to cause your next commit to have a date or other attribute other than what it normally would have, you still have to commit it normally first before you can use git-commit-modify.
+
 #-----------------
 # To do:
 # * allow CL arguments, like --date=<date> -m <message>
 # * name: is commit-modify too similar to commit-amend? what else could we use? re-commit? repeat-commit? commit-repeat?
+# * create a wrapper for/modify git-commit to also let you use date= for *new* commits
 # * publish/RFC on git list
 
 #---------------------------------------------------------------------------------------------------
 # Dependencies/lib
 
-. git-sh-setup
+pushd "$(git rev-parse --show-cdup)"
+
+. "$(git --exec-path)/git-sh-setup"
 
 get_committer_ident_from_commit () {
   script='
@@ -92,6 +99,7 @@ echo "After:"
 echo GIT_AUTHOR_DATE=$GIT_AUTHOR_DATE
 echo GIT_COMMITTER_DATE=$GIT_COMMITTER_DATE
 
+# TODO: file_list=`git list files from commit`
 git cat-file commit "$rev" | sed "1,/^$/d" > .git/git-commit-modify-message
 cat .git/git-commit-modify-message
 
@@ -110,7 +118,7 @@ GIT_AUTHOR_DATE="$GIT_AUTHOR_DATE"         \
 GIT_COMMITTER_NAME="$GIT_COMMITTER_NAME"   \
 GIT_COMMITTER_EMAIL="$GIT_COMMITTER_EMAIL" \
 GIT_COMMITTER_DATE="$GIT_COMMITTER_DATE"   \
-git commit --no-verify -F .git/git-commit-modify-message || failed=t
+git commit $file_list --no-verify -F .git/git-commit-modify-message || failed=t
 
 #---------------------------------------------------------------------------------------------------
 # Clean up
@@ -122,3 +130,5 @@ else
 fi
 
 rm .git/git-commit-modify-message
+
+popd

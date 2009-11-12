@@ -1,11 +1,25 @@
 #!/usr/bin/ruby
 
 def usage
-  puts "Usage: #{$0} [--save|--overwrite] <path>"
-  puts "   or: #{$0} [--save|--overwrite] <commit>:<path>"
-  puts "cat a file from a certain rev (HEAD assumed if none supplied)"
-  # keep in mind that it will page results, so long lines won't be wrapped. If you need long lines to be wrapped (so you can select the output with your mouse and know that you're not going to be getting any truncated lines, you many want to pipe to cat - or
-  # use git --no-pager show ...
+  puts <<End
+Usage: #{File.basename($0)} [options*] <path>
+   or: #{File.basename($0)} [options*] <commit>:<path>
+
+Options:
+  --save, -s
+  --name-only, -n            -- Save as <path>. Do not add <commit> to filename. (Useful only when <commit> is specified)
+  --overwrite, -f            -- Save even if output file already exists. Implies --save.
+  -O<file> --save-as=<file>  -- Save to <file>. Implies --save.
+
+Cat/show a file from a certain rev (HEAD assumed if none supplied)
+
+Basically the same as git-show, with these exceptions:
+* Unlike git-show, you CAN pass a relative path (if you're in a subdirectory, f.e.) and it will be automatically converted into the corresponding absolute path
+* git-show doesn't have the --save option or related options
+
+Keep in mind that it will page results, so long lines won't be wrapped. If you need long lines to be wrapped (so you can select the output with your mouse and know that you're not going to be getting any truncated lines, you many want to pipe to cat - or
+Use git --no-pager show ...
+End
   exit 1
 end
 
@@ -14,15 +28,23 @@ require 'pathname'
 #---------------------------------------------------------------------------------------------------
 require 'getoptlong'
 opts = GetoptLong.new(
-    [ '--save',                     GetoptLong::NO_ARGUMENT ],
-    [ '--overwrite',                GetoptLong::NO_ARGUMENT ],
+    [ '--save-as', '--save-to', '-O', '--output-document', GetoptLong::REQUIRED_ARGUMENT ],
+    [ '--save', '-s',               GetoptLong::NO_ARGUMENT ],
+    [ '--name-only', '-n',          GetoptLong::NO_ARGUMENT ],
+    [ '--overwrite', '-f',          GetoptLong::NO_ARGUMENT ],
     [ '--quiet', '-q',              GetoptLong::NO_ARGUMENT ]
 )
 opts.each do | opt, arg |
   case opt
-  when '--save'
+  when '--save-as', '--save-to', '-O', '--output-document'
     @save = true
-  when '--overwrite'
+    @save_as = arg
+  when '--save', '-s'
+    @save = true
+  when '--name-only', '-n'
+    @name_only = true
+  when '--overwrite', '-f'
+    @save = true
     @overwrite = true
   when '--quiet', '-q'
     @quiet = true
@@ -30,7 +52,7 @@ opts.each do | opt, arg |
 end
 
 if ARGV.size < 1
-  usage
+  usage; exit 1
 end
 
 if ARGV[0] =~ /([^:]+):(.*)/
@@ -51,15 +73,20 @@ end
 
 if @save
   extension = Pathname.new(path).extname    # Retain the extension so that editors (vim), etc. that look at the extension for syntax highlighting, etc. won't be confused
-  if @overwrite
-    save_as = path
+  if @name_only
+    save_as = @save_as || path
   else
-    save_as="#{path}.#{revision}#{extension}"
+    save_as = @save_as || "#{path}.#{revision}#{extension}"
   end
 
-  command = "git show #{revision}:#{path_for_git_show} > #{save_as}"
+  save_as = Pathname.new(save_as)
+  if save_as.exist? && !@overwrite
+    STDERR.puts "File #{save_as} already exists! Aborting. Use -f to force/override."; exit 1
+  end
+
+  command = "git show #{revision}:'#{path_for_git_show}' > '#{save_as}'"
 else
-  command = "git show #{revision}:#{path_for_git_show}"
+  command = "git show #{revision}:'#{path_for_git_show}'"
 end
 
 puts   command unless @quiet
