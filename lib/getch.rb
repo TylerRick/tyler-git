@@ -39,7 +39,7 @@ class IO
       next_char = getc
       new_line_characters_expected = ["\n"]
       #new_line_characters_expected = ["\n", "\r"] if windows?
-      if next_char.chr.in?(new_line_characters_expected)
+      if new_line_characters_expected.include? next_char.chr
         # Eat the newline character
       else
         # Don't eat it
