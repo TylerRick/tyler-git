@@ -2,6 +2,8 @@
 
 # TODO: move these aliases to .gitconfig
 
+# meld .
+
 #------------------------------------------
 
 alias git-apply-commit='git cherry-pick' # Apply the change introduced by an existing commit
@@ -11,9 +13,11 @@ alias gcp='git cherry-pick' # Apply the change introduced by an existing commit
 #------------------------------------------
 
 alias    gf='git fetch'
-alias    gp='git pull'
-# git pull is fine if you do all your work in your own local development branches or if you don't mind (unnecessary and easily avoidable) merge commits, but I prefer doing a fetch/rebase instead to avoid the unnecessary merge commit:
-# "git fetch rebase"
+alias gpull='git pull'
+# Idea: git fetch and then ask if they want to rebase or do normal merge?
+alias  gprb='git pull --rebase'
+# git pull using merge is fine if you do all your work in your own local development branches or if you don't mind (unnecessary and easily avoidable) merge commits, but I prefer doing a fetch/rebase instead to avoid the unnecessary merge commit:
+# git pull --rebase
 #alias gfrb='git checkout master; gwip; git fetch; git rebase origin/master; grss1'
 alias gfrb='git stash; git checkout master; git fetch; git rebase origin/master; git stash pop'
 alias   gup='git update' #  [custom]
@@ -37,12 +41,23 @@ alias git-branch-set-merge-defaults='git config branch.master.remote origin; git
 #------------------------------------------
 # Diff
 
-alias    gd='git diff --ignore-all-space'          # staged vs. unstaged (unstaged changes are +)
-alias   gds='git diff --ignore-all-space --staged' # HEAD   vs. staged   (staged changes are +)
+
+# -M detect renames
+# -C detect copies
+alias    gd='git diff -M -C'                             # staged vs. unstaged (unstaged changes are +)
+alias   gds='git diff -M -C --staged'                    # HEAD   vs. staged   (staged changes are +)
+alias  gdis='git diff -M -C --ignore-all-space'          # staged vs. unstaged (unstaged changes are +)
+alias gdsis='git diff -M -C --ignore-all-space --staged' # HEAD   vs. staged   (staged changes are +)
+
+# --color-words
+alias   gdw='git diff -M -C --ignore-all-space --color-words'
+alias  gdws='git diff -M -C --ignore-all-space --color-words --staged'
 
 #------------------------------------------
 # Getting state/status/metadata
 
+# would be great except that vim often leaves lines with trailing spaces on a blank line equal to current indent level:
+#alias    gs='git diff --check --staged; git status'
 alias    gs='git status'
 
 alias grp='  git rev-parse'
@@ -88,37 +103,45 @@ alias   glm='git log-menu'
 
 alias    gl='git log'
 
-#alias   glp='git log --patch-with-stat'                 # See the actual lines that changed
-alias   glp='git log -p --numstat'                 # See the actual lines that changed
+#alias   glp='git log --color --patch-with-stat'
+alias   glp='git log --color -p --numstat'                 # See the actual lines that changed
+alias glpis='git log --color -p --numstat --ignore-all-space'
 
-# gll="git log long"
-#alias   gll='git log --stat'
+# gll="git log --color long"
+#alias   gll='git log --color --stat'
 # I got tired of it truncating the beginnig of paths (making it impossible to copy and paste paths onto the command line, so I'm now using --numstat instead of --stat)
-alias   gll='git log --numstat'
+alias   gll='git log --color --numstat'
 alias   gwc='git whatchanged'
 
 alias   gllast='git log --patch-with-stat -n1'          # What is the last thing to be committed? (probably by you)
-alias   glh='git log --color | head -n30'       # Only show the first 30 lines of the log. Also, since this isn't paginated, it will wrap long lines for you, so this one is useful if you want to use the mouse to copy and paste the commit message of a recent commit (into an invoice, f.e.).
 
-alias   gl1='git log --pretty=oneline'
-alias   gls='git log --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s"'    # git log short
-alias  glcl='git log --pretty=format:"%s"'    # git log "changelog" (show only the messages)
-alias   glc='git log --date-order'                                                  # git log (reverse) chronological -- maybe not...
+alias   glh="glrfl HEAD~5 | sed 's/^\s*//'"    	# Show the last 6 (inclusive) commits, in order, with leading whitespace stripped out
+#alias   glh='git log --color | head -n30'      # Only show the first 30 lines of the log. Also, since this isn't paginated, it will wrap long lines for you, so this one is useful if you want to use the mouse to copy and paste the commit message of a recent commit (into an invoice, f.e.).
 
-alias   glr='git log --reverse'                                                     # git log (reverse) chronological order. User glrf to specify a specific commit to start at or use -n5 instead
+alias   gl1='git log --color --pretty=oneline'
+alias   gls='git log --color --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s"'    # git log short
+alias  glsh='git log --color --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s" | head -n 20'    # git log short | head
+alias  glcl='git log --color --pretty=format:"%s"'    # git log "changelog" (show only the messages)
+alias   glc='git log --color --date-order'                                                  # git log (reverse) chronological -- maybe not...
+
+alias   glr='git log --color --reverse'                                                     # git log (reverse) chronological order. User glrf to specify a specific commit to start at or use -n5 instead
 function  glrf() {                                                                  # git log reverse from a specific a commit.
-  commit="$1"
-  shift
-  git log --reverse $commit...HEAD "$@"
+  commit="$1"; shift
+  # It was actually starting from the commit *after* the one you specified, so I added ~1 to adjust to one commit *before* the one they wanted to start at
+  git log --color --reverse $commit~1...HEAD "$@"
+}
+function  glrfl() {                                                                  # git log reverse from a specific a commit.
+  commit="$1"; shift
+  # It was actually starting from the commit *after* the one you specified, so I added ~1 to adjust to one commit *before* the one they wanted to start at
+  git log --color --numstat --reverse $commit~1...HEAD "$@"
 }
 function  glrfp() {                                                                  # git log reverse from a specific a commit.
-  commit="$1"
-  shift
-  git log -p --numstat --reverse $commit...HEAD "$@"
+  commit="$1"; shift
+  git log --color -p --numstat --reverse $commit~1...HEAD "$@"
 }
 
 # do a "pickaxe" search for the expression in the code; I think git log is smart enough to not only only include the commits that contain the search expression but also only the actual files and hunks that include it
-function git-search() { git log --patch-with-stat -S$1
+function git-search() { git log --color --patch-with-stat -S$1
 }
 
 # refs/
@@ -136,7 +159,7 @@ alias  glss='git ls-files-by-status'
 
 #alias   grl='git reflog | head -n10'
 alias   grl='git reflog-menu'
-alias  glrl='git log -g HEAD'
+alias  glrl='git log --color -g HEAD'
 
 #------------------------------------------
 alias    ga='git add'
@@ -266,8 +289,17 @@ alias gdisc='git checkout HEAD'
 # git reset -- <file>; git checkout <file> ?
 # git restore
 
-alias   gci='git commit -v'
-alias  gcia='git commit --amend'
+#alias   gci='git commit -v'
+# This adds the files specified (if any) before attempting the commit, because git will give an error if you try to commit a file that isn't added (in the index?) yet.
+# It seemed to me that it would be more user-friendly if it simply added them (similar to how you can do git commit on files that have local/unstaged modifications and it will automatically include those unstaged changes when you do the git commit) (the difference there, I suppose, is that it didn't actually stage/add those changes, so if you abort the commit, it won't have changed anything...but I don't think that's a big problem).
+function  gci() {
+	if [ $# -ge 1 ]; then
+		git add "$@"
+	fi
+	git commit -v "$@"
+}
+
+alias  gcia='git commit --amend'   # (can be used with paths, that is, specify which paths to (only) include in the new, amended commit)
 alias  gca='git commit -a -v'   # (can't be used with paths, but that's not a problem because you don't need the -a flag when you specify paths -- git commit will automatically add/stage any unstaged changes made to those paths)
 alias  gcq='git commit -m "."'  # if you're just working on a personal repository that doesn't matter too much, we might let you get by with being lazy and not specifying a commit message...
 alias gciq='git commit -m "."'
