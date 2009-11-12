@@ -1,0 +1,77 @@
+#!/usr/bin/ruby
+
+def usage
+  puts <<End
+Usage: #{File.basename($0)}
+  Creates a single commit for each file in current directory
+Usage: #{File.basename($0)} file1 file2 ... -- args_for_git_commit
+  Adds and commits the given paths, taking the timestamp of the last-modified file supplied as the timestamp for the commit.
+Usage: #{File.basename($0)} --versions [paths_to_versions...] <path>
+  Treats each path listed as older versions of <path> and creates a commit for each one before creating a final commit with the current contents of <path> itself.
+
+How/when/why to use:
+
+If you have a directory full of files with various timestamps which you wish now *could* have been under git version control all along but wasn't under any sort of version control...
+
+Then, since you can't actually go back in time and put it under git from the beginning, the next best thing is to use this command, which creates a separate commit for each file in the directory and timestamps that commit with either the modified or created date from the file itself,
+because at least *two* of the revisions which you forgot to put into VCS earlier (and there may have been many more in between) are the initial version when you first created the file and the latest version (reflected by the last modified timestamp).
+
+We have 2 timestamps to choose from But since we only have 1 version of content, there's not much point in creating two commits with the same content (might not even be possible).
+
+If you've been creating backup files as you go, however, you could use those as the intermediate versions. Use the second version if that's what you want.
+
+This assumes that the timestamps are actually meaningful... If the timestamps have all been reset to the same time accidentally, for example, this isn't as useful...
+
+To do:
+* --recursive option
+* make it so user can specify to use modified or created time. So if they just did a global search and replace or something and reset the modified time to now, they might be more interested in created time.
+* option to extract timestamp from filename instead of from file system, in case you trust the filename more than the file system (if you were careful to put the timestamp in the filename with every backup you made, f.e.)
+
+
+end
+End
+  exit 1
+end
+
+require 'pathname'
+
+# Gems
+require 'facets'
+require 'facets/string/bracket'
+require 'quality_extensions/pathname'
+
+# Usage 2:
+
+# everything up to the first "option" (-m) or before the '--' is treated as files; everything following is considered args to be passed as-is to git commit
+args, files = [], []
+in_args = false
+ARGV.each do |arg|
+  if arg == '--'
+    in_args = true
+  elsif arg =~ /^-/ or in_args
+    in_args = true
+    args << arg
+  else
+    files << arg
+  end
+end
+shell_ready_args = args.map{|arg|
+    if arg =~ /^-/
+      arg
+    else
+      arg.bracket('"')
+    end
+  }.join(' ')
+
+paths = files.map(&Pathname)
+commit_time = paths.max_by {|file| file.mtime}.mtime
+commit_time = commit_time.strftime("%Y-%m-%d %H:%M:%S")
+
+def run(command)
+  puts command
+  system command
+end
+
+run %(git add #{files.join(' ')})
+run %(git commit #{files.join(' ')} #{shell_ready_args})
+run %(date='#{commit_time}' git commit-modify #{files.join(' ')})
