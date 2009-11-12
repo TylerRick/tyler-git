@@ -53,7 +53,7 @@ command! -nargs=* Glp                     !cd %:p:h; git log -p --numstat --igno
 
 command! -nargs=* Glh                     !cd %:p:h; git log <args> "%:p:t" | head -n30
 
-command! -range=% -nargs=* Gitshowmaster  !git cat % <args> | lines <line1> <line2>
+command! -range=% -nargs=* Gitshowmaster  !cd %:p:h; git cat "%:p:t" <args> | lines <line1> <line2>
 command! -range=% -nargs=* Gitcat         :<line1>,<line2>Gitshowmaster
 
 "----
@@ -143,7 +143,7 @@ command! -range=% -nargs=* Gitblame       !cd %:p:h; git blame "%:p:t"      <arg
 command! -range=% -nargs=* Gitblamehead   !cd %:p:h; git blame "%:p:t" HEAD <args> | lines <line1> <line2>
 
 
-command! -nargs=* Gitvimdiff              !cd %:p:h; git show master:"%:p:t" <args> > %.base ; vimdiff "%:p:t" %.base ; rm %.base
+command! -nargs=* Gitvimdiff              !cd %:p:h; git show master:"%:p:t" <args> > "%.base" ; vimdiff "%:p:t" "%.base" ; rm "%.base"
 " To do: The rm doesn't seem to ever get executed? So it leaves that temporary
 " file lying around.
 
