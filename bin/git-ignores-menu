@@ -2,36 +2,18 @@
 
 #---------------------------------------------------------------------------------------------------
 def usage
-  puts "Usage: #{$0} [--selected-command=<action>]"
+  #puts "Usage: #{$0} [--selected-command=<action>]"
   puts <<End
-This is an interactive menu/wrapper for git branch that lets you use the arrow keys to select branch
-and then choose which action to do with/to that branch, such as check out, rename, or delete.
-
-Plumbing commands:
---selected-command: The default command, which will be executed when a branch is selected from the menu with Enter.
---quit-on-select:   Quit after executing command
+This is an interactive menu/wrapper for editing (adding/removing) ignores.
 End
   exit 1
 end
 
 #-------------------------------------------------------------------------------
 # To do:
-# * draw names as a tree to indicate which ones have common ancestors in the others
-# * (optionally) use ncurses so that we can redraw the screen when they move up or down
-#   * can we just use part of the screen?
-# * --verbose, which prints out commands before running (for learning)
-# * beginner and advanced mode like vlc/xine/mplayer?
-# * add features from git wtf, 
-#   * like showing whether a branch is merged in or not
-#   * show if it is behind remove/tracking branch or not
-# * git reset could show another menu, letting you select which commit to reset to
-# * let you mark a branch as archived/uninteresting so that you can save it permanently (f.e., a timestamped branch pre-squash/rbi) without it cluttering the list
-# * What if you happen to mix commits for a couple topic in a branch B and you want to fix it by "moving" those commits for topic A out of branch B and into branch A?
-#   either
-#   A: cherry pick the ones you want to A, start new branch B' and cherry pick B commits over to it, then overwrite B with B'
-#   or B: rebase -i (against A or some branch that is ancestor to both A and B) and move all B commits to top, leaving A commits at tip(bottom)
-#         merge to A, check out A, reset --hard to the last B commit
-#   Surely there's an easier way??
+# * show ignores for both [repo] and me (and indicate which it's in)
+# * let you move from one to the other
+# * d to remove
 
 #-------------------------------------------------------------------------------
 require 'rubygems' 
@@ -73,10 +55,9 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-# TODO: find another way to get this information (perhaps directly from .git/refs) so that if same name is listed twice (is both a local and remote branch), we can distinguish between the two and perhaps show full ref path (refs/heads/... or refs/remotes/...) (for all branches or only ambiguous ones?)
 def raw_lines(force = false)
   if @raw_lines.nil? or force
-    @raw_lines = `git branch -a -v --no-color`.lines.to_a
+    @raw_lines = `git branch -v`.lines
   end
   @raw_lines
 end
@@ -84,52 +65,14 @@ def refresh
   raw_lines(true)
 end
 
-# TODO: this should be abstracted better and be a method of a Branch class perhaps
-# See also: git show-ref --verify
-def local_branch_exists?(name)
-  `git rev-parse --quiet --verify 'refs/heads/#{name}'`
-  $?.success?
-end
-
-def remote_branch_exists?(name)
-  `git rev-parse --quiet --verify 'refs/remotes/#{name}'`
-  $?.success?
-end
-
-## This was necessary because I was getting "error: branch '1.10.0' not found." when I tried to git branch -D '1.10.0' (the ambiguous name reported by git branch)
-#def full_branch_name(name)
-#  local_branch_exists?(name) ? "heads/#{name}" \
-#                             : "remotes/#{name}"
-#end
-
-# TODO: should this use git rev-parse or rely on our cached list?
-def branch_exists?(name)
-  branches.detect {|branch| branch.name == name}
-end
-
 Branch = Struct.new(:name, :commit, :description, :checked_out)
-class Branch
-  def remote?
-    # I was using this, and assuming that all remote branches look like 'origin/whatever'...
-    # But after doing a git svn fetch, I ended up with some remote branches that didn't have a "namespace". I don't think that's supposed to happen though -- maybe a bug? (Because after creating a local tracking branch for that remote and trying to check it out, I got error "warning: refname 'current' is ambiguous.".)
-    #name =~ %r{/}
-
-    # This would work... but if we have a remote and local branch with the same name, it will only show up once,
-    # and we want it to show up as local
-    #remotes = `git branch -r --no-color`.lines.map {|line| line.chomp.strip}
-    #remotes.include? name
-
-    !local_branch_exists?(name)
-  end
-end
-
 def branches
   raw_lines.inject([]) do |branches, line|
     # * dev                                   2f2c1d6 Added ...
     #   junk                                  38d869a Changed ...
     #   master                                a6d7d6b Fixed ...
     #   really_really_really_long_branch_name 2f2c1d6 ...
-    line.chomp =~ /(.)\s(\(no branch\)|\S+)\s+(\S+)\s(.*)$/
+    line.chomp =~ /(.)\s(\S+)\s+(\S+)\s(.*)$/
 
     checked_out = $1 == '*'
     name        = $2
@@ -160,8 +103,8 @@ end
 
 def menu(*args)
   case @menu_style 
-    when 'curses'; raise 'not implemented yet'
-    when 'plain';   menu_plain(*args)
+    when 'curses': raise 'not implemented yet'
+    when 'plain':   menu_plain(*args)
   end
 end
 
@@ -195,17 +138,16 @@ def menu_plain(show_list = true)
         if i.in?(window)
           selected        = i == @i
           selected_branch = branch if selected
-          name            = branch.name
+          name = branch.name
 
           print selected ? '->'.magenta : '  '
           #print "#{i.to_s.rjust(2)}."
           print ' '
 
           _name = name.ljust(@longest_name)
-          print selected        ? _name.green :
-                (branch.remote? ? _name.red   : _name)
+          print selected ? _name.green : _name
           print ' '
-          print selected ? branch.description.green : branch.description.magenta
+          print branch.description.magenta
           print " (checked out)".yellow if branch.checked_out
           print "\n"
         end
@@ -217,15 +159,14 @@ def menu_plain(show_list = true)
     #-------------------------------------------------------------------------------------
     if show_menu
       print(
-        "check out".menu_item(:green) + ''                                         + ", " +   # + "(f".menu_item(:green, 'f') + "/m)".menu_item(:green, 'm')
+        "check out".menu_item(:green) + ' ' + "(f".menu_item(:green, 'f') + "/m)".menu_item(:green, 'm')     + ", " +
         "merge from".menu_item(:cyan, 'm') + ' ' + "(to)".menu_item(:cyan, 't')    + ", " +
         "rebase from".menu_item(:yellow, 'b') + ' ' + "(-i)".menu_item(:yellow, 'i')    + ", " +
         "log".menu_item(:green, 'l') + ' ' + "(-p)".menu_item(:green, 'p')         + ", " +
-        "copy".menu_item(:magenta, 'o')                                            + ", " +
+        "copy".menu_item(:magenta, 'o')                                                  + ", " +
         "rename".menu_item(:magenta)                                               + ", " +
         "delete".menu_item(:red) + ' ' + "(D:force)".menu_item(:red, 'D')          + ", " +
         "Pull".menu_item(:cyan, 'P') + '/' + "puSh".menu_item(:cyan, 'S') + '/' + "puBlish".menu_item(:cyan, 'B') + ", " +
-        (selected_branch.remote? ? "Track".menu_item(:magenta)                                              + ", " : '') +
         "quit".menu_item(:magenta)                                                 + ", " +
         "?:help".menu_item(:white)                                                 + " " +
         "> ".cyan
@@ -265,10 +206,8 @@ def menu_plain(show_list = true)
       when "\n"
         return :select, selected_branch
 
-      when 'c'
+      when 'c', 'C'
         return :checkout, selected_branch
-#      when 'C'
-#        return :checkout_force, selected_branch
 
       when 'm'
         return :merge, selected_branch
@@ -281,7 +220,7 @@ def menu_plain(show_list = true)
         return :rebase_interactive, selected_branch
 
       when 'o'
-        return :copy, selected_branch
+        return :new, selected_branch
 
       when 'r'
         return :rename, selected_branch
@@ -307,9 +246,6 @@ def menu_plain(show_list = true)
         return :reset_soft_1, selected_branch
       when 'H'
         return :reset_hard_1, selected_branch
-
-      when 'T'
-        return :track, selected_branch
 
       when 'q', 'Q'
         return :quit
@@ -341,60 +277,47 @@ loop do
 
     when :checkout
       system %(git checkout "#{branch_name}")
-      if !$?.success?
-        case confirm("Normal checkout failed. Do you want to check it out anyway?", ["No".menu_item(:green), "Force".menu_item(:red), "Merge".menu_item(:magenta)])
-        when 'f'
-          system %(git checkout -f "#{branch_name}")
-        when 'm'
-          system %(git checkout -m "#{branch_name}")
-        end
-      end
-
       refresh
-
-#    when :checkout_force
-#      system %(git checkout -f "#{branch_name}")
-#      refresh
 
     when :rebase
-      system "git rebase '#{branch_name}'"
+      system "git rebase #{branch_name}"
       refresh
     when :rebase_interactive
-      system "git rebase -i '#{branch_name}'"
+      system "git rebase -i #{branch_name}"
       refresh
 
     when :merge
-      system "git merge '#{branch_name}'"
+      system "git merge #{branch_name}"
       refresh
     when :merge_to
-      system "git merge-to '#{branch_name}'"
+      system "git merge-to #{branch_name}"
       refresh
 
 
     when :rename
       print "New name? "
-      new_name = STDIN.gets.strip
+      new_name = STDIN.gets
       unless new_name.blank?
-        system "git branch-mv '#{branch_name}' '#{new_name}'"
+        system "git branch-mv #{branch_name} #{new_name}"
         refresh
       end
 
-    when :copy
+    when :new
       print "Name of new branch to be started from #{branch_name}? "
-      new_name = STDIN.gets.strip
+      new_name = STDIN.gets
       unless new_name.blank?
-        system "git checkout -b '#{new_name}' '#{branch_name}'"
+        system "git checkout -b #{new_name} #{branch_name}"
         refresh
       end
 
     when :log
       system "git log #{branch_name}"
     when :log_p
-      system "git log -p --stat '#{branch_name}'"
+      system "git log -p --stat #{branch_name}"
 
     when :delete
       if confirm("Really delete? ".red) == 'y'
-        system "git branch-rm '#{branch_name}'"
+        system "git branch-rm #{branch_name}"
         reset_i(branch)
         refresh
       end
@@ -402,7 +325,7 @@ loop do
     # TODO: rather than have this a separate option, capture output of first attempt and prompt "Do you want to force it?" if it gives an error message that indicates it failed but can be forced
     when :delete_force
       if confirm("Really force delete? ".red) == 'y'
-        system "git branch-rm -f '#{branch_name}'"
+        system "git branch-rm -f #{branch_name}"
         reset_i(branch)
         refresh
       end
@@ -419,7 +342,6 @@ loop do
 
     when :publish
       system %(git publish-branch "#{branch_name}")
-      refresh
 
     when :reset_soft_1
       system %(git checkout "#{branch_name}") unless branch.checked_out
@@ -432,27 +354,6 @@ loop do
       system %(git checkout "#{branch_name}") unless branch.checked_out
       if $?.success?
         system %(git reset-hard-safe HEAD~1)
-        refresh
-      end
-
-    when :track
-      base_name = branch_name.gsub(/.*\//, '')
-
-      continue = false
-      if local_branch_exists?(base_name)
-        puts "Local branch '#{base_name}' already exists!".red
-        merge_config = `git config branch.#{base_name}.merge`
-        if merge_config.empty?
-          # set it up anyway?
-        else
-          puts "Already set up as a tracking branch: #{merge_config}".red
-        end
-      else
-        continue = true
-      end
-      if continue
-        puts "Creating local branch '#{base_name}' to track remote branch '#{branch_name}'...".green
-        system "git branch --track  '#{base_name}' '#{branch_name}'"
         refresh
       end
 

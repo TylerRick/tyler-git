@@ -1,0 +1,13 @@
+#!/usr/bin/ruby
+
+# Show the output of git blame, but lets you select a line (and therefore a commit) that you're interested in and see all changes introduced by that commit
+# Use the up/down arrow keys to pick a line of interest
+# Use the left arrow key to go back in time one commit for the selected line
+# (This may take you back more than one commit, so maybe show a message at bottom of screen with how many commits you actually went back.)
+# Right arrow obviously goes forward.
+
+#-------------------------------------------------------------------------------
+# To do:
+
+
+#---------------------------------------------------------------------------------------------------

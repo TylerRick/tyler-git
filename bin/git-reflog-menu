@@ -1,20 +1,22 @@
 #!/usr/bin/ruby
 
 #---------------------------------------------------------------------------------------------------
-def usage
-  puts "Usage: #{$0} [--selected-command=<action>]"
-  puts <<End
---selected-command: The command to execute when a commit is selected from the menu.
---quit-on-select:   Quit after executing command
-End
-  exit 1
-end
-
-#-------------------------------------------------------------------------------
 # To do:
 # * (optionally) use ncurses so that we can redraw the screen when they move up or down
 #   * can we just use part of the screen?
 # * ? let the caller specify a command for each command, like -l=git-log -r=git-remove
+# * show branches-commit-is-in
+# * Possibly deprecate this command in favor of git-fsck --lost-found ?
+
+#---------------------------------------------------------------------------------------------------
+def usage
+  puts "Usage: #{$0} [--default-command=<action>]"
+  puts <<End
+--default-command: The command to execute when a commit is selected from the menu.
+--quit-on-select:   Quit after executing command
+End
+  exit 1
+end
 
 #-------------------------------------------------------------------------------
 require 'rubygems' 
@@ -57,7 +59,7 @@ end
 def raw_lines(count = @lines_count)
   if @raw_lines.nil? or count > @lines_count
     @raw_lines = `git reflog | head -n#{count}`.lines
-    @lines_count = @raw_lines.size
+    @lines_count = @raw_lines.to_a.size
   end
   @raw_lines
 end
@@ -119,9 +121,9 @@ def menu
       when "\e\[B", "\e\[C", " " # Next (Down or Right or Space)
         puts
         max_i_needed = @i + 1 + window.last
-        if max_i_needed > raw_lines.size-1
+        if max_i_needed > raw_lines.to_a.size-1
           raw_lines(@lines_count * 4) # forces reload
-          if @i+1 > raw_lines.size-1
+          if @i+1 > raw_lines.to_a.size-1
             puts "At end".red
           else
             @i+=1

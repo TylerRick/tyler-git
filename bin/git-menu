@@ -1,0 +1,51 @@
+#!/usr/bin/ruby
+
+# alias gitm =
+
+# cheatsheat / list of commands / select/highlight one to get more info/description / short --help / or even man page
+
+# What do you want to do?
+#   break into categories
+
+# See:
+# /home/tyler/dev/git/git/command-list.txt
+# /home/tyler/dev/git/git/Documentation/cmds-mainporcelain.txt
+
+# Show 1-line description by default, but press ? or h to get full decription or man page
+
+# if they choose operations on branches, launch git branch-menu
+# if they choose operations on ...,      launch git status-menu
+# if they choose operations on ...,      launch git log-menu
+# if they choose operations on ...,      launch git reflog-menu
+# if they choose operations on ...,      launch git config-menu
+
+# reflog (recover lost commit, after a botched reset, for instance)
+#    reset
+#    reset hard
+
+# Cat 1 (press enter, and pops down like a menu)
+#    command 1
+#    command 2
+# Cat 2
+#
+# ncurses?
+
+# it should query the current state and tell you if it's in any interesting/special state
+# for example, if you're in the middle of a git rebase -i, tell you that, and give you options to continue rebase, amend commit, or abort rebase
+# any other special states?
+# maybe also show these special states when you do git status
+
+# it should show the value of special variables/refs:
+# HEAD
+# ORIG_HEAD (if applicable, as it would be if you'd just done a git reset)
+# GIT_AUTHOR_DATE (if set)
+
+
+
+
+# Browse files in your tree
+# For each file, have a menu:
+# * show
+#    $ git show :1:file.txt  # the file in a common ancestor of both branches
+#    $ git show :2:file.txt  # the version from HEAD.
+#    $ git show :3:file.txt  # the version from MERGE_HEAD

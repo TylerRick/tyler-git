@@ -1,0 +1,78 @@
+#!/usr/bin/ruby
+
+#---------------------------------------------------------------------------------------------------
+def usage
+  puts "Usage: #{$0} [--selected-command=<action>]"
+  puts <<End
+This is an interactive menu/wrapper for git status (an alternative to git add -p/-i) that lets you use select files
+using the arrow keys and then choose which action to do with/to that file, such as add, unstage, discard changes, remove...
+
+Sort of like git add -i but hopefully better
+
+Per-file options:
+* make copy of selected file(s) with suffix
+  * for example, someone else made a fork of your project (but who didn't commit in git) (or your own-quick-and-dirty copy-and-paste job and you're now trying to consolidate and remove that duplication)
+  * you want to see the differences, so you overwrite your working copy files with their files and do a git status/git diff
+  * you might discard most files, but some of the files might contain useful changes you wanted to keep -- but not simply 'as-is' (overwriting your local changes) -- they would need manual merging
+  * so select all the keepers and choose 'make copy' and give it a suffix like '.from_bob' or '.to_merge' or '.keep'.
+    * it could automatically discard changes to the local file now that you have a copy saved
+  * then exit this command and open vimdiff with your local file and the saved copy -- and manually merge your changes
+
+* show any of the 3 versions or diff any 2 from those 3 together
+* diff working:staged, staged:head
+* revert head>staged, head>staged,working, head>working
+
+Plumbing commands:
+--selected-command: The default command, which will be executed when a branch is selected from the menu with Enter.
+--quit-on-select:   Quit after executing command
+End
+  exit 1
+end
+
+#-------------------------------------------------------------------------------
+# To do:
+
+# alias gs =
+# = git work-menu?
+# also has commands for working on wt in general?
+#
+
+#-------------------------------------------------------------------------------
+require 'rubygems' 
+require 'facets'
+require 'colored'
+require 'pathname'
+require 'facets/blank'
+require File.dirname(__FILE__) + '/../lib/getch'
+require File.dirname(__FILE__) + '/../lib/menu'
+require 'quality_extensions/string/with_knowledge_of_color'
+
+#---------------------------------------------------------------------------------------------------
+require 'getoptlong'
+
+@menu_style = 'plain'
+@selected_command = 'git checkout'
+@quit_on_select = false
+@format = 'reflog'
+@i = 0
+@window_size = 5
+@lines_count = @window_size*2
+
+
+opts = GetoptLong.new(
+  [ '--help',                      GetoptLong::NO_ARGUMENT ],
+  [ '--selected-command',          GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--quit-on-select',            GetoptLong::NO_ARGUMENT ]
+)
+opts.each do | opt, arg |
+  case opt
+  when '--selected-command'
+    @selected_command = arg
+  when '--quit-on-select'
+    @quit_on_select = true
+  when '--help'
+    usage
+  end
+end
+
+#---------------------------------------------------------------------------------------------------

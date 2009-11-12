@@ -1,0 +1,8 @@
+# provides quick access to stashes
+# saves you from having to do
+# git stash list
+# git stash show
+# to make sure it's the right one
+# before applyin or popping
+#
+# and helps you find and remove no-longer-needed stashes
