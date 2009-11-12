@@ -1,0 +1,4 @@
+#!/bin/sh
+# exits 0 iff there are no uncommitted changes in the index
+# Example: git-index-is-clean || echo 'index is dirty (has been modified = has uncommitted changes)'
+git diff-index --cached --quiet HEAD --ignore-submodules --

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Example: git-wt-is-clean || echo 'working tree is dirty'
+git diff-files --quiet

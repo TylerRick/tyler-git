@@ -1,0 +1,4 @@
+#!/bin/sh
+# Exits with 0 if it is; 128 if it is not
+git rev-parse >/dev/null 2>&1
+exit $?
