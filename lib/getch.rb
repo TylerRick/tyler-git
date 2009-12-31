@@ -1,7 +1,7 @@
 require 'rubygems'
 
 begin
-  gem 'termios'
+  gem 'ruby-termios'
   require 'termios'
   begin
     # Set up termios so that it returns immediately when you press a key.
@@ -26,6 +26,7 @@ begin
   end
   $termios_loaded = true
 rescue Gem::LoadError
+  puts "Couldn't load termios"
   $termios_loaded = false
 end
 
