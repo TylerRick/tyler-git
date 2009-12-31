@@ -1,0 +1,95 @@
+#!/usr/bin/env ruby
+#-------------------------------------------------------------------------------
+# TODO: partial/hunk-level discards like git add -i provides (for partial/hunk-level adds/stagings)
+
+#-------------------------------------------------------------------------------
+
+require 'rubygems' 
+require 'git'      # 
+require 'colored'
+require 'pathname'
+require 'facets/blank'
+require File.dirname(__FILE__) + '/../lib/getch'
+
+gem 'quality_extensions', '>=0.0.3'
+require 'quality_extensions/file_test/binary_file'
+
+begin
+  require 'terminfo' #http://www.a-k-r.org/ruby-terminfo/
+  $screen_width=TermInfo.screen_width
+rescue LoadError
+  STDERR.puts "Warning: Could not load terminfo"
+  $screen_width=80
+end
+
+#-------------------------------------------------------------------------------
+
+@repo_root = `git base-dir`.chomp
+@cdup = `git rev-parse --show-cdup`.chomp
+def relative_to_wd(path)
+  @cdup.blank? ? path : File.join(@cdup, path)
+end
+@git = Git.open(@repo_root)
+@lines_preview_to_show = 50
+
+begin
+  show_full = false
+
+
+  @git.status.modified
+  @git.status.modified.each do |filename|
+    path = relative_to_wd(filename)
+    pathname = Pathname.new(path)
+
+    if show_full
+    else
+      #show_full = true
+    end
+
+    print path.green + " [a/d/r/q/?] > ".cyan
+
+    resp = STDIN.getc.chr
+    case resp
+
+    when '?'
+      puts
+      puts "(a)dd/stage; (d)iff, disca(r)d, (q)uit, ..., Enter/Space to skip"
+      show_full = false
+      redo
+
+    when 'a'
+      system %(git add "#{path}")
+      puts
+
+    when 'd'
+      system %(git diff "#{path}")
+      puts
+      redo
+
+    when 'r'
+      system %(git discard "#{path}")
+      puts
+
+    when 'q'
+      raise Interrupt, ''
+
+    when ' '
+      puts
+      # next
+ 
+    when "\n"
+      # next
+
+    else
+      puts
+      show_full = false
+      redo
+    end
+
+  end
+
+rescue Interrupt
+  puts
+end
+
+system %(git status)
