@@ -19,12 +19,18 @@ opts.each do | opt, arg |
 end
 
 #---------------------------------------------------------------------------------------------------
-@repo_root = `git base-dir`.chomp
+require 'pathname'
+require 'facets/class/to_proc'
+require 'quality_extensions/string/shell_escape'
+
+#---------------------------------------------------------------------------------------------------
+@repo_root = Pathname.new(`git base-dir`.chomp)
 paths = ARGV.dup
-paths.each do |path|
-  system %(echo "#{path}" >> #{@repo_root}/.gitignore)
+paths.map(&Pathname).each do |path|
+  git_ignore_file = (@repo_root + '.gitignore')
+  system %(echo #{path.to_s.shell_escape} >> #{git_ignore_file.to_s.shell_escape})
   if @remove
-    system %(git rm --cached #{@force_flag} "#{path}" 2>/dev/null)
+    system %(git rm --cached #{@force_flag} #{path.to_s.shell_escape} 2>/dev/null)
   end
 end
 
