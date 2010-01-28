@@ -28,7 +28,15 @@ require 'pathname'
 input_path = ARGV[0]
 
 begin
-  input_path = Pathname.new(input_path).realpath
+  # realpath dereferences symlinks -- I'd rather keep the symlink names in the path if provided
+  # Sometimes this actually makes a difference in whether git-show can find the path or not (for
+  # example, if public/stylesheets/blueprint is symlink now but didn't use to be, then
+  # git-cat 0094b9d:public/stylesheets/blueprint/src/typography.css 
+  # might get converted to 
+  # git show 0094b9d:'vendor/blueprint-css/blueprint/src/typography.css'
+  # which is not valid -- only the supplied path is valid for the supplied commit.
+  #input_path = Pathname.new(input_path).realpath
+  input_path = (Pathname.pwd + Pathname.new(input_path)).cleanpath
 
   base_dir = File.dirname(`git rev-parse --git-dir`.chomp)
   base_dir = Pathname.new(base_dir).realpath
