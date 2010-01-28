@@ -24,6 +24,7 @@ End
 end
 
 require 'pathname'
+require 'quality_extensions/pathname'
 
 input_path = ARGV[0]
 
@@ -36,7 +37,7 @@ begin
   # git show 0094b9d:'vendor/blueprint-css/blueprint/src/typography.css'
   # which is not valid -- only the supplied path is valid for the supplied commit.
   #input_path = Pathname.new(input_path).realpath
-  input_path = (Pathname.pwd + Pathname.new(input_path)).cleanpath
+  input_path = Pathname.new(input_path).absolutize
 
   base_dir = File.dirname(`git rev-parse --git-dir`.chomp)
   base_dir = Pathname.new(base_dir).realpath
