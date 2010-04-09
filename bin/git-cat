@@ -7,8 +7,8 @@ Usage: #{File.basename($0)} [options*] <path>
 
 Options:
   --save, -s
-  --name-only, -n            -- Save as <path>. Do not add <commit> to filename. (Useful only when <commit> is specified)
-  --overwrite, -f            -- Save even if output file already exists. Implies --save.
+  --commit-in-filename, -c   -- Save as "<path>.<commit>.<ext>" instead of just "<path>". (Useful only when <commit> is specified) Without this, you are likely to have a name conflict, since the file likely already exists.
+  --revert, --overwrite, -f  -- Save (overwrite) file even if output file already exists. Implies --save.
   -O<file> --save-as=<file>  -- Save to <file>. Implies --save.
 
 Cat/show a file from a certain rev (HEAD assumed if none supplied)
@@ -19,6 +19,16 @@ Basically the same as git-show, with these exceptions:
 
 Keep in mind that it will page results, so long lines won't be wrapped. If you need long lines to be wrapped (so you can select the output with your mouse and know that you're not going to be getting any truncated lines, you many want to pipe to cat - or
 Use git --no-pager show ...
+
+Example:
+# Restore the previous version of your logo
+# (This is better than doing git checkout master~1 because that would change *all* of your files back to how they were in that commit)
+> git-cat-save -f master~1:public/images/logo.png 
+git show master~1:'public/images/logo.png' > 'public/images/logo.png'
+
+# Restore the previous version of your logo and save as new name
+> git-cat-save -f -O public/images/logo.old.png master~2:public/images/logo.png
+git show master~2:'public/images/logo.png' > 'public/images/logo.old.png'
 End
   exit 1
 end
@@ -29,11 +39,13 @@ require 'pathname'
 require 'getoptlong'
 opts = GetoptLong.new(
     [ '--save-as', '--save-to', '-O', '--output-document', GetoptLong::REQUIRED_ARGUMENT ],
+    [ '--revert',                  GetoptLong::NO_ARGUMENT ],
     [ '--save', '-s',               GetoptLong::NO_ARGUMENT ],
-    [ '--name-only', '-n',          GetoptLong::NO_ARGUMENT ],
+    [ '--commit-in-filename', '-c', GetoptLong::NO_ARGUMENT ],
     [ '--overwrite', '-f',          GetoptLong::NO_ARGUMENT ],
     [ '--quiet', '-q',              GetoptLong::NO_ARGUMENT ]
 )
+@name_only = true
 opts.each do | opt, arg |
   case opt
   when '--save-as', '--save-to', '-O', '--output-document'
@@ -41,9 +53,9 @@ opts.each do | opt, arg |
     @save_as = arg
   when '--save', '-s'
     @save = true
-  when '--name-only', '-n'
-    @name_only = true
-  when '--overwrite', '-f'
+  when '--commit-in-filename', '-c'
+    @name_only = false
+  when '--revert', '--overwrite', '-f'
     @save = true
     @overwrite = true
   when '--quiet', '-q'
@@ -81,7 +93,7 @@ if @save
 
   save_as = Pathname.new(save_as)
   if save_as.exist? && !@overwrite
-    STDERR.puts "File #{save_as} already exists! Aborting. Use -f to force/override."; exit 1
+    STDERR.puts "File #{save_as} already exists! Aborting. Use -f to force/overwrite. Or if you don't wish to overwrite the file, you can use -c to append the commit to the output filename, so that you (hopefully) won't conflict with any existing file."; exit 1
   end
 
   command = "git show #{revision}:'#{path_for_git_show}' > '#{save_as}'"
