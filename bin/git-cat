@@ -8,7 +8,8 @@ Usage: #{File.basename($0)} [options*] <path>
 Options:
   --save, -s
   --commit-in-filename, -c   -- Save as "<path>.<commit>.<ext>" instead of just "<path>". (Useful only when <commit> is specified) Without this, you are likely to have a name conflict, since the file likely already exists.
-  --revert, --overwrite, -f  -- Save (overwrite) file even if output file already exists. Implies --save.
+  --overwrite, -f            -- Save (overwrite) file even if output file already exists. Implies --save.
+  --revert                   -- Goes back one commit before the specified commit, effectively reverting whatever that commit did to this file. Implies --overwrite.
   -O<file> --save-as=<file>  -- Save to <file>. Implies --save.
 
 Cat/show a file from a certain rev (HEAD assumed if none supplied)
@@ -55,7 +56,11 @@ opts.each do | opt, arg |
     @save = true
   when '--commit-in-filename', '-c'
     @name_only = false
-  when '--revert', '--overwrite', '-f'
+  when '--revert'
+    @revert = true
+    @save = true
+    @overwrite = true
+  when '--overwrite', '-f'
     @save = true
     @overwrite = true
   when '--quiet', '-q'
@@ -73,6 +78,10 @@ if ARGV[0] =~ /([^:]+):(.*)/
 else
   revision = 'HEAD'
   path = ARGV[0]
+end
+
+if @revert
+  revision = "#{revision}~1"
 end
 
 #---------------------------------------------------------------------------------------------------
