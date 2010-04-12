@@ -436,24 +436,29 @@ loop do
       end
 
     when :track
-      base_name = branch_name.gsub(/.*\//, '')
 
       continue = false
-      if local_branch_exists?(base_name)
-        puts "Local branch '#{base_name}' already exists!".red
-        merge_config = `git config branch.#{base_name}.merge`
-        if merge_config.empty?
-          # set it up anyway?
+      parts = branch_name.split('/')
+      while base_name = parts.pop do
+        puts "Trying #{base_name} as our local branch name ..."
+        next if ['remotes'].include? base_name
+
+        if local_branch_exists?(base_name)
+          puts "Local branch '#{base_name}' already exists!".red
+          merge_config = `git config branch.#{base_name}.merge`
+          if merge_config.empty?
+            # set it up anyway?
+          else
+            puts "Already set up as a tracking branch: #{merge_config}".red
+          end
         else
-          puts "Already set up as a tracking branch: #{merge_config}".red
+          continue = true
         end
-      else
-        continue = true
-      end
-      if continue
-        puts "Creating local branch '#{base_name}' to track remote branch '#{branch_name}'...".green
-        system "git branch --track  '#{base_name}' '#{branch_name}'"
-        refresh
+        if continue
+          puts "Creating local branch '#{base_name}' to track remote branch '#{branch_name}'...".green
+          system "git branch --track  '#{base_name}' '#{branch_name}'"
+          refresh
+        end
       end
 
     when :quit
