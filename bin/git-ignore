@@ -30,7 +30,7 @@ paths.map(&Pathname).each do |path|
   git_ignore_file = (@repo_root + '.gitignore')
   system %(echo #{path.to_s.shell_escape} >> #{git_ignore_file.to_s.shell_escape})
   if @remove
-    system %(git rm --cached #{@force_flag} #{path.to_s.shell_escape} 2>/dev/null)
+    system %(git rm -r --cached #{@force_flag} #{path.to_s.shell_escape} 2>/dev/null)
   end
 end
 
