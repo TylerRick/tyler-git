@@ -1,5 +1,7 @@
 #!/usr/bin/ruby
 
+# TODO: make it possible to 'checkout' a whole directory tree and not just a single file
+
 def usage
   puts <<End
 Usage: #{File.basename($0)} [options*] <path>
@@ -28,8 +30,12 @@ Example:
 git show master~1:'public/images/logo.png' > 'public/images/logo.png'
 
 # Restore the previous version of your logo and save as new name
-> git-cat-save -f -O public/images/logo.old.png master~2:public/images/logo.png
+> git-cat-save -O public/images/logo.old.png master~2:public/images/logo.png
 git show master~2:'public/images/logo.png' > 'public/images/logo.old.png'
+
+# Decided you want to keep a backup of the HEAD version around just in case? Already staged your new version? You can't just cp old old.bak. But you can do this:
+> git-cat-save -c app/models/blog.rb
+git show HEAD:'app/models/blog.rb' > 'app/models/blog.rb.HEAD.rb'
 End
   exit 1
 end
