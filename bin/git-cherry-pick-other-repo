@@ -2,7 +2,10 @@
 
 def usage
   puts <<End
-Usage: git cherry-pick-other-repo /path/to/other_repo rev
+Usage: git cherry-pick-other-repo /path/to/other_repo rev [git_am_args]
+
+Any extra args (for example, -p 4) are passed on to git am.
+
 Example:
   current_repo > git cherry-pick-other-repo /path/to/other_repo f37g1
 End
@@ -10,8 +13,8 @@ End
 end
 usage if ARGV.size < 2
 
-other_repo_dir = ARGV[0]
-rev =            ARGV[1]
+other_repo_dir = ARGV.shift
+rev =            ARGV.shift
 
 #---------------------------------------------------------------------------------------------------
 
@@ -39,7 +42,7 @@ end
 # Apply patches
 success = true
 patches.each do |patch|
-  run "cat #{patch} | git am"
+  run "cat #{patch} | git am #{ARGV.join(' ')}"
   success &= $?.success?
   puts "success=#{success}"
 end
