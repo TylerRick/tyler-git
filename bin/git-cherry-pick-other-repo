@@ -1,10 +1,13 @@
 #!/usr/bin/ruby
+# To do:
+# * Let you specify multiple a list of commits to cherry pick
+#   git cherry-pick-other-repo /path/to/other_repo rev1 rev2 ?
 
 def usage
   puts <<End
 Usage: git cherry-pick-other-repo /path/to/other_repo rev [git_am_args]
 
-Any extra args (for example, -p 4) are passed on to git am.
+Any extra args (for example, -p 4, if you are extracting commits to your vendor/plugins/plugin_name that should have been to committed to a fork of the actual plugin repo instead) are passed on to git am.
 
 Example:
   current_repo > git cherry-pick-other-repo /path/to/other_repo f37g1
