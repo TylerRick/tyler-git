@@ -1,0 +1,293 @@
+#!/usr/bin/env ruby
+#---------------------------------------------------------------------------------------------------
+# TODO:
+# currently ignores --use
+
+# Reference:
+# /usr/local/libexec/git-core/git-rebase
+
+#---------------------------------------------------------------------------------------------------
+require 'pathname'
+require 'facets/file/rewrite'
+require 'quality_extensions/pathname'
+
+#---------------------------------------------------------------------------------------------------
+# Parse args
+
+require 'optparse'
+
+@options = {
+  #:use => 'from_conflicted'
+  :use => 'all'
+}
+
+def parse_args
+  ARGV.options do |opts|
+    opts.banner = <<End
+Usage: #{File.basename($0)} [options] [file_with_conflict]
+
+An alternative to git mergetool.
+
+Git mergetool (always, as far as I know) tries to show you the merge as a 3-way diff. But I find the 3-way diff hard to look at, confusing, and distracting. 2-way diffs are so much easier to look at. It is nice to see the 3 versions side by side (2 versions + conflicted) -- it's just the diff highlighting that is annoying/distracting. 
+I figured that in many cases it would be much easier and quicker to understand the merge by simply looking at a 2-way diff and then, using that (and a list of diffs/commits from each branch being merged) as reference, to resolve the conflict sections in an editor window that *isn't* diffed with anything (or perhaps is diffed against [one of the files produced for the 2-way diff]).
+
+To create the 2-way diffs, you have 2 options:
+
+  'from_conflicted' -- This starts from the partially-merged file with the conflict markers file, strips out conflict versions, and shows you the partially-merged versions side by side
+
+  'actual'          -- This shows the version exactly it existed in their branch and in your branch (using git show).
+
+    Usually, this diff is messier than 'from_conflicted' because it hasn't attempted to merge anything yet.
+    So I usually prefer looking primarily at from_conflicted diffs, and only consulting these versions (not necessarily their diff, which is often pretty useless) if I want to double-check how a portion of the file appeared in 'their' version, for example.
+    Also, when I see how few differences there are between the from_conflicted versions, and can't believe that that's all that was different, it's sometimes nice to be able to do a sanity check and see the *actual* differences (pre-merge-attempt) between the two versions.
+
+    TODO: how do these versions differ from the LOCAL and REMOTE from git mergetool -t vimdiff?
+
+Because these are saved as temporary files, you feel free to edit them however is useful. For example, if in mine_from_conflicted, you see that a block was indented and surrounded with an if statement, perhaps you might unindent that block, just so the diff highlighting will stop showing it as a difference (since the only difference for those lines is the indenting).
+Modifying these temporary files doesn't affect your main [conflicted] file, so you can feel free to make whatever edits you want to them, since they will be thrown away anyway.
+
+Currently, if file_with_conflict is omitted, it will loop through all unmerged files using git each-unmerged.
+
+End
+
+    opts.on("--use which",            "'all' (default), 'actual', or 'from_conflicted' (see full descriptions above)") {|v| @options[:use] = v }
+    opts.on("-o", "--order", "[not implemented] Specify the order of the windows that it opens in vim ")                                      {|v| }
+    opts.on("-n", "--no-act", "Don't create/copy/modify files or open the editor")                                      { @options[:no_act] = true }
+    opts.on("-v", "--verbose", "Be more verbose")                                                                       { @options[:verbose] = true }
+    opts.on("-h", "--help", "Show this help message.")                                                                  { puts opts; exit }
+    opts.parse!
+  end
+end
+parse_args
+
+if ARGV.size == 0
+  #ARGV.unshift '--help'
+  #parse_args
+  exec "VISUAL='git merge-better' git each-unmerged"
+end
+
+#---------------------------------------------------------------------------------------------------
+
+@file = Pathname.new(ARGV[0])
+ext = @file.extname
+
+#---------------------------------------------------------------------------------------------------
+
+system 'git-merge-status'
+
+# TODO: remove dup with git-merge-status
+
+if (file = Pathname.new('.git/rebase-apply/onto')).exist?
+  upstream = file.read.chomp
+  upstream = `git name-rev --name-only --always --no-undefined #{upstream}`.chomp
+  merge_type = :rebase
+end
+if (file = Pathname.new('.git/rebase-apply/orig-head')).exist?
+  mine = file.read.chomp
+  mine = `git name-rev --name-only --always --no-undefined #{mine}`.chomp
+end
+
+if (file = Pathname.new('.git/MERGE_MSG')).exist?
+  merge_msg = file.read
+  if system('git rev-parse --verify -q MERGE_HEAD') == false
+    merge_type = :cherry_pick
+    fail "cherry_pick case not handled yet"
+  end
+end
+
+merge_type ||= :merge
+upstream   ||= 'MERGE_HEAD'
+mine       ||= 'HEAD'
+
+#merge_base = `git merge-base MERGE_HEAD HEAD`.chomp
+merge_base = `git merge-base #{upstream} #{mine}`.chomp
+merge_base = `git name-rev --name-only --always --no-undefined #{merge_base}`.chomp
+#merge_head = `git rev-parse MERGE_HEAD`.chomp
+
+puts "upstream=#{upstream.inspect}"
+puts "mine=#{mine.inspect}"
+puts "merge_base=#{merge_base.inspect}"
+
+
+#---------------------------------------------------------------------------------------------------
+
+# TODO: how do we know?
+# differs if doing rebase master vs merge master
+# look at strings after <<<<<<<?
+# perhaps MERGE_HEAD is missing/different for rebase?
+
+if merge_type == :rebase
+  mine_section = :bottom
+else
+  mine_section = :top
+end
+
+require File.dirname(__FILE__) + '/../lib/extract_merged_versions_from_conflicted'
+
+#---------------------------------------------------------------------------------------------------
+
+files = {'actual' => @file}
+
+['mine_from_conflicted', 'upstream_from_conflicted'].each do |suffix|
+  unless @options[:no_act]
+    #if @options[:use] == 'from_conflicted'
+      new_file = @file.add_suffix(".#{suffix}#{ext}")
+      files[suffix] = new_file
+
+      @file.cp new_file
+      File.rewrite new_file do |conflicted_s|
+        if suffix =~ /upstream/
+          section_to_keep = mine_section == :top ? :bottom : :top
+        else
+          section_to_keep = mine_section
+        end
+        SourceFileWithMergeConflicts.new(conflicted_s)[section_to_keep]
+      end
+    #end
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
+
+@renames = {}
+command = "git log -1 -M --summary --diff-filter=R"
+output = `#{command}`
+output.lines.each do |line|
+  if line =~ /^ rename (.*)\{(.*) => (.*)\} \((\d+%)\)\s*$/
+    common, old_end, new_end = $1, $2, $3
+    old = common + old_end
+    new = common + new_end
+    puts "Rename detected: old=#{old.inspect} => new=#{new.inspect}"
+    @renames[old] = new
+  end
+end
+
+file_name_as_of = {}
+file_name_as_of['upstream'] = @file.to_s
+if found_rename = @renames.detect {|k,v| v == @file.to_s}
+  old, new = found_rename
+  file_name_as_of['upstream'] = old
+  puts "file_name_as_of['upstream']=#{file_name_as_of['upstream'].inspect}"
+end
+
+file_name_as_of['mine'] = @file.to_s
+if found_rename = @renames.detect {|k,v| k == @file.to_s}
+  old, new = found_rename
+  file_name_as_of['mine'] = new
+  puts "file_name_as_of['mine']=#{file_name_as_of['mine'].inspect}"
+end
+
+#---------------------------------------------------------------------------------------------------
+
+# Note: If a file was deleted, one of this git show commands will probably show nothing.
+
+['mine_actual', 'upstream_actual'].each do |suffix|
+  unless @options[:no_act]
+    #if @options[:use] == 'git show'
+      new_file = @file.add_suffix(".#{suffix}#{ext}")
+      files[suffix] = new_file
+
+
+      if suffix =~ /upstream/
+        command = "git show #{upstream}:'#{file_name_as_of['upstream']}' >> '#{new_file}'"
+      else
+        #command = "git show        HEAD:'#{file_name_as_of['mine']}' >> '#{new_file}'"
+        command = "git show     #{mine}:'#{file_name_as_of['mine']}' >> '#{new_file}'"
+      end
+      files[suffix].open('w') {|f| f.puts command }
+      system command
+    #end
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
+
+# TODO: can we do git checkout --theirs?
+# or git cat-save commit:file ?
+# > git-cat-save -c MERGE_HEAD:app/views/events/show.html.erb
+# git show MERGE_HEAD:'app/views/events/show.html.erb' > 'app/views/events/show.html.erb.MERGE_HEAD.erb'
+
+# TODO: how do we know how far to go back??!!
+how_many_commits_back = 25 #15
+# We could also maybe try date ranges...?
+
+if merge_type == :rebase
+  upstream_from = "#{upstream}~#{how_many_commits_back}"
+  upstream_revs = "#{upstream_from}..#{upstream}"
+
+  # Old before git rebase-show-current-rev:
+ #mine_from     = "#{upstream}"
+ ## We don't want to show commits that are in the future relative to the commit we are looking at right now with the rebase
+ #mine_up_to    = mine # 'HEAD'  # since we take it one commit at a time
+
+  command = "git rebase-show-current-rev"
+  mine_revs = `#{command}`.chomp
+  $?.success? or fail "Command #{command} failed"
+else
+  upstream_from = "#{merge_base}^"
+  upstream_revs = "#{upstream_from}..#{upstream}"
+
+  mine_from     = "#{merge_base}^"
+  mine_up_to    = mine
+  mine_revs     = "#{mine_from}..#{mine_up_to}"
+end
+
+# TODO: can we simply use git-log-mine and git-log-theirs?
+# The .diff extension causes the syntax highlighting to be nice in vim.
+[['upstream', upstream_revs],
+ ['mine',     mine_revs]
+].each do |version, revs|
+  #--reverse 
+  # -c (combined) for merge commits? or not? or do it each way?
+  puts command = "git log -c -p #{revs} -- #{file_name_as_of[version]}"
+  #system command
+  files["#{version}.log.diff"] = @file.add_suffix(".#{version}.log.diff")
+  files["#{version}.log.diff"].open('w') {|f| f.puts command }
+  system "#{command} >> #{files["#{version}.log.diff"]}"
+end
+#gitk MERGE_HEAD
+
+#---------------------------------------------------------------------------------------------------
+
+#puts command="vimdiff #{files['upstream']} #{files['mine']}"
+
+
+# TODO: make the order of tabs configurable; I think I want to move #4 to #3
+
+puts command="vim -c '" + 
+  "e #{files['mine_from_conflicted']} | vert diffsplit #{files['upstream_from_conflicted']} | " +
+
+  # in their own window:
+  "tabedit #{files['mine_actual']} | vert diffsplit #{files['upstream_actual']} | wincmd w | " +
+
+  # Too crowded: diffs above main files (total of 4 buffers in window):
+  #"split #{files['upstream.log.diff']} | wincmd w | wincmd w | split #{files['mine.log.diff']} | wincmd w | " +
+
+
+
+  # diffs in their own window:
+  #"tabedit #{files['mine.log.diff']} | vert split #{files['upstream.log.diff']} | wincmd w | " +
+  # would be nice if we could make each commit a link (press Enter to follow) to quickly show (git show) the whole file as it was in that version, kind of like fugitive
+
+  # with main file in center
+  "tabedit #{files['mine.log.diff']} | vert split #{files['upstream.log.diff']} | wincmd w | vert split #{@file} | " +
+
+
+
+  "tabedit #{@file} | vert diffsplit #{files['mine_from_conflicted']} | wincmd w | " +
+  "tabnext 1 |" +
+
+  # TODO: set custom syntax highlighter instead, so that highlightin doesn't go away if they search for somethig else
+  # TODO: set ]c command to jump to next >>>> etc. marker (next "diff"), but only when in the conflicted file; when in normal diff file, do its default behavior (next diff)
+  %(:let @/ = "<<<<<<<\\\\|>>>>>>>\\\\|=======") + 
+  "'"
+
+#---------------------------------------------------------------------------------------------------
+
+unless @options[:no_act]
+  exec command if fork.nil?
+  Process.wait
+  exec "git rmversions #{@file}"
+end
+
+#---------------------------------------------------------------------------------------------------
