@@ -1,0 +1,83 @@
+#!/usr/bin/env ruby
+#-------------------------------------------------------------------------------
+# An alternative to git mergetool, this will simply open up each unmerged file in your favorite editor rather than opening them in a 3-way diff program.
+# (Because the <<<<<< blocks usually provide enough information to solve a merge and sometimes having the 3-way diff is actually more confusing/distracting...)
+
+# TODO: Would it be possible/better to simply use git mergetool and pass in a simple wrapper script that ignores the extra arguments and simply opens the single file?
+
+#-------------------------------------------------------------------------------
+
+require 'rubygems' 
+$:.unshift "/home/tyler/dev/git/ruby-git/lib"
+require 'git'      # requires my changes to ruby-git, (git.status.untracked)
+require 'colored'
+require 'pathname'
+require 'facets/blank'
+require 'quality_extensions/pathname'
+
+#-------------------------------------------------------------------------------
+
+@repo_root = `git base-dir`.chomp
+@cdup = `git rev-parse --show-cdup`.chomp
+def relative_to_wd(path)
+  @cdup.blank? ? path : File.join(@cdup, path)
+end
+@git = Git.open(@repo_root)
+@lines_preview_to_show = 50
+
+@editor = ENV['VISUAL'] || ENV['EDITOR'] || raise('VISUAL not set')
+if @editor =~ %r(/vim)
+  @editor += %( -c ':let @/ = "<<<<<<<\\\\|>>>>>>>\\\\|======="')
+end
+puts "Using editor '#{@editor}'".blue
+
+begin
+  show_full = false
+
+  @git.status.unmerged.each do |filename|
+    begin
+      path = relative_to_wd(filename)
+      path = Pathname.new(path)
+      backup_path = path.add_suffix('.git-each-unmerged-backup')
+      path.cp backup_path
+
+      command = "#{@editor} #{path}"
+      print path.to_s.green + ' [Enter] > '.cyan
+      response = STDIN.gets
+      p response
+
+      if response = "\n"
+        system command
+      end
+
+      add_file = true
+
+      system "git-file-has-conflict-markers #{path}"
+      if add_file && $?.success?
+        STDERR.puts "Warning: File still contains conflict markers (<<<<<<<, etc.). You will probably want to fix that before marking it as resolved."
+        add_file = false
+      end
+
+      `test #{path} -nt #{backup_path}`
+      if add_file && !$?.success?
+        add_file = false
+        puts "#{path} seems unchanged.".red
+        print "Was the merge successful? [y/n] ".cyan
+        response = STDIN.gets
+        if response[0..0].downcase == 'y'
+          add_file = true
+        end
+      end
+      if add_file
+        system "git add #{path}"
+      end
+
+    ensure
+      backup_path.unlink rescue (puts "Warning: tried to remove #{backup_path} but could not (perhaps you already removed it?)")
+    end
+  end
+
+rescue Interrupt
+  puts
+end
+
