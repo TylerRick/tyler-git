@@ -31,6 +31,45 @@
 " :Gitst               :Gitstatus
 " :Gitci               :Gitcommit
 
+
+" Problem: :p:h doesn't work as shell argument for certain paths:
+":!ls %:p
+"ls: cannot access /home/tyler/Web: No such file or directory
+"ls: cannot access sites: No such file or directory
+"
+":!ls "%:p"
+"/home/tyler/Web sites
+"
+"But what if filename actually contains a "?
+"> touch temp\"
+"
+":e temp\"
+":!ls "%:p"
+"/bin/bash: -c: line 0: unexpected EOF while looking for matching `"'
+"/bin/bash: -c: line 1: syntax error: unexpected end of file
+"
+"We can't simply change our delimiters from " to ' because we will have the
+"same problem when the filename contains ' characters.
+"
+"What's the solution?
+":execute "!ls " . fnameescape(expand("%:p"))
+"/home/tyler/Web sites/temp'
+"
+"Which is much uglier than the original !ls %:p ... but it works, and that
+"concern must come first, even, unfortunately, at the expense of prettiness
+"and readability.
+"
+" Now that I know how to safely allow any path as an argument to a shell
+" command, I changed my git_commands.vim file accordingly: 
+"-command! -nargs=* Gitdiff                 !cd %:p:h; git diff <args> -- "%:p:t"
+"+command! -nargs=* Gitdiff                 :execute "!cd " . fnameescape(expand("%:p:h")) . "; git diff " . <q-args> . " -- "  . fnameescape(expand("%:p:t"))"
+"
+"It now works perfectly! But it's so ... UGLY .
+"
+" Proposed solution: add :e modifier to vim that causes path to be expanded
+" the same as fnameescape(), so you could use it in normal ! without having to
+" build the command string and then calling execute on the string.
+
 command! -complete=file -nargs=+ Git      !cd %:p:h; git <args>
 
 command! -nargs=* Gitstatus               !cd %:p:h; git status "%:p:t" <args>
@@ -38,7 +77,7 @@ command! -nargs=* Gitst                   :Gitstatus <args>
 command! -nargs=* Gs                      :Gitstatus <args>
 
 "command! -nargs=* Gitdiff                 !cd %:p:h; cd `git rev-parse --show-cdup`; git diff %:p <args>
-command! -nargs=* Gitdiff                 !cd %:p:h; git diff <args> -- "%:p:t"
+command! -nargs=* Gitdiff                 :execute "!cd " . fnameescape(expand("%:p:h")) . "; git diff " . <q-args> . " -- "  . fnameescape(expand("%:p:t"))
 command! -nargs=* Gitdi                   :Gitdiff <args>
 command! -nargs=* Gd                      :Gitdiff <args>
 
@@ -46,10 +85,12 @@ command! -nargs=* Gitdiffcached           !cd %:p:h; git add %; git diff --cache
 command! -nargs=* Gds                     :Gitdiffcached <args>
 command! -nargs=* Gdc                     :Gitdiffcached <args>
 
-command! -nargs=* Gitlog                  !cd %:p:h; git log "%:p:t" <args>
-command! -nargs=* Gl                      :Gitlog <args>
+command! -nargs=* Gitlog                  !cd %:p:h; git log <args> "%:p:t"
+command! -nargs=* Gl                      :Gitlog --color <args>
+command! -nargs=* Gll                     :Gitlog --color --numstat --graph <args>
 
-command! -nargs=* Glp                     !cd %:p:h; git log -p --numstat --ignore-all-space <args> "%:p:t"
+command! -nargs=* Glp                     !cd %:p:h; git log -p --numstat --ignore-all-space             <args> "%:p:t"
+command! -nargs=* Glpfulldiff             !cd %:p:h; git log -p --numstat --ignore-all-space --full-diff <args> "%:p:t"
 
 command! -nargs=* Glh                     !cd %:p:h; git log <args> "%:p:t" | head -n30
 
@@ -58,8 +99,15 @@ command! -range=% -nargs=* Gitcat         :<line1>,<line2>Gitshowmaster
 
 "----
 
-command! -nargs=* Gitadd                  !cd %:p:h; git add "%:p:t" <args>
+command! -nargs=* Gitadd                  !cd %:p:h; git add <args> "%:p:t"
 command! -nargs=* Ga                      :Gitadd <args>
+command! -nargs=* Gap                     :Gitadd -p <args>
+command! -nargs=* Gau                     :Gitadd -u <args>
+
+" Useful for staging only part of the current file.
+" You still have to type 'p', '1', 'Enter', however, unfortunately. I wish
+" there were a way to specify all that on the command line.
+command! -nargs=* Gai                     :Gitadd -i <args>
 
 command! -nargs=* Gitunadd                !cd %:p:h; git rm --cached "%:p:t" <args>
 command! -nargs=* Gua                     :Gitunadd <args>
@@ -71,8 +119,14 @@ command! -nargs=* Gus                     :Gitreset <args>
 command! -nargs=* Gitcheckout             !cd %:p:h; git checkout "%:p:t" <args>
 command! -nargs=* Gitco                   :Gitcheckout <args>
 
-command! -nargs=* Gitremove               !cd %:p:h; git rm "%:p:t" <args>
-command! -nargs=* Gitrm                   :Gitremove <args>
+command! -nargs=* Gdisc                   !cd %:p:h; git checkout HEAD "%:p:t"
+
+" TODO: add git_rm_flags option so you can choose between '-f', '--cached', or ''
+" also an option of whether to close buffer/window or not: I like having it
+" not close it because then I have one last chance to recover it if I change
+" my mind about having removed it
+command! -nargs=* Gitremove               !cd %:p:h; git rm -f "%:p:t" <args>
+command! -nargs=* Gitrm                   :Gitremove <args> | q
 
 
 
@@ -113,6 +167,9 @@ command! -nargs=* Gitcommit               !cd %:p:h; git commit -v "%:p:t" <args
 command! -nargs=* Gitci                   :Gitcommit <args>
 command! -nargs=* Gci                     :Gitcommit <args>
 
+command! -nargs=* Gitcommitamend         !cd %:p:h; git commit -v --amend <args>
+command! -nargs=* Gcia                    :Gitcommitamend <args>
+
 
 " command! -nargs=* Gitmove               !git move --force %:p %:p:h/<args>
 " Notes:
@@ -139,8 +196,9 @@ function! GitCopy(targetFileName)
 endfunction
 command! -nargs=1 -complete=custom,CurrentFileName Gitcp  :Gitcopy <args>
 
-command! -range=% -nargs=* Gitblame       !cd %:p:h; git blame "%:p:t"      <args> | lines <line1> <line2>
-command! -range=% -nargs=* Gitblamehead   !cd %:p:h; git blame "%:p:t" HEAD <args> | lines <line1> <line2>
+" Reminder: fugitive's Gblame is cooler
+command! -range=% -nargs=* Gitblame       !cd %:p:h; git blame "%:p:t"      <args> -L <line1>,<line2>
+command! -range=% -nargs=* Gitblamehead   !cd %:p:h; git blame "%:p:t" HEAD <args> -L <line1>,<line2>
 
 
 command! -nargs=* Gitvimdiff              !cd %:p:h; git show master:"%:p:t" <args> > "%.base" ; vimdiff "%:p:t" "%.base" ; rm "%.base"
@@ -154,6 +212,10 @@ command! Gitstatusdir                     !cd %:p:h; git status .
 command! Gitdiffdir                       !cd %:p:h; git diff .
 command! -nargs=* Gitcommitdir            !cd %:p:h; git commit . <args>
 command! -nargs=* Gitcidir                :Gitcommit <args>
+
+"------------------------------------
+command! Gituselocal                     !cd %:p:h; uselocal "%:p:t"
+command! Gituseremote                     !cd %:p:h; useremote "%:p:t"
 
 
 
