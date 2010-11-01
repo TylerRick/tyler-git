@@ -1,0 +1,144 @@
+#!/usr/bin/env ruby
+#---------------------------------------------------------------------------------------------------
+require 'pathname'
+require 'facets/class/to_proc'
+require 'quality_extensions/pathname'
+require 'quality_extensions/enumerable/select_while'
+require 'colored'
+
+#---------------------------------------------------------------------------------------------------
+# Parse args
+
+require 'optparse'
+
+@options = {
+  :verbose => 0,
+  :show => 'revision',
+}
+
+def parse_args
+  ARGV.options do |opts|
+    opts.banner = <<End
+Usage: #{File.basename($0)} [options]
+
+Git rebase applies a series of commits, after rewinding HEAD to a given 'onto' commit.
+
+This command tells you which commit in that series of commits it is *currently* stopped on. (And I suppose the only reason it would have stopped is because it had a merge conflict.)
+
+Default output is revision only.
+End
+
+    opts.on("-v", "--verbose", "Be more verbose")                                                                       { @options[:verbose] = 1 }
+    opts.on("-f", "--filename", "Output only the filename for the commit_info_file")                                    { @options[:show] = 'commit_info_filename' }
+    opts.on("-s", "--summary",  "Output the summary from the 'commit_info_file'")                                       { @options[:show] = 'commit_info_file_summary' }
+    opts.on("-p", "--patch",  "Output the entire 'commit_info_file' including patch")                                   { @options[:show] = 'commit_info_file' }
+    opts.on("--vv", "--debug",  "Be more verbose")                                                                      { @options[:verbose] = 2 }
+    opts.on("-h", "--help", "Show this help message.")                                                                  { puts opts; exit }
+    opts.parse!
+  end
+end
+parse_args
+
+#---------------------------------------------------------------------------------------------------
+
+rebase_dir = Pathname.new('.git/rebase-apply')
+fail "#{rebase_dir} does not exist" unless rebase_dir.exist?
+
+#---------------------------------------------------------------------------------------------------
+# This is the "current patch"
+patch_file = rebase_dir + 'patch'
+patch = patch_file.read.chomp
+#puts patch.lines.to_a[0..10]
+
+=begin
+# Extract (from the 'patch' file) the list of files changes
+# app/views/whatever/file.html.erb    |    5 +-
+# .../_file2.html.erb                 |   40 +-----------------
+# .../_file3.html.erb                 |   45 ++++++++++----------
+files_changed_from_patch = ''
+state = :initial
+patch.lines.each do |line|
+  #puts state
+  if state == :initial and line =~ /^---$/
+    state = :saving
+  end
+  if state == :saving and line =~ /^diff --git/
+    break
+  end
+  if state == :saving
+    files_changed_from_patch << line
+  end
+end
+puts files_changed_from_patch
+puts ('-'*100).green
+=end
+
+#---------------------------------------------------------------------------------------------------
+class CommitInfo
+  def initialize(contents)
+    @contents = contents
+  end
+
+  def top
+    #p @contents.grep(/[.\r\n]*^---/m).to_a
+    #a = @contents.scan(/.*^---/m).to_a
+    #a.size
+    @contents.lines.select_until {|line| line =~ /^---/ }.join
+  end
+
+  def patch
+    @contents
+  end
+
+  def to_s
+    @contents
+  end
+  def match(other)
+    to_s.match(other)
+  end
+end
+
+#---------------------------------------------------------------------------------------------------
+# Now try to find the 00nn file that contains the patch so we can get the rest of the metadata for that commit
+commit_info_files = Dir["#{rebase_dir}/[0-9][0-9][0-9][0-9]"]
+#p commit_info_files
+commit_info_file = commit_info_files.map(&Pathname).detect do |file|
+  puts file if @options[:verbose] >= 2
+  contents = Pathname.new(file).read
+  #puts contents.lines.to_a[0..10]
+  #found = contents.include?(files_changed_from_patch)
+  found = contents.include?(patch)
+  puts "found=#{found.inspect}" if @options[:verbose] >= 2
+  found
+end
+puts "commit_info_file: #{commit_info_file}\n\n" if @options[:verbose] >= 1
+commit_info = CommitInfo.new(commit_info_file.read)
+
+#---------------------------------------------------------------------------------------------------
+if @options[:show] == 'commit_info_filename'
+  puts "#{commit_info_file}"
+
+elsif @options[:show] == 'commit_info_file'
+  puts commit_info
+  exit 0
+
+elsif @options[:show] == 'commit_info_file_summary'
+  puts commit_info.top
+  exit 0
+
+else
+  # Default behavior: extract and print revision
+  regexp = /^From (\w+)/
+  #if line = commit_info_file.read.grep(regexp).first
+  if match = commit_info.match(regexp)
+    rev = match[1]
+    puts rev
+  else
+    puts "Error: Pattern not found"
+    exit 1
+  end
+end
+
+
+#---------------------------------------------------------------------------------------------------
+
