@@ -1,0 +1,160 @@
+#!/usr/bin/env ruby
+#---------------------------------------------------------------------------------------------------
+
+# Prerequisites (only if using --tool option):
+# Add to ~/.gitconfig:
+#[difftool "diff"]
+#  cmd=/usr/bin/diff --side-by-side $LOCAL $REMOTE
+#[difftool "colordiff"]
+#  cmd=/usr/bin/colordiff --side-by-side $LOCAL $REMOTE
+
+#---------------------------------------------------------------------------------------------------
+# TODO:
+# let them specify -tool='s and --cmd='s in any order and combination
+# add them to @options[:commands] *as we're parsing args*, so that it preserves the order 
+# (add the commands each as a template, which has variables interpolated in later to form specific_commands)
+
+# get rid of this hack, which is simply so we don't try to pipe vimdiff to sed:
+#&& command =~ /^diff|^colordiff/
+
+#---------------------------------------------------------------------------------------------------
+
+# http://github.com/cldwalker/hirb/blob/master/lib/hirb/util.rb#L61-71
+# Returns [width, height] of terminal when detected, nil if not detected.
+# Think of this as a simpler version of Highline's Highline::SystemExtensions.terminal_size()
+def detect_terminal_size
+  if (ENV['COLUMNS'] =~ /^\d+$/) && (ENV['LINES'] =~ /^\d+$/)
+    [ENV['COLUMNS'].to_i, ENV['LINES'].to_i]
+  elsif (RUBY_PLATFORM =~ /java/ || (!STDIN.tty? && ENV['TERM'])) && command_exists?('tput')
+    [`tput cols`.to_i, `tput lines`.to_i]
+  elsif STDIN.tty? && command_exists?('stty')
+    `stty size`.scan(/\d+/).map { |s| s.to_i }.reverse
+  else
+    nil
+  end
+rescue
+  nil
+end
+# p `stty size` #=> "78 271\n" when run normally
+# but stty: standard input: Invalid argument when piping to it
+# I guess we need to pass in the width to this script. :(
+
+#---------------------------------------------------------------------------------------------------
+# Parse args
+
+require 'optparse'
+
+@options = {
+  :commands                   => [],
+  :full_commands              => [],
+  :default_tool               => "colordiff",
+  :include_diff_output_inline => false,
+  :divider_lines              => true,
+  :indent_output              => true, # this is so that when used with git merge-better, it doesn't incorrectly highlight this output (that file is set to filetype=diff, so whatever character is in column 1 has special meaning to the syntax colorizer
+}
+
+def parse_args
+  ARGV.options do |opts|
+    opts.banner = <<End
+Usage: git log -p | #{File.basename($0)} [options]
+
+By default, it will just show the command (so you can copy and paste it to execute it) without actually running command. But if you want it to include the side-by-side diff (the output from running the command) inline, just pass -i.
+End
+
+    opts.on("-i", "--inline", "Run command and include the side-by-side diff inline")                                   { @options[:include_diff_output_inline] = true }
+    # Doesn't work unless you use extcmd and then you may as well just include it in that command directly
+    #opts.on("-t", "--width=", "Terminal width") {|v| @options[:width] = v }
+    opts.on("-t", "--tool=", "Tool to use for inline diff (diff, colordiff, etc.).") {|v| @options[:tool] = v }
+    opts.on("-c", "--cmd=", "Passed to difftool as --extcmd. Example: --cmd=\"colordiff --side-by-side --expand-tabs --width=$COLUMNS\". You may specify multiple commands to run.") {|v| @options[:commands] << v }
+    opts.on("--command=", "Not passed to difftool as --extcmd. Example: --command=\"git log -p {{rev}} -- {{file}}") {|v| @options[:full_commands] << v }
+    #opts.on("-T", "--inline_time_limit=", "Stop including diff inline if entire command has been running for longer than _ seconds.") {|v| @options[:inline_time_limit] = v }
+    #opts.on("-n", "--inline_times_limit=", "Stop including diff inline if entire command has been run more at least this many times.") {|v| @options[:inline_times_limit] = v }
+    opts.on("-v", "--verbose", "Be more verbose")                                                                       { @options[:verbose] = true }
+    opts.on("-h", "--help", "Show this help message.")                                                                  { puts opts; exit }
+    opts.parse!
+  end
+end
+parse_args
+
+if @options[:width]
+  @options[:tool] += " --width=#{@options[:width]}"
+  #puts "@options[:tool]=#{@options[:tool].inspect}"
+end
+
+if @options[:commands].empty?
+  # didn't specify cmd, so set tool to default if non specified
+  @options[:tool] ||= @options[:default_tool]
+end
+
+#---------------------------------------------------------------------------------------------------
+
+color_optional = '(\e\[\d+m)?'
+
+start_time = Time.now
+
+state = :initial
+rev   = nil
+i     = 0
+STDIN.lines.map do |line|
+  if line =~ %r<^#{color_optional}commit ([^\e\n\r]*)>
+    puts '='*100 if @options[:divider_lines]
+    state = :commit_start
+    rev = $2
+    #puts "rev=#{rev.inspect}"
+  end
+
+ #if state == :commit_start and line =~ /^---$/
+ #  state = :list_of_files
+ #end
+ #if state == :list_of_files
+ #  files_changed_from_patch << line
+ #end
+
+  # TODO: doesn't handle paths with spaces
+  if line =~ %r<^#{color_optional}diff --git (a/)?([^ ]*)>
+    state = :patches
+    file = $3
+    #puts "git difftool #{rev}^ #{rev} '#{file}'"
+
+    specific_commands = []
+    if @options[:tool]
+      # didn't specify cmd, so use tool
+      command = "git difftool --no-prompt -t #{@options[:tool]} #{rev}^ #{rev} -- '#{file}'"
+      command += "| sed 's/^/  /g'" if @options[:indent_output] && @options[:tool] =~ /^diff|^colordiff/
+      specific_commands << command
+    end
+    specific_commands.concat(@options[:commands].map do |command|
+      command = "git difftool --no-prompt --extcmd '#{command}' #{rev}^ #{rev} -- '#{file}'"
+      command += "| sed 's/^/  /g'" if @options[:indent_output] && command =~ /^diff|^colordiff/
+      command
+    end)
+    specific_commands.concat(@options[:full_commands].map do |command|
+      command.gsub!('{{rev}}', rev)
+      command.gsub!('{{file}}', file)
+      command
+    end)
+
+    specific_commands.each do |command|
+      if @options[:include_diff_output_inline]
+
+        puts '-'*100 if @options[:divider_lines]
+        puts command #if @options[:verbose]
+        system command
+
+       #elapsed_time = Time.now - start_time
+       #i += 1
+       #if i > 0 or elapsed_time > 1 or true
+       #  #@options[:include_diff_output_inline] = false
+       #end
+      else
+        puts command
+      end
+    end
+    puts '-'*100 if @options[:divider_lines]
+
+  end
+
+  puts line
+end
+
+#---------------------------------------------------------------------------------------------------
