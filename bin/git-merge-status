@@ -73,5 +73,8 @@ else
   print_rev "Theirs (MERGE_HEAD): ", upstream
 end
 
+puts "Unmerged paths:"
+system 'git diff-index --name-only --cached --diff-filter=U HEAD'
+
 
 #---------------------------------------------------------------------------------------------------
