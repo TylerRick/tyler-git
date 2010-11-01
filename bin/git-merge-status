@@ -1,0 +1,77 @@
+#!/usr/bin/env ruby
+#---------------------------------------------------------------------------------------------------
+# TODO:
+# show number of conflicts
+# list all conflicts (and their type/severity?)
+#---------------------------------------------------------------------------------------------------
+require 'pathname'
+require 'quality_extensions/pathname'
+require 'colored'
+
+#---------------------------------------------------------------------------------------------------
+def print_rev(label, rev)
+  rev_pretty = `git name-rev --name-only --always --no-undefined #{rev}`.chomp
+  puts "#{label.bold}#{rev.inspect.green} #{"(#{rev_pretty.green})" if rev != rev_pretty}"
+end
+
+def print_head
+  puts
+  head_rev = `git rev-parse HEAD`.chomp
+  print_rev "HEAD is currently: ", head_rev
+end
+
+#---------------------------------------------------------------------------------------------------
+
+rebase_dir = Pathname.new('.git/rebase-apply')
+
+if rebase_dir.exist?
+  merge_type = :rebase
+  if (file = Pathname.new('.git/rebase-apply/onto')).exist?
+    upstream = file.read.chomp
+    upstream = `git name-rev --name-only --always --no-undefined #{upstream}`.chomp
+    merge_type = :rebase
+  end
+  if (file = Pathname.new('.git/rebase-apply/orig-head')).exist?
+    mine = file.read.chomp
+    mine = `git name-rev --name-only --always --no-undefined #{mine}`.chomp
+  end
+  puts "You are rebasing #{mine.inspect.green}".bold + " onto #{upstream.inspect.green}".bold
+  print_head
+
+  puts
+  
+  filename = `git rebase-show-current-rev --filename`.chomp
+  puts "Currently applying this commit".bold + " (#{filename.magenta}):"
+  system "git rebase-show-current-rev --summary"
+
+
+elsif (file = Pathname.new('.git/MERGE_MSG')).exist?
+  # TODO: combine below with the if condition so else works?
+  merge_msg = file.read
+  if system('git rev-parse --verify -q MERGE_HEAD') == false
+    merge_type = :cherry_pick
+    puts "This is a cherry pick"
+  end
+  print_head
+
+
+
+else
+  merge_type = :merge
+  puts "This is a normal merge".bold
+  print_head
+
+  upstream   ||= 'MERGE_HEAD'
+  mine       ||= 'HEAD'
+
+  #merge_base = `git merge-base MERGE_HEAD HEAD`.chomp
+  merge_base = `git merge-base #{upstream} #{mine}`.chomp
+  print_rev "merge base: ", merge_base
+
+  puts "Parent commits are:"
+  print_rev "Mine   (HEAD)        ", mine
+  print_rev "Theirs (MERGE_HEAD): ", upstream
+end
+
+
+#---------------------------------------------------------------------------------------------------
