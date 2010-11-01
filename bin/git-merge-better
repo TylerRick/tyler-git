@@ -7,6 +7,8 @@
 # /usr/local/libexec/git-core/git-rebase
 
 #---------------------------------------------------------------------------------------------------
+
+require File.dirname(__FILE__) + '/../lib/handle_backup_and_add_for_user_manually_resolving_conflict'
 require 'pathname'
 require 'facets/file/rewrite'
 require 'facets/blank'
@@ -446,17 +448,20 @@ puts command if @options[:verbose]
 #---------------------------------------------------------------------------------------------------
 
 unless @options[:no_act]
-  # Fork and exec vim so that it has full access to the terminal
-  exec command if fork.nil?
-  Process.wait
+  backup_path = @file.add_suffix('.backup_for_git-merge-better')
+  handle_backup_and_add_for_user_manually_resolving_conflict(@file, backup_path) do
 
-  #temp_files = `git rmversions --list #{@file}`.map(&Pathname)
-  changed_files = files.select {|k,file| file.mtime > file_orig_mtimes[k] }
+    # Fork and exec vim so that it has full access to the terminal
+    exec command if fork.nil?
+    Process.wait
+
+  end
+
+  changed_files = files.reject {|k,file| not file.mtime > file_orig_mtimes[k] }
   if changed_files.any?
     puts "Warning: These files have been modified since you started editing:".yellow
-    puts changed_files
+    puts changed_files.map(&:last).join("\n").yellow
   end
-  file_mtimes = files.select {|_| _.mtime > mtime}
   exec "git rmversions #{@file}"
 end
 

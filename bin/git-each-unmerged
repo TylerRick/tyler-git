@@ -7,6 +7,8 @@
 
 #-------------------------------------------------------------------------------
 
+require File.dirname(__FILE__) + '/../lib/handle_backup_and_add_for_user_manually_resolving_conflict'
+
 require 'rubygems' 
 $:.unshift "/home/tyler/dev/git/ruby-git/lib"
 require 'git'      # requires my changes to ruby-git, (git.status.untracked)
@@ -35,12 +37,12 @@ begin
   show_full = false
 
   @git.status.unmerged.each do |filename|
-    begin
-      path = relative_to_wd(filename)
-      path = Pathname.new(path)
-      backup_path = path.add_suffix('.git-each-unmerged-backup')
-      path.cp backup_path
 
+    path = relative_to_wd(filename)
+    path = Pathname.new(path)
+    backup_path = path.add_suffix('.backup_for_git-each-unmerged')
+
+    handle_backup_and_add_for_user_manually_resolving_conflict(path, backup_path) do
       command = "#{@editor} #{path}"
       print path.to_s.green + ' [Enter] > '.cyan
       response = STDIN.gets
@@ -49,32 +51,8 @@ begin
       if response = "\n"
         system command
       end
-
-      add_file = true
-
-      system "git-file-has-conflict-markers #{path}"
-      if add_file && $?.success?
-        STDERR.puts "Warning: File still contains conflict markers (<<<<<<<, etc.). You will probably want to fix that before marking it as resolved."
-        add_file = false
-      end
-
-      `test #{path} -nt #{backup_path}`
-      if add_file && !$?.success?
-        add_file = false
-        puts "#{path} seems unchanged.".red
-        print "Was the merge successful? [y/n] ".cyan
-        response = STDIN.gets
-        if response[0..0].downcase == 'y'
-          add_file = true
-        end
-      end
-      if add_file
-        system "git add #{path}"
-      end
-
-    ensure
-      backup_path.unlink rescue (puts "Warning: tried to remove #{backup_path} but could not (perhaps you already removed it?)")
     end
+
   end
 
 rescue Interrupt
