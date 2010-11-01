@@ -1,0 +1,120 @@
+#!/usr/bin/env ruby
+
+#---------------------------------------------------------------------------------------------------
+require 'pathname'
+require 'facets/blank'
+require 'facets/string/cleanlines'
+require 'facets/string/start_with'
+require 'quality_extensions/pathname'
+require 'quality_extensions/enumerable/max_by_value'
+require 'colored'
+
+$:.unshift "/home/tyler/dev/git/ruby-git/lib"
+require 'git'      # requires my changes to ruby-git, (git.status.untracked)
+
+#---------------------------------------------------------------------------------------------------
+# Parse args
+
+require 'optparse'
+
+@options = {
+}
+
+def parse_args
+  ARGV.options do |opts|
+    opts.banner = <<End
+Usage: #{File.basename($0)} file_that_had_conflict  # removes file_that_had_conflict.*
+   or: #{File.basename($0)} -r                      # remove all untracked files that have the same name as a tracked file + some extension
+
+After a merge conflict, you are sometimes left with a bunch of extra versions of file_that_had_conflict. This helps you to quickly get rid of them.
+
+End
+    opts.on("-r", "--recursive", "Look for all files")                                                                  { @options[:recursive] = true }
+    opts.on("-l", "--list", "Instead of prompting you and then removing the files, simply list the files instead.")     { @options[:list_files_only] = true }
+    opts.on("-h", "--help", "Show this help message.")                                                                  { puts opts; exit }
+    opts.parse!
+  end
+end
+
+if ARGV.size == 0
+  ARGV.unshift '--help'
+  parse_args
+else
+  parse_args
+end
+
+#---------------------------------------------------------------------------------------------------
+
+if @options[:recursive]
+  @repo_root = `git base-dir`.chomp
+  @cdup = `git rev-parse --show-cdup`.chomp
+  def relative_to_wd(path)
+    @cdup.blank? ? path : File.join(@cdup, path)
+  end
+  @git = Git.open(@repo_root)
+
+  begin
+    #p @git.ls_files
+    @all_files = `git ls-files`.cleanlines.to_a
+    #p @all_files.size
+    #p @all_files[0..5]
+    @tracked_files = @all_files - @git.status.untracked.to_a
+    #p @tracked_files.size
+    #p @git.status.untracked.to_a
+
+    files = []
+    @git.status.untracked.each do |untracked|
+      if tracked = @tracked_files.detect {|tracked| untracked.starts_with?(tracked)}
+        #puts untracked
+        files << [untracked, tracked]
+
+        #path = relative_to_wd(file)
+        #pathname = Pathname.new(path)
+      end
+    end
+  end
+
+
+else
+  original = Pathname.new(ARGV[0])
+
+  files = Dir["#{original}.*"].to_a
+  files = files.zip([original]*files.size)
+end
+
+if @options[:list_files_only]
+  puts files.map(&:first) #untracked
+
+else # !@options[:list_files_only]
+
+  if files.any?
+    puts 'Delete all of these files?'
+    max = files.max_by_value {|a| a.first.to_s.length}
+    puts "#{'Removing'.underline.bold.red}#{''.ljust(max - 'Removing'.length)} (#{'Keeping'.green.underline})"
+    files.each do |untracked, tracked|
+      untracked, tracked = untracked.to_s, tracked.to_s
+
+      # TODO: find a more general/reusable way to do this (find/highlight string common/diff parts)
+      if untracked.start_with?(tracked)
+        common = tracked
+        end_diff = untracked[tracked.length..-1]
+      else
+        end_diff = tracked
+      end
+
+      puts "#{untracked.to_s.ljust(max).gsub(common, common.red).gsub(end_diff, end_diff.bold.red)} (#{tracked.to_s.green})"
+    end
+    print "Continue? (y/n) "
+    if STDIN.gets[0..0].downcase == 'y'
+      files.each do |untracked, tracked|
+        Pathname.new(untracked).unlink
+      end
+    end
+  else
+    puts "No matching files found"
+  end
+
+end
+
+#-------------------------------------------------------------------------------
+
