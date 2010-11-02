@@ -128,7 +128,7 @@ STDIN.lines.map do |line|
       command += "| sed 's/^/  /g'" if @options[:indent_output] && command =~ /^diff|^colordiff/
       command
     end)
-    specific_commands.concat(@options[:full_commands].map do |command|
+    specific_commands.concat(@options[:full_commands].map(&:dup).map do |command|
       command.gsub!('{{rev}}', rev)
       command.gsub!('{{file}}', file)
       command
