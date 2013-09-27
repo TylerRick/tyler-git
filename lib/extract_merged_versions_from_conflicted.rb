@@ -23,17 +23,30 @@ class SourceFileWithMergeConflicts
     output = ''
     state = :normal
 
+    # TODO: Use different markers depending on output of git config merge.conflictstyle
+    # Never mind, might not be necessary. Just had to add the case for :begin_original so it could
+    # handle diff3 style. Should also handle the other style that omits the middle section.
+
+    require 'byebug'
     @conflicted.lines.each do |line|
-      if line =~ /^<<<<<<</
+      if line =~ /^<<<<<<< \S+/
         state = :begin_top
-      elsif line =~ /^=======/
+      elsif line =~ /^\|\|\|\|\|\|\| \S+/
+        state = :begin_original
+      # Note: Can't just match lines *starting* with this string or it may mistakenly match heading
+      # markers in a markdown file, for example.  Note that it is still *possible* that a file may
+      # have a line that looks exactly the same as the conflict marker that git adds.  I don't
+      # suppose there's anything we can do about that though.
+      elsif line =~ /^=======$/ # Unlike the other markers, the ======= marker apparently *never* has a space or extra text after it.
         state = :begin_bottom
-      elsif line =~ /^>>>>>>>/
+      elsif line =~ /^>>>>>>> \S+/
         state = :end_bottom
       else
         case state
         when :begin_top
           state = :in_top
+        when :begin_original
+          state = :in_original
         when :begin_bottom
           state = :in_bottom
         when :end_bottom
