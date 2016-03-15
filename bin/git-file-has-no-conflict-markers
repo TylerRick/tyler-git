@@ -1,0 +1,12 @@
+#!/bin/bash
+#!/usr/bin/env ruby
+
+egrep --silent '^<<<<<<<|^>>>>>>>|^=======' "$@"
+retval=$?
+if [ $retval -gt 0 ]; then
+  # 1 means not found 
+  exit 0
+else
+  # 0 means found 
+  exit 1
+fi
