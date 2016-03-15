@@ -80,6 +80,7 @@ command! -nargs=* Gs                      :Gitstatus <args>
 command! -nargs=* Gitdiff                 :execute "!cd " . fnameescape(expand("%:p:h")) . "; git diff " . <q-args> . " -- "  . fnameescape(expand("%:p:t"))
 command! -nargs=* Gitdi                   :Gitdiff <args>
 command! -nargs=* Gd                      :Gitdiff <args>
+command! -nargs=* Gdw                     :Gitdiff --color-words <args>
 
 command! -nargs=* Gitdiffcached           !cd %:p:h; git add %; git diff --cached "%:p:t" <args>
 command! -nargs=* Gds                     :Gitdiffcached <args>
@@ -89,13 +90,15 @@ command! -nargs=* Gitlog                  !cd %:p:h; git log <args> "%:p:t"
 command! -nargs=* Gl                      :Gitlog --color <args>
 command! -nargs=* Gll                     :Gitlog --color --numstat --graph <args>
 
-command! -nargs=* Glp                     !cd %:p:h; git log -p --numstat --ignore-all-space             <args> "%:p:t"
+"command! -nargs=* Glp                     !cd %:p:h; git log -p --numstat --ignore-all-space --follow             <args> "%:p:t"
+command! -nargs=* Glp                     !cd "$(dirname "$(cd %:p:h; git rev-parse --git-dir)")"; git log -p --numstat --ignore-all-space --follow             <args> "%"
+command! -nargs=* Glpword                 !cd %:p:h; git log -p --numstat --ignore-all-space --follow --word-diff=color <args> "%:p:t"
 command! -nargs=* Glpfulldiff             !cd %:p:h; git log -p --numstat --ignore-all-space --full-diff <args> "%:p:t"
 
 command! -nargs=* Glh                     !cd %:p:h; git log <args> "%:p:t" | head -n30
 
-command! -range=% -nargs=* Gitshowmaster  !cd %:p:h; git cat "%:p:t" <args> | lines <line1> <line2>
-command! -range=% -nargs=* Gitcat         :<line1>,<line2>Gitshowmaster
+command! -range=% -nargs=* Gitshowhead  !cd %:p:h; git cat "%" <args> | lines <line1> <line2>
+command! -range=% -nargs=* Gitcat         :<line1>,<line2>Gitshowhead
 
 "----
 
@@ -125,13 +128,25 @@ command! -nargs=* Gdisc                   !cd %:p:h; git checkout HEAD "%:p:t"
 " also an option of whether to close buffer/window or not: I like having it
 " not close it because then I have one last chance to recover it if I change
 " my mind about having removed it
-command! -nargs=* Gitremove               !cd %:p:h; git rm -f "%:p:t" <args>
-command! -nargs=* Gitrm                   :Gitremove <args> | q
+"command! -nargs=* Gitremove               !cd %:p:h; git rm -f "%:p:t" <args>
+command! -nargs=* Gitremove               call GitRemove(<q-args>)
+command! -nargs=* Gitrm                   call GitRemove(<q-args>)
+function! GitRemove(args)
+  "!cd %:p:h; git rm -f "%:p:t" <args>
+  execute "!cd " . expand("%:p:h") . "; git rm -f " . expand("%:p:t") . " " . a:args
+  q
+endfunction
 
 
 
 
+"---------------------------------------------------------------
 
+function! GitBaseDir()
+  "let output = system("$(dirname "$(cd %:p:h; git rev-parse --git-dir)")")
+  let output = system("git-base-dir")
+  return output
+endfunction
 
 "---------------------------------------------------------------
 " unfinished/untested:
@@ -167,7 +182,11 @@ command! -nargs=* Gitcommit               !cd %:p:h; git commit -v "%:p:t" <args
 command! -nargs=* Gitci                   :Gitcommit <args>
 command! -nargs=* Gci                     :Gitcommit <args>
 
-command! -nargs=* Gitcommitamend         !cd %:p:h; git commit -v --amend <args>
+" Note: We must include the filename when doing git commit --amend or else it will include *all*
+" currently stashed changes into the amended commit. We want it to only add/include the file you are
+" editing into the amended commit, and leave all other changes that may be staged *still* staged (to
+" be committed in another future commit).
+command! -nargs=* Gitcommitamend         !cd %:p:h; git commit -v --amend "%:p:t" <args>
 command! -nargs=* Gcia                    :Gitcommitamend <args>
 
 
@@ -175,35 +194,58 @@ command! -nargs=* Gcia                    :Gitcommitamend <args>
 " Notes:
 "   Be sure to escape things that need to be escaped:
 "     Gitmv example_of_trees_\(with_leaves\)
-command! -nargs=1 -complete=custom,CurrentFileName Gitmove call GitMove(<q-args>)
-function! GitMove(targetFileName)
-  "let newPath =  expand("%:p:h") . "/" . a:targetFileName
-  let newPath =  a:targetFileName
-  echomsg "!cd " . expand("%:p:h") . "; git mv " . expand("%:p:t") . " " . newPath
-  execute "!cd " . expand("%:p:h") . "; git mv " . expand("%:p:t") . " " . newPath
-  execute "bd"             | " Delete the buffer (since that file won't exist anymore)
-  " Reload the new file...
-  " In case they had split windows, use split instead of e...
-  execute "sp " . expand("%:p:h") . "/" . newPath
-endfunction
-command! -nargs=1 -complete=custom,CurrentFileName Gitmv   :Gitmove <args>
+command! -nargs=1 -complete=custom,CurrentFilePath Gitmove call GitMove(<q-args>)
+command! -nargs=1 -complete=custom,CurrentFilePath Gitmv       :Gitmove <args>
+"function! GitMove(targetFileName)
+"  "let newPath =  expand("%:p:h") . "/" . a:targetFileName
+"  let newPath =  a:targetFileName
+"  #GitBaseDir()
+"  echomsg "!cd " . expand("%:p:h") . "; git mv " . expand("%:p:t") . " " . newPath
+"  execute "!cd " . expand("%:p:h") . "; git mv " . expand("%:p:t") . " " . newPath
+"  execute "bd"             | " Delete the buffer (since that file won't exist anymore)
+"  " Reload the new file...
+"  " In case they had split windows, use split instead of e...
+"  execute "sp " . expand("%:p:h") . "/" . newPath
+"endfunction
+function! GitMove(new_path)
+  let old_path = expand("%")
+  "execute "!cd " . GitBaseDir() . "; git mv ..."
+  echomsg "!git mv " . old_path . " " . a:new_path
+  execute "!git mv " . old_path . " " . a:new_path
+  if v:shell_error > 0
+    return
+  end
 
-command! -nargs=1 -complete=custom,CurrentFileName Gitcopy call GitCopy(<q-args>)
-function! GitCopy(targetFileName)
-  let newPath =  expand("%:p:h") . "/" . a:targetFileName
-  execute "!git cp " . expand("%:p") . " " . newPath
-  execute "sp " . newPath
+  " Reload the new file...
+	execute "edit " . escape(a:new_path, ' \')
+	execute "bdelete ".old_path | " Delete the buffer (since that file won't exist anymore)
 endfunction
-command! -nargs=1 -complete=custom,CurrentFileName Gitcp  :Gitcopy <args>
+
+command! -nargs=1 -complete=custom,CurrentFilePath Gitcopy call GitCopy(<q-args>)
+command! -nargs=1 -complete=custom,CurrentFilePath Gitcp  :Gitcopy <args>
+"function! GitCopy(targetFileName)
+"  let newPath =  expand("%:p:h") . "/" . a:targetFileName
+"  execute "!git cp " . expand("%:p") . " " . newPath
+"  execute "sp " . newPath
+"endfunction
+function! GitCopy(new_path)
+  echoerr "not rewritten yet"
+  return
+endfunction
 
 " Reminder: fugitive's Gblame is cooler
 command! -range=% -nargs=* Gitblame       !cd %:p:h; git blame "%:p:t"      <args> -L <line1>,<line2>
 command! -range=% -nargs=* Gitblamehead   !cd %:p:h; git blame "%:p:t" HEAD <args> -L <line1>,<line2>
 
 
-command! -nargs=* Gitvimdiff              !cd %:p:h; git show master:"%:p:t" <args> > "%.base" ; vimdiff "%:p:t" "%.base" ; rm "%.base"
-" To do: The rm doesn't seem to ever get executed? So it leaves that temporary
-" file lying around.
+"command! -nargs=* Gitvimdiff              !cd %:p:h; git show HEAD:"%:p:t" <args> > "%.base" ; vimdiff "%:p:t" "%.base" ; rm "%.base"
+command! -nargs=* Gitvimdiff              !cd %:p:h; git show   HEAD:"%" <args> > "%:p:t.tmp" ; vimdiff "%:p:t" "%:p:t.tmp" ; rm "%:p:t.tmp"
+command! -nargs=* Gitvimdiff1             !cd %:p:h; git show HEAD~1:"%" <args> > "%:p:t.tmp" ; vimdiff "%:p:t" "%:p:t.tmp" ; rm "%:p:t.tmp"
+command! -nargs=* Gitvimdiff2             !cd %:p:h; git show HEAD~2:"%" <args> > "%:p:t.tmp" ; vimdiff "%:p:t" "%:p:t.tmp" ; rm "%:p:t.tmp"
+command! -nargs=* Gitvimdiff3             !cd %:p:h; git show HEAD~3:"%" <args> > "%:p:t.tmp" ; vimdiff "%:p:t" "%:p:t.tmp" ; rm "%:p:t.tmp"
+command! -nargs=* Gitvimdiff4             !cd %:p:h; git show HEAD~4:"%" <args> > "%:p:t.tmp" ; vimdiff "%:p:t" "%:p:t.tmp" ; rm "%:p:t.tmp"
+command! -nargs=* Gitvimdiff5             !cd %:p:h; git show HEAD~5:"%" <args> > "%:p:t.tmp" ; vimdiff "%:p:t" "%:p:t.tmp" ; rm "%:p:t.tmp"
+command! -nargs=* Gitvimdiffrev           !cd %:p:h; git show <args>:"%"        > "%:p:t.tmp" ; vimdiff "%:p:t" "%:p:t.tmp" ; rm "%:p:t.tmp"
 
 " Hint:
 "   % gets the full path of %. 
