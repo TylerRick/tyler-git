@@ -45,7 +45,8 @@ end
 # Apply patches
 success = true
 patches.each do |patch|
-  run "cat #{patch} | git am #{ARGV.join(' ')}"
+  #run "cat #{patch} | git am #{ARGV.join(' ')}"
+  run "git am <#{patch} #{ARGV.join(' ')}"
   success &= $?.success?
   puts "success=#{success}"
 end
