@@ -5,19 +5,22 @@
 
 def usage
   puts <<End
-Usage: git cherry-pick-other-repo /path/to/other_repo rev [git_am_args]
+Usage: git cherry-pick-other-repo /path/to/other_repo rev [new_path_prefix] [git_am_args]
+
+The new_path_prefix option allows you to specify which subtree of the target repo to apply the patch to. This prefix will be added to the beginning of each path in the patch file.
 
 Any extra args (for example, -p 4, if you are extracting commits to your vendor/plugins/plugin_name that should have been to committed to a fork of the actual plugin repo instead) are passed on to git am.
 
 Example:
-  current_repo > git cherry-pick-other-repo /path/to/other_repo f37g1
+  current_repo > git cherry-pick-other-repo /path/to/other_repo template/ f37g1
 End
   exit 1
 end
 usage if ARGV.size < 2
 
-other_repo_dir = ARGV.shift
-rev =            ARGV.shift
+other_repo_dir  = ARGV.shift
+rev             = ARGV.shift
+new_path_prefix = ARGV.shift.to_s
 
 #---------------------------------------------------------------------------------------------------
 
@@ -38,6 +41,7 @@ Dir.chdir other_repo_dir do
   patches = `#{command}`.chomp.split("\n")
   p patches
   patches.each do |patch|
+    run "sed -i 's!\\(a\\|b\\)/!\\1/#{new_path_prefix}/!' #{patch}" if !new_path_prefix.empty?
     run "mv #{patch} #{first_repo_dir}/"
   end
 end
