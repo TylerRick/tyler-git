@@ -1,4 +1,4 @@
-#!/usr/bin/ruby
+#!/usr/bin/env ruby
 # To do:
 # * Let you specify multiple a list of commits to cherry pick
 #   git cherry-pick-other-repo /path/to/other_repo rev1 rev2 ?
