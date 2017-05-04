@@ -1,6 +1,37 @@
 #!/usr/bin/env ruby
 #---------------------------------------------------------------------------------------------------
 # TODO:
+# When you don't pass in a file: It doesn't pass on the options to git each-unmerged, so options have no effect.
+#   So need to pass those options on...
+#   Or, instead of calling git each-unmerged on command line, probably better to refactor that out to a lib that is used by each-unmerged and here?
+#
+# It would be nice if it kept all log files in some history dir somewhere in case you want to revisit later how you resolved something to figure out how you incorrectly resolved it.
+# Save the full list of files with conflicts?
+# Keep the file_with_conflict in that history dir too.
+# Otherwise the only way to get it back again is to create an entire copy of your working tree/repo, reset --hard {the_commit_before_merge}, and do the merge again.
+# (But it might be worth making such a backup (automatically but not by default?) anyway, since that would probably be ideal for recovering from a messed up merge.)
+# So add an option to rmversions that actually moves to some archive/history dir?
+# This would also allow us to view all the context in the same way it was when merge-better was first run. (use the --continue option and probably need to add an option for pulling in the temp files from somewhere else)
+# The other problem with that is that it currently depends on MERGE_HEAD being set. Should we save that metadata about the merge in the history file too and then pass it in as options (perhaps with --merge-head 245215) or as a --merge-metadata-file= option? (kind of like rebase -i saves some metadata in .git/rebase-merge/author-script)
+#
+# Handle the other cases handled by built-in git mergetool:
+#Deleted merge conflict for 'app/views/a/a.html.erb':
+#  {local}: deleted
+#  {remote}: modified
+#Use (m)odified or (d)eleted file, or (a)bort? 
+#
+# ... or just configure mergetool to use this tool.
+#
+# Use 'ours'/'theirs' names (as used in git checkout --ours) instead of 'mine'/'upstream'
+#
+# In the case of conflict from stash, git labels it thus:
+#<<<<<<< Updated upstream
+#upstream
+#=======
+#stashed
+#>>>>>>> Stashed changes
+# but the way we're doing things, stashed ends up in the 'upstream(.from_conflicted,etc.)' file, while HEAD is mine
+# but I can see why they'd consider HEAD to be upstream, because it will have updated to future versions while the stash stays behind
 
 #---------------------------------------------------------------------------------------------------
 # Reference:
@@ -9,44 +40,23 @@
 #---------------------------------------------------------------------------------------------------
 
 require File.dirname(__FILE__) + '/../lib/handle_backup_and_add_for_user_manually_resolving_conflict'
+require File.dirname(__FILE__) + '/../lib/menus'
 require 'pathname'
+gem 'facets'
 require 'facets/file/rewrite'
-require 'facets/blank'
+require 'facets/hash/slice'
+require 'facets/hash/except'
+require 'facets/kernel/blank'
 #require 'facets/class/to_proc'
 require 'facets/string/newlines'
+gem 'quality_extensions'
 require 'quality_extensions/pathname'
+gem 'colored'
 require 'colored'
 
 #---------------------------------------------------------------------------------------------------
 
-# http://github.com/cldwalker/hirb/blob/master/lib/hirb/util.rb#L61-71
-# Returns [width, height] of terminal when detected, nil if not detected.
-# Think of this as a simpler version of Highline's Highline::SystemExtensions.terminal_size()
-def detect_terminal_size
-  if (ENV['COLUMNS'] =~ /^\d+$/) && (ENV['LINES'] =~ /^\d+$/)
-    [ENV['COLUMNS'].to_i, ENV['LINES'].to_i]
-  elsif (RUBY_PLATFORM =~ /java/ || (!STDIN.tty? && ENV['TERM'])) && command_exists?('tput')
-    [`tput cols`.to_i, `tput lines`.to_i]
-  elsif STDIN.tty? && command_exists?('stty')
-    `stty size`.scan(/\d+/).map { |s| s.to_i }.reverse
-  else
-    nil
-  end
-rescue
-  nil
-end
-#puts "detect_terminal_size=#{detect_terminal_size.inspect}"
-
-begin
-  gem 'ruby-terminfo'
-  require 'terminfo' #http://www.a-k-r.org/ruby-terminfo/
-  $screen_width=TermInfo.screen_width
-rescue LoadError
-  STDERR.puts "Warning: Could not load terminfo"
-  $screen_width=130
-end
-#puts "$screen_width=#{$screen_width.inspect}"
-
+require File.dirname(__FILE__) + '/../lib/terminal_size'
 width_for_side_by_side_diffs = $screen_width.to_i #* 2 / 3
 
 #---------------------------------------------------------------------------------------------------
@@ -91,8 +101,14 @@ Modifying these temporary files doesn't affect your main [conflicted] file, so y
 
 If you get tired of looking at the merge from one "angle", you can always switch to a different angle.
 
+I like to start with the upstream.from_conflicted vs. mine.from_conflicted view because
+* it's usually the simplest to understand (it's less scary than file_with_conflict)
+* and it usually shows you just how *similar* the two versions are, which is encouraging to see.
+From here, I usually go next to the diffs to see the context (which commits introduced the changes on either side)
+
 Other views included:
-* A log of which changes were made to the upstream branch and to your branch
+* A log showing which commits introduced the changes on either side (which changes were made to the upstream branch and to your branch)
+  * This helps you understand the context of the changes (by reading the patches) and the intention of the author who introduced those commits (by reading the commit messages, you can hopefully understand why the commit was made and whether/how it should be applied to this now [base version])
   * Example use:
     * After merging from_conflicted.mine into file_with_conflict, you may want to scan through upstream.log.diff and mine.log.diff to make sure none of the important changes represented in those logs got accidentally dropped while doing your manual merge.  
     * Or you could start with mine.actual and manually apply all the changes represented in upstream.log.diff.
@@ -146,11 +162,12 @@ End
   end
 end
 parse_args
+#puts "@options=#{@options.inspect}"
 
 if ARGV.size == 0
   #ARGV.unshift '--help'
   #parse_args
-  exec "VISUAL='git merge-better' git each-unmerged"
+  exec "VISUAL='git merge-better' git each-unmerged --no-mark-as-resolved"
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -162,44 +179,44 @@ ext = @file.extname
 
 #---------------------------------------------------------------------------------------------------
 
+merge_type = `git-merge-status --type`
+if !$?.success? && !@options[:continue]
+  #STDERR.puts "No merge in progress and not called with --continue. Aborting."
+  #exit 1
+end
+merge_type = merge_type.chomp.to_sym
+#p merge_type
+
 system 'git-merge-status'
 
-# TODO: remove dup with git-merge-status
-
-if (file = Pathname.new('.git/rebase-apply/onto')).exist?
-  upstream = file.read.chomp
-  upstream = `git name-rev --name-only --always --no-undefined #{upstream}`.chomp
-  merge_type = :rebase
-
-  command = "git rebase-show-current-rev"
-  rebase_current_rev = `#{command}`.chomp
-  $?.success? or fail "Command #{command} failed"
+if merge_type == :rebase
+  upstream = onto = `git rebase-info --onto`.chomp
+  mine =     head = `git rebase-info --head`.chomp
+  rebase_current_rev = `git rebase-info --rev`.chomp; $?.success? or fail "Command failed"
   #puts "rebase_current_rev=#{rebase_current_rev.inspect}"
 
-  #system "git rebase-show-current-rev -p > "
-  rebase_current_commit_info_filename = `git rebase-show-current-rev -f`.chomp
+  #system "git rebase-info -p > "
+  #rebase_current_commit_info_filename = `git rebase-info -f`.chomp
 
-  file = Pathname.new('.git/rebase-apply/orig-head')
-  mine = file.read.chomp
-  mine = `git name-rev --name-only --always --no-undefined #{mine}`.chomp
+#elsif merge_type == :cherry_pick
+#  fail "cherry_pick case not handled yet"
 
-elsif (file = Pathname.new('.git/MERGE_MSG')).exist?
-  merge_msg = file.read
-  if system('git rev-parse --verify -q MERGE_HEAD') == false
-    merge_type = :cherry_pick
-    fail "cherry_pick case not handled yet"
-  end
+elsif merge_type == :merge
+  upstream   = 'MERGE_HEAD'
+  mine       = 'HEAD'
 
 else
-  merge_type = :merge
-  upstream   = 'MERGE_HEAD'
+  #fail "Unknown merge_type '#{merge_type}'"
+  upstream   = nil
   mine       = 'HEAD'
 end
 
-#merge_base = `git merge-base MERGE_HEAD HEAD`.chomp
-merge_base = `git merge-base #{upstream} #{mine}`.chomp
-merge_base = `git name-rev --name-only --always --no-undefined #{merge_base}`.chomp
-#merge_head = `git rev-parse MERGE_HEAD`.chomp
+if upstream
+  #merge_base = `git merge-base MERGE_HEAD HEAD`.chomp
+  merge_base = `git merge-base #{upstream} #{mine}`.chomp
+  merge_base = `git name-rev --name-only --always --no-undefined #{merge_base}`.chomp
+  #merge_head = `git rev-parse MERGE_HEAD`.chomp
+end
 
 if @options[:verbose]
   puts "upstream=#{upstream.inspect}"
@@ -246,11 +263,23 @@ files = {'actual' => @file}
 def okay_to_write_file?(file)
   exists = file.exist?
   return false if @options[:continue]
+  return true  if @options[:force]
 
   if exists
-    STDERR.print "Warning: #{file.to_s.bold}".yellow + " already exists; (use --force to overwrite all without prompting) overwrite? y/[n] ".yellow
+    STDERR.print "Warning: #{file.to_s.bold}".yellow + " already exists; (use --force next time to overwrite all without prompting) overwrite? ".yellow + 
+      "yes".menu_item(:magenta) + ", " +
+      "no".menu_item(:green) + ", " +
+      "all".menu_item(:red) +
+      " > "
     response = STDIN.gets
-    return response[0..0].downcase == 'y'
+    if response[0..0].downcase == 'y'
+      return true
+    elsif response[0..0].downcase == 'a'
+      @options[:force] = true
+      return true
+    else
+      return false
+    end
   end
   !exists
 end
@@ -261,6 +290,10 @@ require File.dirname(__FILE__) + '/../lib/extract_merged_versions_from_conflicte
 # TODO: how do we know?
 # differs if doing rebase master vs merge master
 # look at strings after <<<<<<<?
+#   yes, that will tell us something
+#     stash apply: "Stashed changes..."
+#     merge:
+#     rebase:
 # perhaps MERGE_HEAD is missing/different for rebase?
 
 if merge_type == :rebase
@@ -268,10 +301,11 @@ if merge_type == :rebase
 else
   mine_section = :top
 end
+  puts %(mine_section=#{(mine_section).inspect})
 
 ['mine.from_conflicted', 'upstream.from_conflicted'].each do |suffix|
   files[suffix] = new_file = @file.add_suffix(".#{suffix}#{ext}")
-  if !@options[:no_act] and @options[:force] || okay_to_write_file?(new_file)
+  if !@options[:no_act] and okay_to_write_file?(new_file)
     @file.cp new_file
     File.rewrite new_file do |conflicted_s|
       if suffix =~ /upstream/
@@ -290,10 +324,10 @@ end
 # TODO: we should output that 'the file was deleted' instead
 
 ['mine.actual', 'upstream.actual'].each do |suffix|
-  files[suffix] = new_file = @file.add_suffix(".#{suffix}#{ext}")
-  if !@options[:no_act] and @options[:force] || okay_to_write_file?(new_file)
+  new_file = @file.add_suffix(".#{suffix}#{ext}")
+  if !@options[:no_act] and okay_to_write_file?(new_file)
     extra_header = ''
-    if suffix =~ /upstream/
+    if suffix =~ /upstream/ and upstream
       # for a rebase, we're actually applying 'mine' to HEAD (upstream + all the commits we've already applied), so it would be more useful to show the file as it exists in HEAD
       if merge_type == :rebase
         _upstream = 'HEAD'
@@ -305,15 +339,19 @@ end
         _upstream = upstream
         command = "git show #{_upstream}:'#{file_name_as_of['upstream']}' >> '#{new_file}'"
       end
-    else
+    elsif suffix =~ /mine/
       #command = "git show        HEAD:'#{file_name_as_of['mine']}' >> '#{new_file}'"
       command = "git show     #{rebase_current_rev || mine}:'#{file_name_as_of['mine']}' >> '#{new_file}'"
+    else
+      next
     end
+    puts command if @options[:verbose]
     new_file.open('w') do |f|
       f.puts command
       f.puts extra_header unless extra_header.blank?
     end
     system command
+    files[suffix] = new_file
   end
 end
 
@@ -325,24 +363,35 @@ end
 # > git-cat-save -c MERGE_HEAD:app/views/events/show.html.erb
 # git show MERGE_HEAD:'app/views/events/show.html.erb' > 'app/views/events/show.html.erb.MERGE_HEAD.erb'
 
+how_many_commits_back = 20
+
 if merge_type == :rebase
   #upstream_from = "#{upstream}~#{how_many_commits_back}"
   # Reachable from the onto (upstream) branch, but *not* from our branch (mine)
   upstream_revs = "^#{mine} #{upstream}"
 
-  # Old before git rebase-show-current-rev:
+  # Old before git rebase-info:
  #mine_from     = "#{upstream}"
  ## We don't want to show commits that are in the future relative to the commit we are looking at right now with the rebase
  #mine_up_to    = mine # 'HEAD'  # since we take it one commit at a time
 
   mine_revs     = "^#{upstream} #{rebase_current_rev}"
-else
-  upstream_from = "#{merge_base}^"
-  upstream_revs = "#{upstream_from}..#{upstream}"
 
-  mine_from     = "#{merge_base}^"
-  mine_up_to    = mine
-  mine_revs     = "#{mine_from}..#{mine_up_to}"
+  # TODO: It may be surprising to the user in the case of rebase interactive that sometimes the conflict is due to a fixup commit (currently shown at the bottom of mine.log.diff) conflicting with a previous commit in the same file (mine.log.diff)
+  # should the fixup commit show up in upstream.log.diff??
+else
+  if upstream
+    upstream_from = "#{merge_base}^"
+    upstream_revs = "#{upstream_from}..#{upstream}"
+    mine_from     = "#{merge_base}^"
+  end
+
+  if mine_from
+    mine_revs     = "#{mine_from}..#{mine}"
+  else
+    reverse = false # because we might have gone too far back, and it would be confusing to show an irrelevant version first
+    mine_revs     = "#{mine}~#{how_many_commits_back}..#{mine}"
+  end
 end
 
 # TODO: can we simply use git-log-mine and git-log-theirs?
@@ -350,9 +399,9 @@ end
 [['upstream', upstream_revs],
  ['mine',     mine_revs]
 ].each do |version, revs|
-  common_opts = ''
-  #'-c'
-  #--reverse 
+  next if revs.nil?
+  # TODO: if reverse...
+  common_opts = '--reverse --no-prefix --no-color'
   # -c (combined) for merge commits? or not? or do it each way? or make it an option?
 
   opts = "--pretty=format:'%h %ai %an - %s'"
@@ -362,7 +411,8 @@ end
   # Sometimes (such as when changing the indent level), the unified diff/patch is useless and we'd be better off doing side-by-side
   #   Maybe filter the git log output through a filter that, for each commit, gives a pre-formed gld/git-difftool command that you can run (what's command in vim to run a line through the shell?) to get a side-by-side diff.
 
-  lines_of_context = 10
+  #lines_of_context = 10
+  lines_of_context = 25
   opts = "-p --unified=#{lines_of_context} --ignore-space-change"
   inline = false
   # Give them 3 options
@@ -377,7 +427,7 @@ end
 
   files["#{version}.log.diff"] = new_file = @file.add_suffix(".#{version}.log.diff")
 
-  if !@options[:no_act] and @options[:force] || okay_to_write_file?(new_file)
+  if !@options[:no_act] and okay_to_write_file?(new_file)
     new_file.open('w') {|f| }
 
     new_file.open('a') {|f| f.puts short_command }
@@ -395,7 +445,9 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-file_orig_mtimes = files.inject({}) {|h,(k,file)| h[k] = file.mtime; h }
+unless @options[:no_act]
+  file_orig_mtimes = files.inject({}) {|h,(k,file)| h[k] = file.mtime; h }
+end
 
 #---------------------------------------------------------------------------------------------------
 
@@ -404,21 +456,19 @@ file_orig_mtimes = files.inject({}) {|h,(k,file)| h[k] = file.mtime; h }
 
 # TODO: make the order of tabs configurable
 # and which tab is focused initially
-tab_focused_initially = 4
+tab_focused_initially = 5
 
 
 command="vim -c '" + 
-  # This is useless because included in files['mine.log.diff']
-  #"tabedit #{rebase_current_commit_info_filename} | set filetype=diff | " +
-
   # This leaves tab 1 as empty, so we close it later.
+
   "tabedit #{files['mine.actual']} | vert diffsplit #{files['upstream.actual']} | wincmd w | " +
 
-  # upstream.from_conflicted vs. mine.from_conflicted
-  "tabedit #{files['mine.from_conflicted']} | vert diffsplit #{files['upstream.from_conflicted']} | " +
-
   # in case they resolve conflict with upstream.from_conflicted vs. mine.from_conflicted -- now they'd need to transfer that into @file
-  "tabedit #{@file} | vert diffsplit #{files['mine.from_conflicted']} | wincmd w | " +
+  "tabedit #{@file} | vert diffsplit #{files['mine.from_conflicted']} | wincmd w | diffthis | wincmd w | diffthis | " +
+  # for some reason, this isn't staying in diff mode, even with diffthis -- I have to go to that window and do :diffthis manually
+
+  "tabedit #{@file} | vert diffsplit #{files['upstream.from_conflicted']} | wincmd w | diffthis | wincmd w | diffthis | " +
 
   # Too crowded: diffs above main files (total of 4 buffers in window):
   #"split #{files['upstream.log.diff']} | wincmd w | wincmd w | split #{files['mine.log.diff']} | wincmd w | " +
@@ -427,14 +477,22 @@ command="vim -c '" +
   #"tabedit #{files['mine.log.diff']} | vert split #{files['upstream.log.diff']} | wincmd w | " +
   # would be nice if we could make each commit a link (press Enter to follow) to quickly show (git show) the whole file as it was in that version, kind of like fugitive
 
+
+
+
   # 1 log vs. main file (in case the 3 windows in one tab is too crowded)
-  "tabedit #{@file                 } | vert split #{files['upstream.log.diff']} | " +
+  ("tabedit #{@file                 } | vert split #{files['upstream.log.diff']} | " if files['upstream.log.diff']).to_s +
 
   # 3 windows in one tab: Log from each version with main file in center
   #"tabedit #{files['mine.log.diff']} | vert split #{files['upstream.log.diff']} | wincmd w | vert split #{@file} | " +
 
+  # upstream.from_conflicted vs. mine.from_conflicted
+  "tabedit #{files['mine.from_conflicted']} | vert diffsplit #{files['upstream.from_conflicted']} | " +
+
   # 1 log vs. main file (in case the 3 windows in one tab is too crowded)
-  "tabedit #{files['mine.log.diff']} | vert split #{@file} | " +
+  #"tabedit #{files['mine.log.diff']} | vert split #{@file} | " +
+  "tabedit #{@file                 } | vert split #{files['mine.log.diff']} | " +
+
 
   "tabclose 1 |" +
   "tabnext #{tab_focused_initially} |" +
@@ -457,10 +515,12 @@ unless @options[:no_act]
 
   end
 
-  changed_files = files.reject {|k,file| not file.mtime > file_orig_mtimes[k] }
+  #puts "files.except(:actual)=#{files.except('actual').inspect}"
+  changed_files = files.except('actual').reject {|k,file| not file.mtime > file_orig_mtimes[k] }
   if changed_files.any?
     puts "Warning: These files have been modified since you started editing:".yellow
     puts changed_files.map(&:last).join("\n").yellow
+    #TODO: pass --default=n to rmversions in this case
   end
   exec "git rmversions #{@file}"
 end
