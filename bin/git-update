@@ -1,6 +1,10 @@
 #!/usr/bin/ruby
 
 #---------------------------------------------------------------------------------------------------
+# TODO:
+# make it optional --rebase or merge (not --rebase)
+
+#---------------------------------------------------------------------------------------------------
 def usage
   #puts "Usage: #{$0}"
   puts <<End
@@ -39,11 +43,14 @@ if @ask
   exit unless (print "Do you want to do a git pull on #{@branch} first (y/N)? "; STDIN.getch(:case_insensitive => true) == 'y')
 end
 
-at_exit { system "git checkout #{@original_branch}" }
+at_exit { 
+  system "git checkout #{@original_branch}"
+  system %(git rebase "#{@branch}")  # TODO: make this optional?
+}
 
 system %(git checkout "#{@branch}")
-exit if !$?.success?
-system %(git pull)
+(puts "Aborting"; exit 1) if !$?.success?
+system %(git pull --rebase)
 
 #---------------------------------------------------------------------------------------------------
 # Original sh version:

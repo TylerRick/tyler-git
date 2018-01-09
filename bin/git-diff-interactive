@@ -20,6 +20,7 @@
 require 'rubygems' 
 require 'git'      # requires my local changes
 require 'colored'
+gem 'ruby-terminfo'
 require 'terminfo' #http://www.a-k-r.org/ruby-terminfo/
 require File.dirname(__FILE__) + '/../lib/getch'
 

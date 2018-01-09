@@ -1,4 +1,4 @@
-#!/usr/bin/ruby
+#!/usr/bin/env ruby
 
 # TODO: make it possible to 'checkout' a whole directory tree and not just a single file
 

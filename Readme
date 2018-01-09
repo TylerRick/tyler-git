@@ -1,3 +1,5 @@
+= Introduction
+
 git add
 git branches-commit-is-in
 git branch-menu
@@ -15,3 +17,24 @@ git stash-with-untracked
 git their-log
 git update
 git vimdiff
+
+= Installation
+
+# TODO: bubble [?]
+
+git clone git://github.com/TylerRick/tyler-git.git
+
+.bashrc
+export PATH=$PATH:~/installed/tyler-git/bin
+source ~/installed/tyler-git/sh/git_commands
+
+diff ~/installed/tyler-git/dotfiles/.gitconfig
+
+= Contributing
+
+http://github.com/TylerRick/tyler-git/tree/master
+
+= Future direction
+
+?
+

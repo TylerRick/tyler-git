@@ -52,6 +52,25 @@
 # if they go back a file (left/right keys?), position it at to of screen too
 # no more running the files together as if you had cat'd them!
 
+
+
+# other idea:
+# show first page for each commit -- if youuu want to see more, press Right? or Space? to get more; or j/Down to go to next commit
+# Something like this would especially be useful when you start out doing a gl to get history for a specific file -- so it only shows the diff/patch for changes to that file, even if the commit had changes to other files
+#   But once you find an interesting commit, it would be nice if I could very easily have it start exploring/showing the full commit. As it is, I have to double click commit, then glp <paste> -- but (for one thing) then I lose my context and can't easily resume where I left off in my exploring the gl <file>
+# Example:
+#   glp app/views/user_mailer/
+#   don't want to see *entire* multi-page patch -- just first 20 lines? unless I decide it's interesting
+# Example:
+#   vim Gitblame for a few lines
+#   I notice an interesting change by commit A
+#   then I want to see the entire commit A
+# look at vim fugitive
+
+
+
+
+
 # change timestamp of commit:
 # currently involves:
 #   finding commit with timestamp you want to take (should give you a menu, summarize commits in ref-log, sort by time, and show timestamps for each)
@@ -62,6 +81,11 @@
 #   reinsert message
 
 # Let user search for a commit, message, date, author, etc. by pressing / and then search term.
+
+#       --full-diff
+#           Without this flag, "git log -p <path>..." shows commits that touch the specified paths, and diffs about the same specified paths. With this, the full diff is shown for commits that touch the specified paths; this means
+#           that "<path>..." limits only commits, and doesn’t limit diff for those commits.
+
 
 #---------------------------------------------------------------------------------------------------
 def usage
@@ -78,7 +102,7 @@ require 'rubygems'
 require 'facets'
 require 'colored'
 require 'pathname'
-require 'facets/blank'
+require 'facets/kernel/blank'
 require File.dirname(__FILE__) + '/../lib/getch'
 require File.dirname(__FILE__) + '/../lib/menu'
 require 'quality_extensions/string/with_knowledge_of_color'
@@ -121,7 +145,7 @@ def raw_lines(force = false, count = @lines_count)
                   #{@args_for_wrapped_command.join(' ')} \
                  | head -n#{count}` \
                  .lines
-    @lines_count = @raw_lines.size
+    @lines_count = @raw_lines.to_a.size
   end
   @raw_lines
 end
@@ -241,11 +265,11 @@ def menu(show_list = true)
 
       when "\e\[B", "\e\[C", " ", 'j', 'J' # Next (Down or Right or Space)
         puts
-        #@i = [@i+1, raw_lines.size-1].min
+        #@i = [@i+1, raw_lines.to_a.size-1].min
         max_i_needed = @i + 1 + window.last
-        if max_i_needed > raw_lines.size-1
+        if max_i_needed > raw_lines.to_a.size-1
           raw_lines(false, @lines_count * 4) # forces reload
-          if @i+1 > raw_lines.size-1
+          if @i+1 > raw_lines.to_a.size-1
             puts "At end".red
           else
             @i+=1

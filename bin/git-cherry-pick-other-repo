@@ -12,7 +12,8 @@ The new_path_prefix option allows you to specify which subtree of the target rep
 Any extra args (for example, -p 4, if you are extracting commits to your vendor/plugins/plugin_name that should have been to committed to a fork of the actual plugin repo instead) are passed on to git am.
 
 Example:
-  current_repo > git cherry-pick-other-repo /path/to/other_repo f37g1 template/
+  current_repo > git cherry-pick-other-repo /path/to/other_repo f37g1 template/ -C1
+  current_repo > git cherry-pick-other-repo /path/to/other_repo f37g1 '' -p1
 End
   exit 1
 end

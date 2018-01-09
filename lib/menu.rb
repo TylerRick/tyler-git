@@ -1,3 +1,4 @@
+require 'facets/string/index_all'
 class String
   # Makes the first character bold and underlined. Makes the whole string of the given color.
   def menu_item(color = :white, letter = self[0..0], which_occurence = 0)

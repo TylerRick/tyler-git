@@ -5,17 +5,55 @@
 
 # TODO: Would it be possible/better to simply use git mergetool and pass in a simple wrapper script that ignores the extra arguments and simply opens the single file?
 
+# Note: git-merge-better executes this when you provide no args: 
+# exec "VISUAL='git merge-better' git each-unmerged --no-mark-as-resolved"
+
+#---------------------------------------------------------------------------------------------------
+# Parse args
+
+require 'optparse'
+
+@options = {
+  :mark_as_resolved => true,
+}
+
+def parse_args
+  ARGV.options do |opts|
+    opts.banner = <<End
+Usage: #{File.basename($0)} [options]
+End
+    opts.on("--no-mark-as-resolved", "Don't automatically mark the file as resolved if it looks like it is.")           { @options[:mark_as_resolved] = false }
+
+    #opts.on("-v", "--verbose", "Be more verbose")                                                                       { @options[:verbose] = true }
+    opts.on("-h", "--help", "Show this help message.")                                                                  { puts opts; exit }
+    opts.parse!
+  end
+end
+parse_args
+#p @options
+
 #-------------------------------------------------------------------------------
 
 require File.dirname(__FILE__) + '/../lib/handle_backup_and_add_for_user_manually_resolving_conflict'
 
 require 'rubygems' 
-$:.unshift "/home/tyler/dev/git/ruby-git/lib"
+$:.unshift "/home/tyler/installed/ruby-git/lib"
 require 'git'      # requires my changes to ruby-git, (git.status.untracked)
 require 'colored'
 require 'pathname'
-require 'facets/blank'
+require 'facets/kernel/blank'
 require 'quality_extensions/pathname'
+require 'quality_extensions/object/send_if'
+
+require 'quality_extensions/string/with_knowledge_of_color'
+class String
+  def strip_color
+    # Overrode to be able to handle this color code that I apparently didn't account for:
+    # "Readme.md\e[m"
+    # Old version had +: /\e\[[^m]+m/
+    gsub(/\e\[[^m]*m/, '')
+  end
+end
 
 #-------------------------------------------------------------------------------
 
@@ -36,20 +74,32 @@ puts "Using editor '#{@editor}'".blue
 begin
   show_full = false
 
-  @git.status.unmerged.each do |filename|
+  # TODO: Get it to pass --no-color to command so we don't have to strip out the color that was
+  # added.
+  puts %(@git.status.unmerged=#{(@git.status.unmerged).inspect})
+  puts %(@git.status.modified=#{(@git.status.modified).inspect})
+  unmerged = @git.status.unmerged.map(&:strip_color)
+  if unmerged.empty?
+    puts "No unmerged files found. If this is incorrect (for example, if you mistakenly marked a file as resolved when it wasn't), you can always try git merge-better {file} to open the file anyway."
+  end
+
+  unmerged.each do |filename|
 
     path = relative_to_wd(filename)
     path = Pathname.new(path)
     backup_path = path.add_suffix('.backup_for_git-each-unmerged')
 
-    handle_backup_and_add_for_user_manually_resolving_conflict(path, backup_path) do
+    send_if(@options[:mark_as_resolved], :handle_backup_and_add_for_user_manually_resolving_conflict, path, backup_path) do
       command = "#{@editor} #{path}"
-      print path.to_s.green + ' [Enter] > '.cyan
+      print path.to_s.green + ' [Enter] (Ctrl-C to abort) > '.cyan
       response = STDIN.gets
-      p response
+      #p response
 
-      if response = "\n"
-        system command
+      if response == "\n"
+        # Fork and exec so that vim has full access to the terminal
+        puts %(command=#{(command).inspect})
+        exec command if fork.nil?
+        Process.wait
       end
     end
 

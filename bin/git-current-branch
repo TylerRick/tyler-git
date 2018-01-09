@@ -4,13 +4,20 @@
 # or exits 1 if we are not
 
 #git branch >/dev/null
-git symbolic-ref HEAD >/dev/null 2>&1
+
+# using a custom alias:
+#git symbolic-ref HEAD >/dev/null 2>&1
+
+# using standard commands:
+output=$(git rev-parse --abbrev-ref HEAD 2>&1)
+#echo output=$output
 
 # todo: only suppress 'fatal: Not a git repository' if -q (quiet)
 
 if [ $? -eq 0 ]; then
   #echo "$(git branch | grep '^*' |sed s/\*\ //)"
-  git symbolic-ref HEAD | sed s#^refs/heads/##
+  #git symbolic-ref HEAD | sed s#^refs/heads/##
+  git rev-parse --abbrev-ref HEAD 2>&1 | sed s#^refs/heads/##
 else
   exit 1
 fi

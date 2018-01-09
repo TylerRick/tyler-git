@@ -95,7 +95,7 @@ start_time = Time.now
 state = :initial
 rev   = nil
 i     = 0
-STDIN.lines.map do |line|
+STDIN.each_line do |line|
   if line =~ %r<^#{color_optional}commit ([^\e\n\r]*)>
     puts '='*100 if @options[:divider_lines]
     state = :commit_start

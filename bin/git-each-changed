@@ -5,16 +5,18 @@
 #-------------------------------------------------------------------------------
 
 require 'rubygems' 
+$:.unshift "/home/tyler/dev/git/ruby-git/lib"
 require 'git'      # 
 require 'colored'
 require 'pathname'
-require 'facets/blank'
+require 'facets/kernel/blank'
 require File.dirname(__FILE__) + '/../lib/getch'
 
 gem 'quality_extensions', '>=0.0.3'
 require 'quality_extensions/file_test/binary_file'
 
 begin
+  gem 'ruby-terminfo'
   require 'terminfo' #http://www.a-k-r.org/ruby-terminfo/
   $screen_width=TermInfo.screen_width
 rescue LoadError
@@ -36,6 +38,7 @@ begin
   show_full = false
 
 
+  # TODO: this currently includes changes that are *staged* but should not
   @git.status.modified
   @git.status.modified.each do |filename|
     path = relative_to_wd(filename)
@@ -58,6 +61,7 @@ begin
       redo
 
     when 'a'
+      puts %(git add "#{path}")
       system %(git add "#{path}")
       puts
 

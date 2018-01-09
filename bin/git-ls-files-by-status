@@ -1,7 +1,13 @@
 #!/usr/bin/env ruby
+# Note: obsoleted by my git ls-untracked alias?
 
-require 'rubygems' 
-require 'facets/blank'
+# Examples:
+# If you want to ignore all the files that are presently untracked, you could do this:
+# git-ls-files-by-status --untracked | xargs git-ignore-for-me
+
+require 'rubygems'
+require 'facets/kernel/blank'
+$:.unshift "/home/tyler/installed/ruby-git/lib"
 require 'git'      # requires my local changes
 
 @repo_root = `git base-dir`.chomp
@@ -11,7 +17,7 @@ def relative_to_wd(path)
 end
 @git = Git.open(@repo_root)
 
-#puts git.status.untracked.map{|filename, o| filename}[0..10]
+#puts @git.status.untracked.map{|filename, o| filename}[0..10]
 
 if ARGV.grep('-h').any? || ARGV.grep('--help').any?
   puts "Usage: git ls-files-by-status [-1|--one-line] (--new|--modified|--deleted|--untracked)* | (-N|-M|-D|-U)*"
@@ -34,6 +40,10 @@ if ARGV.grep('-D').any? || ARGV.grep('--deleted').any?
 end
 if ARGV.grep('-U').any? || ARGV.grep('--untracked').any?
   files.concat @git.status.untracked
+end
+# ??
+if ARGV.grep('-UM').any? || ARGV.grep('--unmerged').any?
+  files.concat @git.status.unmerged
 end
 
 files.map! do |path|

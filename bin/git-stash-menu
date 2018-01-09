@@ -1,3 +1,4 @@
+
 # provides quick access to stashes
 # saves you from having to do
 # git stash list
@@ -6,3 +7,13 @@
 # before applyin or popping
 #
 # and helps you find and remove no-longer-needed stashes
+
+# I wish you could just show all your stashes in a row like git log -p (but I realize that the stashes are not related/parents of each other)
+# then you could search through all your stashes for a keyword -- how do I do that now?
+
+# lets you rename/reword a stash
+# (for example, you could note that it's been applied already but you're keeping around for ref)
+
+# when you do a stash save, record the date and HEAD rev
+# show this when we do list
+# we need the date so we know how old!

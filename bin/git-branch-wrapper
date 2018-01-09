@@ -1,4 +1,4 @@
-#!/usr/bin/ruby
+#!/usr/bin/env ruby
 if ARGV.size == 0
   # Default behavior
   #system %(git branch -a -v)

@@ -396,6 +396,10 @@ alias   grm='git rm'
 alias   gus='git unstage' # tyler-git
 
 #------------------------------------------
+# Upstream/Rebase
+
+alias git-upstream='git for-each-ref --format="%(upstream:short)" $(git symbolic-ref -q HEAD)'
+
 # These didn't work. That expanded to master followed by the supplied $1, when we wanted it to expand to only the supplied $1 if there was one...
 #alias   grb='git rebase    ${1:-master}'  # don't forget to pass -i if you want interactive
 #alias  grbi='echo git rebase -i ${1:-master}'
@@ -442,11 +446,29 @@ alias  grbiom='git rebase -i origin/master'
 function grbi() {
   # Allow passing as many commits as you want, and it will find the common ancestor of all of
   # them and go back to that common commit instead
-  common_ancestor=$(git common-ancestor "$@")
+  if [ -n "$1" ]; then
+    common_ancestor=$(git common-ancestor "$@")
+  else
+    # By default, rebase onto the commit that is in common with your local branch and your upstream
+    # branch, in case you have diverged
+    common_ancestor=$(git common-ancestor $(git-upstream) @)
+  fi
   # TODO: if not ancestor of HEAD, then try to git-find-equivalent-commit
   git merge-base --is-ancestor $common_ancestor HEAD || { echo "$common_ancestor is not an ancestor of current head."; return 1; }
-	grb $common_ancestor~ -i
+  grb $common_ancestor~ -i
 }
+
+# Rebase onto your upstream
+# This appears to already the default behavior of git rebase
+function grbiupstream() {
+  #rev=$(git-upstream)
+  #grb $rev -i
+  grb -i
+}
+
+alias grbiauto='grbi $(git-find-rebase-i-commands-in-commit-messages)'
+
+# To do: Also use in git-find-rebase-i-commands-in-commit-messages
 function git-find-equivalent-commit() {
   # TODO: find ancestor of current head that either has the same or very similar commit message, or
   # same or similar patch

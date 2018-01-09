@@ -6,6 +6,7 @@ require 'git'
 require File.dirname(__FILE__) + '/../lib/getch'
 
 begin
+  gem 'ruby-terminfo'
   require 'terminfo' #http://www.a-k-r.org/ruby-terminfo/
   $screen_width=TermInfo.screen_width
 rescue LoadError

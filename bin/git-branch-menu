@@ -1,4 +1,4 @@
-#!/usr/bin/ruby
+#!/usr/bin/env ruby
 
 #---------------------------------------------------------------------------------------------------
 def usage
@@ -38,7 +38,7 @@ require 'rubygems'
 require 'facets'
 require 'colored'
 require 'pathname'
-require 'facets/blank'
+require 'facets/kernel/blank'
 require File.dirname(__FILE__) + '/../lib/getch'
 require File.dirname(__FILE__) + '/../lib/menu'
 require 'quality_extensions/string/with_knowledge_of_color'

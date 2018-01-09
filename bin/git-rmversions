@@ -1,15 +1,16 @@
 #!/usr/bin/env ruby
 
 #---------------------------------------------------------------------------------------------------
+require File.dirname(__FILE__) + '/../lib/menus'
 require 'pathname'
-require 'facets/blank'
+require 'facets/kernel/blank'
 require 'facets/string/cleanlines'
-require 'facets/string/start_with'
+#require 'facets/string/start_with'
 require 'quality_extensions/pathname'
 require 'quality_extensions/enumerable/max_by_value'
 require 'colored'
 
-$:.unshift "/home/tyler/dev/git/ruby-git/lib"
+$:.unshift "/home/tyler/installed/ruby-git/lib"
 require 'git'      # requires my changes to ruby-git, (git.status.untracked)
 
 #---------------------------------------------------------------------------------------------------
@@ -65,7 +66,9 @@ if @options[:recursive]
     files = []
     @git.status.untracked.each do |untracked|
       if tracked = @tracked_files.detect {|tracked| untracked.starts_with?(tracked)}
-        #puts untracked
+        puts untracked
+        # Remove bogus escape codes -- not sure how they got in there
+        untracked = untracked.gsub(/\e\[(\d*)m/, '')
         files << [untracked, tracked]
 
         #path = relative_to_wd(file)
@@ -76,6 +79,7 @@ if @options[:recursive]
 
 
 else
+  ARGV[0] or fail "Must specify a file_that_had_conflict, unless you use --recursive."
   original = Pathname.new(ARGV[0])
 
   files = Dir["#{original}.*"].to_a
@@ -88,7 +92,7 @@ if @options[:list_files_only]
 else # !@options[:list_files_only]
 
   if files.any?
-    puts 'Delete all of these files?'
+    #puts 'Delete all of these files?'
     max = files.max_by_value {|a| a.first.to_s.length}
     puts "#{'Removing'.underline.bold.red}#{''.ljust(max - 'Removing'.length)} (#{'Keeping'.green.underline})"
     files.each do |untracked, tracked|
@@ -104,8 +108,8 @@ else # !@options[:list_files_only]
 
       puts "#{untracked.to_s.ljust(max).gsub(common, common.red).gsub(end_diff, end_diff.bold.red)} (#{tracked.to_s.green})"
     end
-    print "Continue? (y/n) "
-    if STDIN.gets[0..0].downcase == 'y'
+    response = confirm('Delete all of these files?', :default => 'y')
+    if response == 'y'
       files.each do |untracked, tracked|
         Pathname.new(untracked).unlink
       end

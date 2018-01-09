@@ -2,10 +2,13 @@
 #---------------------------------------------------------------------------------------------------
 require 'pp'
 require 'pathname'
+gem 'facets'
 require 'facets/string/cleanlines'
 require 'facets/class/to_proc'
+gem 'quality_extensions'
 require 'quality_extensions/pathname'
 require 'quality_extensions/enumerable/select_while'
+gem 'colored'
 require 'colored'
 
 #---------------------------------------------------------------------------------------------------
@@ -34,7 +37,7 @@ End
     opts.on("-f", "--filename", "Output only the filename for the commit_info_file (normal rebase only)")               { @options[:show] = 'commit_info_filename' }
     opts.on("--onto", "Output which commit we're applying/replaying commits onto")                                      { @options[:show] = 'onto' }
     opts.on("--head", "Output the original HEAD revision")                                                              { @options[:show] = 'head' }
-    opts.on("--rev", "--revision", "Output which commit in that series of commits it is *currently* stopped on. (And I suppose the only reason it would have stopped is because it had a merge conflict.)"   )     { @options[:show] = 'revision' }
+    opts.on("--rev", "--current-rev", "--revision", "Output which commit in that series of commits it is *currently* stopped on. (And I suppose the only reason it would have stopped is because it had a merge conflict.)"   )     { @options[:show] = 'revision' }
     opts.on("-s", "--summary",  "Output the summary from the 'commit_info_file'")                                       { @options[:show] = 'commit_info_file_summary' }
     opts.on("-p", "--patch",  "Output the entire 'commit_info_file' including patch")                                   { @options[:show] = 'commit_info_file' }
     opts.on("--vv", "--debug",  "Be more verbose")                                                                      { @options[:verbose] = 2 }
@@ -97,8 +100,7 @@ class CommitInfo
   def rev
     return @rev if @rev
     regexp = /^From (\w+)/
-    #if line = commit_info_file.read.grep(regexp).first
-    if match = commit_info.match(regexp)
+    if match = to_s.match(regexp)
       @rev = match[1]
     else
       raise "Error: Pattern not found"
@@ -133,22 +135,25 @@ if rebase_type == :normal
   commit_info_file = commit_info_files.map(&Pathname).detect do |file|
     puts file if @options[:verbose] >= 2
     contents = Pathname.new(file).read
-    #puts contents.lines.to_a[0..10]
-    #found = contents.include?(files_changed_from_patch)
+    # Old: found = contents.include?(files_changed_from_patch)
+    (puts 'contents:'; puts contents.lines.to_a[-10..-1]) if @options[:verbose] >= 2
+    (puts 'patch:';    puts patch   .lines.to_a[-10..-1]) if @options[:verbose] >= 2
     found = contents.include?(patch)
     puts "found=#{found.inspect}" if @options[:verbose] >= 2
+    found = true
     found
   end
   puts "commit_info_file: #{commit_info_file}\n\n" if @options[:verbose] >= 1
   commit_info = CommitInfo.new(commit_info_file.read)
 
 else
-  commit_info = Pathname.new('.git/rebase-merge/done').read.cleanlines.each do |line|
+  commit_info = nil
+  Pathname.new('.git/rebase-merge/done').read.cleanlines.each do |line|
     #puts line
     if line =~ /^(\w+)\s+(\w+)/
       rev = $2
       #puts "rev=#{rev.pretty_inspect}"
-      log_p = `git log -p -1 #{rev}`
+      log_p = `git log --no-color -p -1 #{rev}`
       if log_p.include?(patch)
         #puts "log_p=#{log_p}"
         commit_info = CommitInfo.new(log_p, rev)

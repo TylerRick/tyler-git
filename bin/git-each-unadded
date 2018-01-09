@@ -6,16 +6,18 @@
 #-------------------------------------------------------------------------------
 
 require 'rubygems' 
+$:.unshift "/home/tyler/dev/git/ruby-git/lib"
 require 'git'      # requires my changes to ruby-git, (git.status.untracked)
 require 'colored'
 require 'pathname'
-require 'facets/blank'
+require 'facets/kernel/blank'
 require File.dirname(__FILE__) + '/../lib/getch'
 
 gem 'quality_extensions', '>=0.0.3'
 require 'quality_extensions/file_test/binary_file'
 
 begin
+  gem 'ruby-terminfo'
   require 'terminfo' #http://www.a-k-r.org/ruby-terminfo/
   $screen_width=TermInfo.screen_width
 rescue LoadError
@@ -37,7 +39,9 @@ begin
   show_full = false
 
   @git.status.untracked.each do |filename|
+    filename = filename[0] if Array === filename
     path = relative_to_wd(filename)
+    p path
     pathname = Pathname.new(path)
 
     if show_full
@@ -45,14 +49,14 @@ begin
       #show_full = true
     end
 
-    print path.green + " [a/v/i/m/r/q/?] > ".cyan
+    print path.green + " [a/v/i/I/m/r/q/?] > ".cyan
 
-    resp = STDIN.getc.chr
+    resp = STDIN.getch
     case resp
 
     when '?'
       puts
-      puts "(a)dd; (v)iew, add to .git(i)gnore, ignore for (m)e only, (r)emove, (q)uit, ..., Enter/Space to skip"
+      puts "(a)dd; (v)iew, add to .git(i)gnore, add to .git(I)gnore and remove, ignore for (m)e only, (r)emove, (q)uit, ..., Enter/Space to skip"
       show_full = false
       redo
 
@@ -84,11 +88,22 @@ begin
       system %(git ignore "#{path}")
       puts
 
+    when 'I'
+      system %(git ignore --remove "#{path}")
+      puts
+
     when 'm'
       system %(git ignore-for-me "#{path}")
       puts
 
     when 'r'
+      # For some reason, git lists the file named test" as "test\"". But that results in:
+      # /usr/lib/ruby/1.9.1/pathname.rb:1067:in `unlink': No such file or directory - temp\" (Errno::ENOENT)
+      # so undo this unnecessary quoting/escaping...
+      if path =~ /^".*"$/
+        path.gsub! /^"(.*)"$/, '\1'
+        path.gsub! /\\"/, '"'
+      end
       path_obj = Pathname.new(path)
       if path_obj.directory? and path_obj.children.any?
         print "Really delete".red + " #{path.magenta}" + " and its contents?? (y)es/(n)o > ".red

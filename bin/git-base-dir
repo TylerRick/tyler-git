@@ -1,4 +1,6 @@
-#!/usr/bin/ruby
+#!/usr/bin/env ruby
+# If you want a simple, portable shell command that you can use in a script use this instead:
+#   dirname "$(git rev-parse --git-dir)"
 
 def usage
   puts <<End

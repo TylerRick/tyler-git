@@ -89,15 +89,16 @@ command! -nargs=* Gdc                     :Gitdiffcached <args>
 command! -nargs=* Gitlog                  !cd %:p:h; git log <args> "%:p:t"
 command! -nargs=* Gl                      :Gitlog --color <args>
 command! -nargs=* Gll                     :Gitlog --color --numstat --graph <args>
+command! -nargs=* Gllfulldiff             :Gitlog --color --numstat --graph --full-diff <args>
 
-"command! -nargs=* Glp                     !cd %:p:h; git log -p --numstat --ignore-all-space --follow             <args> "%:p:t"
-command! -nargs=* Glp                     !cd "$(dirname "$(cd %:p:h; git rev-parse --git-dir)")"; git log -p --numstat --ignore-all-space --follow             <args> "%"
+"command! -nargs=* Glp                     !cd "$(dirname "$(cd %:p:h; git rev-parse --show-toplevel)")"; git log -p --numstat --ignore-all-space --follow             <args> "%"
+command! -nargs=* Glp                     !cd %:p:h; git log -p --numstat --ignore-all-space --follow             <args> "%:p:t"
 command! -nargs=* Glpword                 !cd %:p:h; git log -p --numstat --ignore-all-space --follow --word-diff=color <args> "%:p:t"
 command! -nargs=* Glpfulldiff             !cd %:p:h; git log -p --numstat --ignore-all-space --full-diff <args> "%:p:t"
 
 command! -nargs=* Glh                     !cd %:p:h; git log <args> "%:p:t" | head -n30
 
-command! -range=% -nargs=* Gitshowhead  !cd %:p:h; git cat "%" <args> | lines <line1> <line2>
+command! -range=% -nargs=* Gitshowhead  !cd "$(dirname "$(cd %:p:h; git rev-parse --git-dir)")"; git cat "%" <args> | lines <line1> <line2>
 command! -range=% -nargs=* Gitcat         :<line1>,<line2>Gitshowhead
 
 "----

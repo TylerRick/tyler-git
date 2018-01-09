@@ -16,9 +16,13 @@ opts.each do | opt, arg |
 end
 
 #---------------------------------------------------------------------------------------------------
-@repo_root = `git base-dir`.chomp
+require 'pathname'
+require 'quality_extensions/pathname'
+
+@repo_root = Pathname.new(`git-base-dir`.chomp).absolutize
 paths = ARGV.dup
 paths.each do |path|
+  path = Pathname.new(path).absolutize.relative_path_from(@repo_root)
   system %(echo "#{path}" >> #{@repo_root}/.git/info/exclude)
   system %(git rm --cached #{@force_flag} "#{path}" 2>/dev/null)
 end

@@ -1,5 +1,6 @@
-require 'rubygems'
+#require 'rubygems'
 
+#----------------------------------------------------------------------------------------------------
 begin
   gem 'ruby-termios'
   require 'termios'
@@ -29,6 +30,12 @@ rescue Gem::LoadError
   puts "Couldn't load termios"
   $termios_loaded = false
 end
+
+#----------------------------------------------------------------------------------------------------
+
+
+
+#----------------------------------------------------------------------------------------------------
 
 class IO
   # Gets a single character, as a string.
