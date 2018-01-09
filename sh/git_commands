@@ -1,18 +1,36 @@
 #!/bin/bash
 
+# TODO: use https://github.com/mikegerwitz/git-shortmaps to define short maps, and then change my
+# aliases to use longer names
+
 # TODO: move these aliases to .gitconfig
 
 # meld .
 
+
+#------------------------------------------
+# See https://github.com/github/hub
+#     https://github.com/github/hub/releases
+
+if which hub >/dev/null; then
+  alias git=hub
+fi
+
+# https://raw.githubusercontent.com/github/hub/master/etc/hub.bash_completion.sh
+if [ -f ~/installed/command-line/bash/hub.bash_completion.sh ]; then
+  .     ~/installed/command-line/bash/hub.bash_completion.sh
+fi
+
 #------------------------------------------
 
 alias git-apply-commit='git cherry-pick' # Apply the change introduced by an existing commit
-alias gcp='git cherry-pick' # Apply the change introduced by an existing commit
+alias gch='git cherry-pick' # Apply the change introduced by an existing commit
 # TODO: how to apply changes from commit to only certain files and without committing
 
 #------------------------------------------
 
 alias    gf='git fetch'
+alias   gfv='git fetch --verbose --prune'
 alias gpull='git pull'
 # Idea: git fetch and then ask if they want to rebase or do normal merge?
 alias  gprb='git pull --rebase'
@@ -28,11 +46,20 @@ alias   gup='git update' #  [custom]
 alias  gcob='git checkout -b'          # Create and check out a new branch
 alias  gcot='git checkout --track -b'  # Create and check out a new branch that tracks a remote branch. example: gcot stable origin/stable'
 
-alias    gb='git branch-wrapper'
+alias    gb='git branch'
+alias   gbs='git branches'
+alias   gbw='git branch-wrapper'
 alias   gbm='git branch-menu'
 alias   gbv='git branch -v'    # Show all branches and which commit they are pointing to
 #alias   gbv='git branch -v ?'    # Show all branches (including remote branches) and which commit they are pointing to
 alias  gbrm='git branch-rm' # remove
+function git-delete-all-deletable-branches() {
+  git remote prune origin
+  # If it's not merged in yet, it will refuse to delete it.
+  for b in $(git-branch-list-plain); do
+    git branch -d $b
+  done
+}
 alias  gbmv='git branch-mv' # move
 
 alias git-branch-set-merge-defaults='git config branch.master.remote origin; git config branch.master.merge refs/heads/master'
@@ -41,24 +68,28 @@ alias git-branch-set-merge-defaults='git config branch.master.remote origin; git
 #------------------------------------------
 # Diff
 
+alias    gd='git diff --find-renames --find-copies'                             # staged vs. unstaged (unstaged changes are +)
+alias  gd20='git diff --find-renames --find-copies --unified=20'                # lots of context lines! 
+alias   gds='git diff --find-renames --find-copies --staged'                    # HEAD   vs. staged   (staged changes are +)
+alias  gdis='git diff --find-renames --find-copies --ignore-all-space'          # staged vs. unstaged (unstaged changes are +)
+alias gdsis='git diff --find-renames --find-copies --ignore-all-space --staged' # HEAD   vs. staged   (staged changes are +)
 
-# -M detect renames
-# -C detect copies
-alias    gd='git diff -M -C'                             # staged vs. unstaged (unstaged changes are +)
-alias   gds='git diff -M -C --staged'                    # HEAD   vs. staged   (staged changes are +)
-alias  gdis='git diff -M -C --ignore-all-space'          # staged vs. unstaged (unstaged changes are +)
-alias gdsis='git diff -M -C --ignore-all-space --staged' # HEAD   vs. staged   (staged changes are +)
+alias   gwd='git diff --word-diff'
+
+# Note: if you want to show the diff for a renamed field, you have to specify both files. If you
+# only specify one of them, it will just show the entire file as being new lines or removed lines.
+# Example: gds -- app/views/invitations/_tr.html.haml app/views/memberships/_tr.html.haml
 
 # --color-words
-alias   gdw='git diff -M -C --ignore-all-space --color-words'
-alias  gdws='git diff -M -C --ignore-all-space --color-words --staged'
+alias   gdw='git diff --find-renames --find-copies --ignore-all-space --color-words'
+alias  gdws='git diff --find-renames --find-copies --ignore-all-space --color-words --staged'
 
 #------------------------------------------
 # Getting state/status/metadata
 
 # would be great except that vim often leaves lines with trailing spaces on a blank line equal to current indent level:
 #alias    gs='git diff --check --staged; git status'
-alias    gs='git status'
+alias    gs='git status | grep -v typechange'
 
 alias grp='  git rev-parse'
 alias grpH=' git rev-parse HEAD'
@@ -77,11 +108,12 @@ alias   gvd='git vimdiff'
 # Stashing
 
 alias   gst='git stash'
-alias  gstS='git stash save'    # use this if you want to specify a message
+alias gstsv='git stash save'    # use this if you want to specify a message, or specify -p
+alias gstsvp='git stash save -p'    # use this if you want to specify a message
 alias  gstl='git stash list'
 alias  gsta='git stash apply'   # use pop instead
 alias  gstp='git stash pop'
-alias  gsts='git stash show'    # shows stat lines (which files changed)
+alias gstsh='git stash show'    # shows stat lines (which files changed)
 alias gstsp='git stash show -p' # shows actual patch/diff for that stash
 
 alias gsta1='git stash apply stash@{1}'
@@ -99,57 +131,217 @@ alias   gsf='git show --pretty=fuller'
 #------------------------------------------
 # Log
 
+# Refactor all to use a wrapper, which adds convenience options like --mine (--author=`git config user.name`)?
+
 alias   glm='git log-menu'
 
 alias    gl='git log'
 
-#alias   glp='git log --color --patch-with-stat'
-alias   glp='git log --color -p --numstat'                 # See the actual lines that changed
-alias glpis='git log --color -p --numstat --ignore-all-space'
+# git log reverse
+alias   glr='git log --color --reverse'                                             # git log (reverse) chronological order. Use glrf to specify a specific commit to start at or use -n5 instead
+function  glrf() {                                                                  # git log reverse *from* a specific a commit.
+  commit="$1"; shift
+  # It was actually starting from the commit *after* the one you specified, so I added ^ to adjust to one commit *before* the one they wanted to start at
+  git log --color --reverse $commit^...HEAD "$@"
+}
+
+
+# I added the -c option here because without it, it *doesn't* show me any differences *at all* for merge commits, which I find completely useless.
+#man git-log says:
+#       -c
+#           This flag changes the way a merge commit is displayed. It shows the differences from each of the parents to the merge result simultaneously **instead of showing pairwise diff between a parent and the result one at a time**.
+#           Furthermore, it lists only files which were modified from all parents.
+# But I don't know how to get it to "[show] pairwise diff between a parent and the result one at a time".
+
+#alias   glp='git log -c --color --patch-with-stat'
+# TODO: figure out to use --stat=width,file_width such that it doesn't chop off filename; how do we specify percentage?; how do we get terminal's current width?
+alias    glp='git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --find-renames --find-copies'                 # See the patch/diff (the actual lines that changed)
+alias   glpf='git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow'        # This only works when a single path is given. Otherwise you get error "usage: git logs can only follow renames on one pathname at a time"
+#alias    glp='git log -c --color -p   --numstat --no-prefix'                 # See the actual lines that changed
+
+#alias   glpr='git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --reverse'
+#function  glprf() {
+#  commit="$1"; shift
+#  git log --color -p --numstat --reverse $commit^...HEAD "$@"
+#}
+function   glprf() {
+  rev=$1; shift
+  git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --reverse "$@" $rev^..HEAD
+}
+
+# Sometimes git log attempts to simplify history by omitting a commit that was later reverted and
+# had no effect on the final effect. Use this if you want it to include/list *all* commits.
+alias glpfullhistory='git log -p --full-history'
+
+# Show the diff for *all* files changed by commits that changed {file}
+alias glpfulldiff='git log -p --follow --full-diff'
+
+# Similar, but filter which files you want to see the diffs for (still only looking at commits that
+# changed {file}
+# glp-diff-other-files-affected-by-commits lib/report_data.rb spec/
+# glp-diff-other-files-affected-by-commits --reverse lib/report_data.rb spec/
+# glp-diff-other-files-affected-by-commits --reverse lib/report_data.rb -p spec/
+glp-diff-other-files-affected-by-commits() {
+  # This requires GNU getopt.
+  # See http://stackoverflow.com/questions/402377/using-getopts-in-bash-shell-script-to-get-long-and-short-command-line-options
+  opts=`getopt --options rp \
+               --longoptions reverse,patch,stat,numstat \
+               --name 'glp-diff-other-files-affected-by-commits' -- "$@"`
+  if [ $? != 0 ] ; then return 1 ; fi
+
+  # Note the quotes around `$TEMP': they are essential!
+  echo "$@"
+  eval set -- "$opts"
+  echo "$@"
+
+  lister_opts=''
+  differ_opts=''
+  while true; do
+    case "$1" in
+      -r | --reverse ) lister_opts="$lister_opts $1"; shift ;;
+      -p | --patch | --stat | --numstat ) differ_opts="$differ_opts $1"; shift ;;
+      -- ) shift; break ;;
+      * ) break ;;
+    esac
+  done
+  path=$1; shift;
+  echo path=$path
+  echo            hub log $lister_opts --follow --pretty=format:"%h" $path
+  for commit in $(hub log $lister_opts --follow --pretty=format:"%h" $path); do
+    echo git log -n1 $differ_opts $commit -- "$@"
+         git log -n1 $differ_opts $commit -- "$@" | cat -
+    echo
+  done | less
+}
+
+alias gllothers='glp-diff-other-files-affected-by-commits --reverse --numstat'
+alias glpothers='glp-diff-other-files-affected-by-commits --reverse --patch'
+
+
+alias glpword='git log -c --color -p   --word-diff=color'        # See the changes to lines inline each on a single line, instead of showing -old +new on separate lines (like git diff --word-diff=color)
+
+alias  glpis='git log -c --color -p   --numstat --no-prefix --ignore-all-space'
+alias  glpU5='git log -c --color -U5  --numstat --no-prefix'	# Show more context in the diff/patch
+alias glpU10='git log -c --color -U10 --numstat --no-prefix'
+alias glpU20='git log -c --color -U20 --numstat --no-prefix'
 
 # gll="git log --color long"
 #alias   gll='git log --color --stat'
 # I got tired of it truncating the beginnig of paths (making it impossible to copy and paste paths onto the command line, so I'm now using --numstat instead of --stat)
-alias   gll='git log --color --numstat'
+alias   gll='git log --color --numstat --graph'
+alias  glls='git log --color --stat --graph'
+alias  gllf='git log --color --numstat --follow'
+alias  gllr='git log --color --numstat --reverse'
+function  gllrf() {
+  commit="$1"; shift
+  git log --color --numstat --reverse $commit^...HEAD "$@"
+}
+
 alias   gwc='git whatchanged'
+alias   glf='git log --color --format=fuller'
+
+alias gfileschangedinsamecommitsas='gl --pretty=format:"%h" ./app/views/partials/_transfer_report.html.erb | xargs1 git log -1 --name-status {}'
+
 
 alias   gllast='git log --patch-with-stat -n1'          # What is the last thing to be committed? (probably by you)
 
-alias   glh="glrfl HEAD~5 | sed 's/^\s*//'"    	# Show the last 6 (inclusive) commits, in order, with leading whitespace stripped out
-#alias   glh='git log --color | head -n30'      # Only show the first 30 lines of the log. Also, since this isn't paginated, it will wrap long lines for you, so this one is useful if you want to use the mouse to copy and paste the commit message of a recent commit (into an invoice, f.e.).
-
 alias   gl1='git log --color --pretty=oneline'
-alias   gls='git log --color --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s"'    # git log short
-alias  glsh='git log --color --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s" | head -n 20'    # git log short | head
+alias  glsnc='git log --pretty=format:"%h %ai %an - %s"'  # no color, no graph
+
+# %d is like decorate, shows ref name.
+alias   gls='git log --color --graph --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s"'    # git log short
+#alias  glsr='git log --color         --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s" --reverse'    # git log short reverse
+function gls-from-merge-base() {
+  rev=$1; shift
+  gls $(git merge-base $rev @)...$rev
+}
+function glsrf() {  # git log short reverse from
+  rev=$1; shift
+  git log --color --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s" --reverse "$@" $rev^..HEAD
+}
+# More concise variation of gls
+alias  gls2='git log --color --graph --oneline --decorate'
+function  glsh() {
+  git log --color --graph --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s" "$@" | head -n 20
+}    # git log short | head
+alias glsnp='git log --color --graph --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s" origin/master..HEAD'    # git log short not pushed
+
 alias  glcl='git log --color --pretty=format:"%s"'    # git log "changelog" (show only the messages)
 alias   glc='git log --color --date-order'                                                  # git log (reverse) chronological -- maybe not...
 
-alias   glr='git log --color --reverse'                                                     # git log (reverse) chronological order. User glrf to specify a specific commit to start at or use -n5 instead
-function  glrf() {                                                                  # git log reverse from a specific a commit.
-  commit="$1"; shift
-  # It was actually starting from the commit *after* the one you specified, so I added ~1 to adjust to one commit *before* the one they wanted to start at
-  git log --color --reverse $commit~1...HEAD "$@"
+
+#------------------------------------------
+# Side-by-side diff instead of patch
+
+# "git log [side-by-side] diff"
+# unlike git log, which when given a single rev shows the difference introduced by that commit, with git diff/difftool, specifying a single rev makes it show the diff between that rev and the [index or working tree] (which?)
+# This command/alias is here to give you something more like git log: supply a single rev and it will show the difference introduced by that commit using git difftool
+function  gld() {
+  rev=$1; shift
+  prev_rev="$rev^"
+  git difftool $prev_rev $rev "$@"
 }
-function  glrfl() {                                                                  # git log reverse from a specific a commit.
-  commit="$1"; shift
-  # It was actually starting from the commit *after* the one you specified, so I added ~1 to adjust to one commit *before* the one they wanted to start at
-  git log --color --numstat --reverse $commit~1...HEAD "$@"
+
+#------------------------------------------
+
+function stripgitindent() {
+  sed 's/^    //' | less -R
 }
-function  glrfp() {                                                                  # git log reverse from a specific a commit.
-  commit="$1"; shift
-  git log --color -p --numstat --reverse $commit~1...HEAD "$@"
+
+alias  glmine='git log --color --reverse --author="`git config user.name`"'
+
+#------------------------------------------
+# git log head
+
+#alias   glh="glrfl HEAD~5 | sed 's/^\s*//'"    	# Show the last 6 (inclusive) commits, in order, with leading whitespace stripped out
+#alias   glh='git log --color | head -n30'      # Only show the first 30 lines of the log. Also, since this isn't paginated, it will wrap long lines for you, so this one is useful if you want to use the mouse to copy and paste the commit message of a recent commit (into an invoice, f.e.).
+
+function  glh() {
+  echo git log --color --pretty=format:"_____%n%Cgreen%ai%n%s%b" --reverse "$@"
+  git log --color --pretty=format:"_____%n%Cgreen%ai%n%s%b" --reverse "$@" | stripgitindent | less -R
 }
+function  glhn() { # git log head 'n commits'
+  n="${1:-5}"; shift
+  #echo glrfl HEAD~${1:-5} \| sed 's/^    //' \| less -R
+  glh HEAD~$n~1...HEAD "$@"
+}
+function  glhminen() {
+  n="${1:-5}"; shift
+  glhn $n --author="`git config user.name`" "$@"
+}
+function  glhmine() { # more general, then you can use --since=2010-01-01, etc.
+  glh --author="`git config user.name`" "$@"
+}
+
+# That doesn't seem to work with --first-parent -- it still shows commits brought in by the merge (maybe the explicit revision range forces that?).
+# Here's my workaround when you want to exclude commits brought in by the merge:
+function  glhours() {
+  commit="$1"; shift
+  git log --color --reverse HEAD~${commit:-20}..HEAD --first-parent --numstat "$@" | sed 's/^\s*//' | less -R
+}
+
+
+
+
+
+
+
+#------------------------------------------
 
 # do a "pickaxe" search for the expression in the code; I think git log is smart enough to not only only include the commits that contain the search expression but also only the actual files and hunks that include it
 function git-search() { git log --color --patch-with-stat -S$1
+}
+
+function git-search-message() { git show :/$1
 }
 
 # refs/
 #git log refs/heads/master
 #git log refs/remotes/origin/master
 
-alias  gH='git-rev-parse       HEAD'
-alias gMH='git-rev-parse MERGE_HEAD'
+alias  gH='git rev-parse       HEAD'
+alias gOH='git rev-parse  ORIG_HEAD'
+alias gMH='git rev-parse MERGE_HEAD'
 # To browse the log of your merge head, use: glm `gMH`
 # To browse the log of your merge head for a specific file, use: glm `gMH` <file>
 
@@ -157,25 +349,45 @@ alias gMH='git-rev-parse MERGE_HEAD'
 alias  glsf='git ls-files'
 alias  glss='git ls-files-by-status'
 
-#alias   grl='git reflog | head -n10'
-alias   grl='git reflog-menu'
-alias  glrl='git log --color -g HEAD'
+#alias   grl='git reflog'
+alias   grl='git log --pretty=oneline --abbrev-commit --walk-reflogs --color --pretty=format:"%C(yellow)%h %Cgreen%ci %Creset- %gs"'
+
+#alias  grlh='git reflog | head -n10'
+alias  grlm='git reflog-menu'
+
+alias  grll='git log --walk-reflogs --color'
+alias grllf='git log --walk-reflogs --color --format=fuller'
+alias  grlp='git log --walk-reflogs -c --color --patch-with-stat'
 
 #------------------------------------------
 alias    ga='git add'
 
 # update staged with latest changes for all files that say "Changed but not updated" (can be undone with 'git reset')
-#function gau='git add -u; git status'
-function gau() { git add -u $1; git status
+# No submodules
+function gau() {
+  git add -u $1
+  # Don't stage the submodules, if there ary any
+  if [ -n "$(gsm)" ]; then
+    # the cut -c 2- strips the 1st character off, since there may be a '-', '+', or ' ' at the
+    # beginning of the line, and a ' ' would mess up the 2nd cut
+    submodule_names=$(gsm | cut -c 2- | cut -d' ' -f2)
+    echo Unstaging submodules: $submodule_names
+    gus $submodule_names
+  fi
+  git status
 }
+# All = With submodules
+function gauall() { git add -u $1; git status; }
+
 
 # Interactive / loop-through-each - type commands
 alias   gai='git add -i'        # interactive
 # gap doesn't prompt you about untracked files though!
 alias   gap='git add -p'        # interactive
 alias   gdi='git diff-interactive'  # tyler-git
-alias   geu='git each-unadded'      # tyler-git
+alias   geu='RUBYLIB=$RUBYLIB:$HOME/dev/git/ruby-git/lib git each-unadded'      # tyler-git
 alias  geum='git each-unmerged'      # tyler-git
+alias   gec='git each-changed'      # tyler-git
 
 
 #------------------------------------------
@@ -186,28 +398,90 @@ alias   gus='git unstage' # tyler-git
 #------------------------------------------
 # These didn't work. That expanded to master followed by the supplied $1, when we wanted it to expand to only the supplied $1 if there was one...
 #alias   grb='git rebase    ${1:-master}'  # don't forget to pass -i if you want interactive
-#alias  grbm='git rebase    ${1:-master}'
 #alias  grbi='echo git rebase -i ${1:-master}'
 
-function  grb() {
-	branch=${1:-master}
-	shift
-	git rebase $branch "$@"
-}
+# git rebase
+alias grb='git rebase'
+alias  grbm='git rebase master'
+alias  grbom='git rebase origin/master'
+alias  grbim='git rebase -i master'
+alias  grbiom='git rebase -i origin/master'
+# I found the following function got in the way more often than it prevented me from doing something
+# stupid:
+#function  grb() {
+#	upstream=${1:-master}
+#	git branch --contains $upstream | grep $(git-current-branch) || { 
+#	  echo -e "\033[01;31mWarning: $upstream is not an ancestor of the current branch ($(git-current-branch))"
+#	  echo -e "While this *might* in fact be what you want to do, if you're just trying to clean up the history in the current branch, then it is *not* what you want to do.\033[00m"
+#	  echo
+#	  echo "This usually occurs because you've already rewritten history and, specifically, you may have rewritten that commit ($upstream). If that is the case, a rewritten version of $upstream still exists in this branch, but simply has a different commit hash."
+#	  echo
+#	  echo -e "\033[00;32mHint: This is the last commit in $upstream:\033[00m"
+#	  echo
+#	  git log -1 $upstream
+#	  echo
+#	  echo -e "\033[00;32mSearch the git log of $(git-current-branch) for a commit with the same log message as (but different commit hash from) that:\033[00m"
+#	  echo
+#	  echo -e "\033[00;32mTip #2: If you find that both branches have some commits in common — just different 'versions' of those commits — then you may want to do a git rebase --interactive onto $upstream and simply remove any 'duplicate' commits from your $(git-current-branch) branch so that it doesn't try to re-apply a slightly different version of the 'same' commit that already exists in $upstream and end up causing a merge conflict. (If it really is an *identical* commit, on the other hand, it most likely will *not* cause a conflict because it will correctly detect that this commit has already bee napplied.\033[00m"
+#	  echo
+#	  echo -e "For now, this will abort with this error, because this alias was written especially for cleaning up history."
+#	  echo "We should make it possible to pass -f to force it to do a rebase anyway. Or ask, 'Is this what you want [y/n]?'"
+#	  echo
+#	  echo "$upstream is contained in the following branches:"
+#	  # Note to self: See also git-cherry
+#	  git branch --contains $upstream
+#	  return 1 # TODO: unless -f
+#        }
+#	# TODO: also warn if $upstream is too far back -- that is, if it points to or before a commit that has already pushed to your remote
+#	#   or if it is followed by a merge commit (git rebase doesn't seem to handle merge commits very well -- though maybe I just need to pass the right args to the command)
+#	shift
+#	git rebase $upstream "$@"
+#}
+
+# git rebase interactive
 function grbi() {
-	branch=${1:-master}
-	shift
-	git rebase -i $branch "$@"
+  # Allow passing as many commits as you want, and it will find the common ancestor of all of
+  # them and go back to that common commit instead
+  common_ancestor=$(git common-ancestor "$@")
+  # TODO: if not ancestor of HEAD, then try to git-find-equivalent-commit
+  git merge-base --is-ancestor $common_ancestor HEAD || { echo "$common_ancestor is not an ancestor of current head."; return 1; }
+	grb $common_ancestor~ -i
 }
+function git-find-equivalent-commit() {
+  # TODO: find ancestor of current head that either has the same or very similar commit message, or
+  # same or similar patch
+  # Because I often find myself wanting to shoot new commits back to squash with the canonical old commit for
+  # the certain topic (like "the one where I upgrade all the gem versions"). But if I just reuse the
+  # same command from my history that I used last time I wanted to shoot it back to that old commit,
+  # it will be the wrong one, because each time I squash with that commit, it gets a new ID.
+  :
+}
+alias  grbim='grbi master'
+alias  grbi2='grbi HEAD~2'
+alias  grbi3='grbi HEAD~3'
+alias  grbi4='grbi HEAD~4'
+alias  grbi5='grbi HEAD~5'
+alias grbi10='grbi HEAD~10'
+alias grbi20='grbi HEAD~20'
+alias grbi30='grbi HEAD~30'
+
 alias grbabort='git rebase --abort'
 alias  grbskip='git rebase --skip'
 alias  grbc='git rebase --continue'  # after resolving conflicts, do this to continue
 
 #------------------------------------------
-alias  gmt='git mergetool'
-
 alias   gm='git merge'
+alias gmabort='git reset --merge HEAD' #'git merge --abort'
+
+alias  gms='git merge-status'
+
+alias  gmt='git mergetool'
+alias gmtv='git mergetool -t vimdiff'
+
 alias gmtm='git update; git rebase master; git merge-to master'
+
+alias  gmb='git merge-better'
+
 
 
 #------------------------------------------
@@ -266,10 +540,14 @@ alias      grmc='git rm --cached -r'		    # For example, you notice that after y
 # So if you've staged some changes from <file> but have made other changes since then that you want to discard, git checkout <file> is safe, because it replaces file with the version that is staged (in index), not the version that is [cached] (HEAD)
 alias   gco='git checkout'
 alias  gcom='git checkout master'
-alias  gcod='git checkout dev'
+alias  gcod='git checkout develop'
 alias gcomerge='git checkout -m'
 # To check out a file from ("revert" a single file to) an older revision...
 #   gco d72a254c39b01eec17a35f42c59fb0a2bc8eab0e app/models/user.rb
+
+# When you have unmerged (merge conflict) files
+alias gcotheirs='git checkout --theirs'
+alias   gcomine='git checkout --mine'
 
 # If you've already staged a file (added it to the index), then git checkout <file> will not reset it to HEAD, but to what you have staged! So you'd need to specify...
 # git "discard" -- discard changes to working copy and replace with fresh version from HEAD
@@ -281,6 +559,14 @@ alias gdisc='git checkout HEAD'
 #
 #> gco 5093bec -- config/initializers/time_extensions.rb
 
+alias   gcoh='git checkout HEAD'
+alias  gcoh1='git checkout HEAD~1'
+alias  gcoh2='git checkout HEAD~2'
+alias  gcoh3='git checkout HEAD~3'
+alias  gcoh4='git checkout HEAD~4'
+alias  gcoh5='git checkout HEAD~5'
+alias gcoh10='git checkout HEAD~10'
+alias gcoh20='git checkout HEAD~20'
 
 
 
@@ -293,11 +579,25 @@ alias gdisc='git checkout HEAD'
 # This adds the files specified (if any) before attempting the commit, because git will give an error if you try to commit a file that isn't added (in the index?) yet.
 # It seemed to me that it would be more user-friendly if it simply added them (similar to how you can do git commit on files that have local/unstaged modifications and it will automatically include those unstaged changes when you do the git commit) (the difference there, I suppose, is that it didn't actually stage/add those changes, so if you abort the commit, it won't have changed anything...but I don't think that's a big problem).
 function  gci() {
-	if [ $# -ge 1 ]; then
-		git add "$@"
-	fi
+	# TOOD: add this back once I change it to only match files and not add whole directories recursively
+	#if [ $# -ge 1 ]; then
+	#	git add "$@"
+	#fi
 	git commit -v "$@"
 }
+
+# Add (new file) and commit it
+function  gaci() {
+	git add       "$@"
+	git commit -v "$@"
+}
+
+# By default, git-commit will strip lines beginning with # character because it things they are commentary.
+# But sometimes you want to include lines that begin with the # character. For example, if you want to include...
+# * some CSS source code, which might have an #id selector
+# * a ruby method definition with a comment block preceeding it (several lines of #-style comments)
+# Note: you'll have to manually delete the # commentary that git-commit adds to the bottom of your commit message by default
+alias gciwithhashchars='git commit --cleanup=whitespace'
 
 alias  gcia='git commit --amend'   # (can be used with paths, that is, specify which paths to (only) include in the new, amended commit)
 alias  gca='git commit -a -v'   # (can't be used with paths, but that's not a problem because you don't need the -a flag when you specify paths -- git commit will automatically add/stage any unstaged changes made to those paths)
@@ -314,6 +614,36 @@ alias  gpsm='git push origin master'
 
 alias gbs='git bisect'
 
+#------------------------------------------
+alias  gsm='git submodule'
+alias gsms='git submodule status'
+alias gsmi='git submodule init'
+alias gsmu='git submodule update'
+alias gsma='git submodule add'
+
+# Example (the || : stops the foreach command from terminating because of a non-zero return from the shell command) : gsme 'echo hi; false || :'
+alias gsme='git submodule foreach'
+alias    gsmegs="git submodule foreach 'git status; echo; echo; echo'"
+alias    gsmegd="git submodule foreach 'git diff;   echo; echo; echo'"
+alias   gsmeglp="git submodule foreach 'git log --color -p || : ; echo; echo ; echo; echo ; echo; echo'"
+alias   gsmegau="git submodule foreach 'git add -u; echo; echo; echo'"
+alias   gsmegls="git submodule foreach 'git log origin/master..HEAD --color --graph --pretty=format:\"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s\"; echo; echo; echo'"
+alias  gsmeglsh="git submodule foreach 'git log --color --graph --pretty=format:\"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s\" | head -n 10; echo; echo; echo'"
+alias gsmegpull="git submodule foreach 'git pull || : ; echo; echo'"
+alias gsmegpush="git submodule foreach 'git push || : ; echo; echo'"
+
+# "subprojects" are subprojects that are subdir but not submodules -- they are in separate repositories than the "superproject"
+# subproject-each isn't actually related to git, but I want to run all the git commands my subprojects
+# The previous commands but with s/submodule foreach/subproject-foreach/g and s/gsm/gsp/ :
+alias gspe='git subproject-foreach'
+alias    gspegs="git subproject-foreach 'git status; echo; echo; echo'"
+alias    gspegd="git subproject-foreach 'git diff;   echo; echo; echo'"
+alias   gspeglp="git subproject-foreach 'git log --color -p || : ; echo; echo ; echo; echo ; echo; echo'"
+alias   gspegau="git subproject-foreach 'git add -u; echo; echo; echo'"
+alias   gspegls="git subproject-foreach 'git log origin/master..HEAD --color --graph --pretty=format:\"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s\"; echo; echo; echo'"
+alias  gspeglsh="git subproject-foreach 'git log --color --graph --pretty=format:\"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s\" | head -n 10; echo; echo; echo'"
+alias gspegpull="git subproject-foreach 'git pull || : ; echo; echo'"
+alias gspegpush="git subproject-foreach 'git push origin master || : ; echo; echo'"
 
 #------------------------------------------
 
