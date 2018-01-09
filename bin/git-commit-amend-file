@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+# Usage git-commit-amend-file file [options]
+# Finds the last commit that affected this file (as seen by git log -1 file) and amends that commit
+# instead of amending the HEAD commit (tip of current branch) as git commit --amend would normally do.
+
+commit = `git log -1 #{file}`
+`git-commit-amend #{commit}`

@@ -1,0 +1,11 @@
+#!/usr/bin/env ruby
+# List all branches, ordered by date.
+# Based on: for k in `git branch --no-color|sed s/^..//`;do echo -e `git log -1 --pretty=format:"%Cgreen%ci %Cblue%cr%Creset" "$k"`\\t"$k";done|sort
+#-------------------------------------------------------------------------------
+
+sorted = `git branch #{ARGV.join(' ')} --no-color|sed s/^..// | grep -v '^old_'`.lines.map do |branch|
+  branch = branch.chomp
+  date_string = `git log -1 --pretty=format:"%Cgreen%ci %Cblue%cr%Creset" "#{branch}"`.chomp
+  "#{date_string}\t#{branch}"
+end.sort
+puts sorted

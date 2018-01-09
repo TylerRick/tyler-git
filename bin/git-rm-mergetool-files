@@ -1,0 +1,26 @@
+#!/bin/sh
+# See also/merge with: git rmversions
+
+find_command="find . -type f -a \( -name '*.REMOTE.*' -o -name '*.LOCAL.*' -o -name '*.BASE.*' -o -name '*.BACKUP.*' \)"
+eval $find_command
+
+echo -n "Delete these files [y/n]? "
+read x
+
+if [ "$x" = "y" ]; then
+	eval $find_command -a -exec rm '{}' '\;'
+else
+	echo 'Aborting...'
+fi
+
+find_command="find . -type f -a \( -name '*.orig' \)"
+eval $find_command
+
+echo -n "Delete these files [y/n]? "
+read x
+
+if [ "$x" = "y" ]; then
+	eval $find_command -a -exec rm '{}' '\;'
+else
+	echo 'Aborting...'
+fi

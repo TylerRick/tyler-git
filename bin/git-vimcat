@@ -1,0 +1,42 @@
+#!/usr/bin/ruby
+
+require 'fileutils'
+
+if ARGV.size < 1
+  puts "Usage: #{$0} <args_for_git_cat_save> <args_for_vim>"
+  puts <<End
+Tries to intelligently figure out which args are for git cat-save and which are for vim (for example, +<line> to start at a certain line).
+To do: Add a way to explicitly specify which args are for which program?
+
+Examples:
+> git vimcat file.rb +35
+> git vimcat HEAD~2:file.py +1837 -c 'set invlist'
+End
+  exit 1
+end
+
+require 'facets/array/delete_values'
+class Array
+  def delete_if!(&block)
+    d = []
+    #each{ |v| d << delete(v) if yield v; puts "yield #{v} returned #{yield v}"}  # didn't work because the deleting messed up the each and not all elements were visited
+    each_with_index{ |v, i| d << v if yield v, i}
+    delete_values(*d)
+    d
+  end
+end
+
+args_for_vim = ARGV.delete_if! {|arg, i|
+  ARGV[i-1] =~ /^-c/ \
+  || arg =~ /^\+|^-c/
+}
+#p args_for_vim
+
+cat_save_output = `git cat-save #{ARGV.join(' ')}`
+saved_as = cat_save_output[cat_save_output.rindex('>')+1 .. -1].strip
+#puts saved_as
+
+#puts "vim #{saved_as} #{args_for_vim.map {|a| "'#{a}'"}.join(' ')}"
+system "vim #{saved_as} #{args_for_vim.map {|a| "'#{a}'"}.join(' ')}"
+FileUtils.rm saved_as
+

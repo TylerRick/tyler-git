@@ -1,0 +1,56 @@
+#!/usr/bin/ruby
+
+# apparently there's no way to list tags for a given commit?
+#
+# only most recent tag:
+#git describe --exact-match --tags "$@"
+#
+# only lists one tag:
+# git name-rev --name-only --tags HEAD
+
+#---------------------------------------------------------------------------------------------------
+
+module Enumerable
+
+  # #group_by_and_map is used to group items in a collection by something they
+  # have in common.  The common factor is the key in the resulting hash, the
+  # array of like elements is the value.
+  #
+  #   # need better example
+  #   (1..6).group_by_and_map { |n| next n % 3, n }
+  #        # => { 0 => [3,6], 1 => [1, 4], 2 => [2,5] }
+  #
+  #   [
+  #     ['31a4', 'v1.3'],
+  #     ['9f2b', 'current'],
+  #     ['9f2b', 'v2.0']
+  #   ].group_by_and_map { |e| e[0], e[1] }
+  #        # => {"31a4"=>["v1.3"], "9f2b"=>["current", "v2.0"]}
+  #
+  # CREDIT: Erik Veenstra, Tyler Rick
+
+  def group_by_and_map #:yield:
+    h = Hash.new
+    each { |e| 
+      result = yield(e)
+      (h[result[0]] ||= []) << result[1]
+    }
+    h
+  end
+
+end
+
+#---------------------------------------------------------------------------------------------------
+
+ARGV.any? or (STDERR.puts 'Must specify commit'; exit 1)
+commit = `git rev-parse  #{ARGV[0]}`.chomp
+delimiter = "\n"
+
+commits_by_tag = `git for-each-ref --shell --sort='refname' --format='%(objectname) %(refname)' refs/tags`.to_enum(:each_line).map do |line|
+  if line =~ %r(^'([^']+)' 'refs/tags/([^']+)'$)
+    [$1, $2]
+  end
+end.compact.group_by_and_map {|a| next a[0], a[1]}
+#p commits_by_tag
+
+puts commits_by_tag[commit].join(delimiter)

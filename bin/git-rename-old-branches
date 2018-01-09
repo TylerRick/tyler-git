@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+require 'date'
+#-------------------------------------------------------------------------------
+
+`git branch --no-color|sed s/^..//`.lines.each do |branch|
+  branch = branch.strip
+  date_str = `git log -1 --pretty=format:%ci #{branch}`
+  #puts date_str
+  date = DateTime.parse(date_str).to_date
+  #date = DateTime.strptime(date_str, '%Y-%m-%d %H:%M:%S %z').to_date
+  #print date.inspect
+  #p (Date.today - 30*4)
+  if date < (Date.today - 30*6)
+    command = "git branch -m #{branch} old_#{branch}"
+    puts command
+    system command
+  else
+    #puts date_str
+  end
+end
+

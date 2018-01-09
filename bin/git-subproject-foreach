@@ -1,0 +1,59 @@
+# Based on /usr/lib/git-core/git-submodule
+#
+# TODO: why doesn't this work?
+#   gspe 'rake -T'
+# It stops after first one.
+
+die() {
+	echo >&2 "$@"
+	exit 1
+}
+
+say () {
+	if test -z "$GIT_QUIET"
+	then
+		printf '%s\n' "$*"
+	fi
+}
+
+# Map submodule path to submodule name
+#
+# $1 = path
+#
+module_name()
+{
+	# Do we have "submodule.<something>.path = $1" defined in .gitmodules file?
+	re=$(printf '%s\n' "$1" | sed -e 's/[].[^$\\*]/\\&/g')
+	name=$( git config -f .gitmodules --get-regexp '^submodule\..*\.path$' |
+		sed -n -e 's|^submodule\.\(.*\)\.path '"$re"'$|\1|p' )
+       test -z "$name" &&
+       die "No submodule mapping found in .gitmodules for path '$path'"
+       echo "$name"
+}
+
+cmd_foreach()
+{
+	toplevel=$(pwd)
+
+	cat .subprojects |
+	while read path
+	do
+		if test -e "$path"/.git
+		then
+			say "Entering '$prefix$path'"
+			#name=$(module_name "$path")
+			name="$path"
+			(
+				#prefix="$prefix$path/"
+				#clear_local_git_env
+				cd "$path" &&
+				pwd &&
+				echo "Executing $@" &&
+				eval "$@"
+			) ||
+			die "Stopping at '$path'; script returned non-zero status."
+		fi
+	done
+}
+
+cmd_foreach "$@"

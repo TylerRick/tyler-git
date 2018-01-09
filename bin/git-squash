@@ -1,0 +1,6 @@
+# see also: git split
+# squash a commit with another one
+# git split {commit} {onto}
+# equivalent to doing git rebase -i {commit}, moving {commit} directly below {onto}, choosing s as
+# the action for {commit}
+

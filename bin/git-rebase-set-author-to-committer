@@ -1,0 +1,102 @@
+#!/usr/bin/env ruby
+# Based on git-rebase-set-commit-date-to-author-date
+# Could probably make a more general command that can be used for these more specific tasks.
+# Also, maybe make a version that applies to the most recent commit by default, like
+# git-set-author-to-committer.
+
+require 'facets/string/cleanlines'
+
+def command_name
+  File.basename($0)
+end
+
+def run(command)
+  puts command
+  system command
+  exit 1 unless $?.success?
+end
+
+# Based on /usr/lib/git-core/git-rebase--interactive
+def rev_list_with_message(rev_range)
+  command = <<-End
+  git rev-list --pretty=oneline --abbrev-commit \\
+    --abbrev=7 --reverse --left-right --topo-order \\
+    #{rev_range} | sed -n "s/^>//p"
+  End
+  #puts command
+  `#{command}`.cleanlines
+end
+
+def rev_from_rev_with_message(rev_with_message)
+  rev_with_message.match(/^(\w+) /) && $1
+end
+
+def commit_info
+  `git commit-modify --show-info-only`
+end
+def committer_email 
+  commit_info =~ /^GIT_COMMITTER_EMAIL=(.*)$/ and $1
+end
+
+def update_current_commit
+  # set-author-to-committer
+  #puts %(GIT_AUTHOR_EMAIL='#{committer_email}' git commit-modify)
+  system %(GIT_AUTHOR_EMAIL='#{committer_email}' git commit-modify)
+
+  # Or, if you just want to set it to something hard-coded.
+  # (This command needs to be made more general-purpose.)
+  #system %(GIT_COMMITTER_EMAIL='tyler.rick@k3integrations.com' GIT_AUTHOR_EMAIL='tyler.rick@k3integrations.com' git commit-modify)
+
+  #system %(git log --format=fuller -1)
+end
+
+# Based on /usr/lib/git-core/git-rebase and /usr/lib/git-core/git-rebase--interactive
+def move_to_original_branch(head_name, orig_head)
+  new_head = `git rev-parse HEAD`.chomp
+
+  message = "#{command_name} finished: #{goal_text}"
+  run <<-End
+    git update-ref -m "#{message}" #{head_name} #{new_head} #{orig_head}
+  End
+
+  message = "#{command_name} finished: Moving back to #{head_name}"
+  run <<-End
+    git symbolic-ref -m "#{message}" HEAD #{head_name}
+  End
+end
+
+#===================================================================================================
+
+onto = ARGV[0] or raise 'missing onto'
+head_name=`git symbolic-ref -q HEAD`.chomp
+head_name =~ %r(^refs/heads/) or raise "head_name must start with refs/heads/"
+orig_head = `git rev-parse --short HEAD`.chomp
+
+# The list of commits *not* including onto itself.
+rev_list_with_message = rev_list_with_message("#{onto}..#{orig_head}").to_a
+rev_list = rev_list_with_message.map { |line| rev_from_rev_with_message(line) }
+rev_list_with_message.size == rev_list.size or raise "number of lines should match"
+
+define_method :goal_text do
+  "Fixing all commits from #{onto} up to #{head_name} (#{orig_head})"
+end
+
+puts goal_text
+
+run %(git checkout #{onto})
+update_current_commit
+
+rev_list_with_message.each do |rev_with_message|
+  rev = rev_from_rev_with_message(rev_with_message)
+
+  #puts "Continue to #{rev_with_message}?"
+  #$stdin.gets
+
+  run %(git cherry-pick #{rev})
+  update_current_commit
+end
+
+# For testing:
+#head_name = 'refs/heads/onto'; orig_head = '1419fc5be82d014bc917fd199ca3740e8a2c399c'
+
+move_to_original_branch(head_name, orig_head)

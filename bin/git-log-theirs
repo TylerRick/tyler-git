@@ -1,0 +1,50 @@
+#!/usr/bin/env ruby
+
+#---------------------------------------------------------------------------------------------------
+require 'pathname'
+require 'facets/file/rewrite'
+require 'quality_extensions/pathname'
+
+#---------------------------------------------------------------------------------------------------
+
+if (file = Pathname.new('.git/rebase-apply/onto')).exist?
+  theirs = file.read.chomp
+  theirs = `git name-rev --name-only --always --no-undefined #{theirs}`.chomp
+  merge_type = :rebase
+end
+if (file = Pathname.new('.git/rebase-apply/orig-head')).exist?
+  mine = file.read.chomp
+  mine = `git name-rev --name-only --always --no-undefined #{mine}`.chomp
+end
+
+merge_type ||= :merge
+theirs     ||= 'MERGE_HEAD'
+mine       ||= 'HEAD'
+
+#merge_base = `git merge-base MERGE_HEAD HEAD`.chomp
+merge_base = `git merge-base #{theirs} #{mine}`.chomp
+merge_base = `git name-rev --name-only --always --no-undefined #{merge_base}`.chomp
+#merge_head = `git rev-parse MERGE_HEAD`.chomp
+
+puts "theirs=#{theirs.inspect}"
+puts "mine=#{mine.inspect}"
+puts "merge_base=#{merge_base.inspect}"
+
+puts command="git log #{merge_base}~25..#{theirs} #{ARGV.join(' ')}"
+exec command
+exit
+
+#---------------------------------------------------------------------------------------------------
+# Simpler version without support for rebase
+
+merge_base = `git merge-base MERGE_HEAD HEAD`.chomp
+merge_head = `git rev-parse MERGE_HEAD`.chomp
+
+puts "merge_base=#{merge_base.inspect}"
+puts "merge_head=#{merge_head.inspect}"
+
+#puts command="git log #{merge_base}^..MERGE_HEAD #{ARGV.join(' ')}"
+puts command="git log #{merge_base}~25..MERGE_HEAD #{ARGV.join(' ')}"
+exec command
+
+#---------------------------------------------------------------------------------------------------

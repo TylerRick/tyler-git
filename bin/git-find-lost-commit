@@ -1,0 +1,7 @@
+#!/bin/bash
+grl|while read line; do
+  rev=`echo $line|gawk '{ print $1 }'|nocolor`
+  git-cat $rev:app/views/core4_mailer/baptism_confirmation_1.html.haml 2>/dev/null|grep link_to|grep -v root_url && \
+	  echo Found in $rev!
+done
+

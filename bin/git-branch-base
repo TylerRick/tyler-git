@@ -1,0 +1,53 @@
+#!/usr/bin/env ruby
+
+# git branch base paypal master
+# looks at commits in paypal, ignores merges, and finds the first commit that diverged from master, outputs the common commit before that
+
+#commit 9ec925efda1857c72b900b146cd74f5653785fbb
+#Author: Tyler Rick <github.com@tylerrick.com>
+#Date:   Tue Aug 24 16:06:33 2010 -0700
+#
+#    Fix indentation/improve readability of views
+#
+#commit 61388e51ffca0c4f28f85d7260b19bf873a7ce6f
+#Author: Scott Thorpe <sthorpe@gmail.com>
+#Date:   Mon Aug 23 19:29:46 2010 -0700
+#
+#    Fixed a bug with the discount codes not applying percentages.
+#
+
+
+#I thought I could do this:
+# > gl -p 9ec925efda1857c72b900b146cd74f5653785fbb..paypal app/views/user_mailer/new_assistant_notification.html.erb
+#commit fb635e0dbaa3012373aac98051d45773040bbf23
+#Merge: b919721 8bd4081
+#Author: Tyler Rick <github.com@tylerrick.com>
+#Date:   Tue Sep 7 11:11:39 2010 -0700
+#
+#    Merge branch 'payments'
+#    
+#    * payments: (53 commits)
+#      Fixed a bug where we were putting in the wrong value for num_tickets in
+#
+#commit 507ec86682d0dd52509063c0d2625a6afb58f920
+#Author: Joshua Merrill <josh@seykota.gateway.2wire.net>
+#Date:   Thu Aug 26 13:40:24 2010 -0700
+#
+#    added email for event assistants. small modifications to other event emails
+
+
+# but the merge commit gets in the way:
+# app/views/user_mailer/new_assistant_notification.html.erb.upstream.diff
+#commit fb635e0dbaa3012373aac98051d45773040bbf23
+#Merge: b919721 8bd4081
+#Author: Tyler Rick <github.com@tylerrick.com>
+#Date:   Tue Sep 7 11:11:39 2010 -0700
+#
+#    Merge branch 'payments'
+#    
+#    * payments: (53 commits)
+#      Fixed a bug where we were putting in the wrong value for num_tickets in
+
+# is useless
+
+# so have to go *between* those merges

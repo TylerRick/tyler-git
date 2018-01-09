@@ -1,0 +1,5 @@
+# see also: git squash
+# split a commit
+# git split {commit}
+# equivalent to doing git rebase -i {commit}, choosing edit, doing git reset --soft HEAD~1, and printing
+echo "Create as many commits from the changeset that was {commit}. When you are done, do git rebase --continue"

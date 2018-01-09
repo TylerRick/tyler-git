@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+
+=begin
+Wanted to call it pop (like popd) but is it really semantically the same?
+Since we never explicitly push, there is no actual stack
+I guess we could have git push that checks out branch and adds to stack; and pop which goes up one level in stack
+=end

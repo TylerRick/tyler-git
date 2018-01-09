@@ -1,0 +1,15 @@
+#!/usr/bin/ruby
+# For a git merge/conflict, instead of doing a merge with mergetool, do this if you simply want to  discard the local version and take the remote version
+
+base = ARGV[0]
+#p Dir["#{base}"]
+to_use = Dir["#{base}.REMOTE.*"]
+
+raise "More than one match for remote file: #{to_use}" if to_use.size > 1
+to_use = to_use.first
+
+puts command = %(cp "#{to_use}" "#{base}")
+system command
+
+# TODO: replace with this?
+# git checkout --theirs/--ours (see http://stackoverflow.com/questions/2073841/git-marking-files-as-resolved)

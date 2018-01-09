@@ -1,0 +1,3 @@
+#!/usr/bin/env ruby
+
+# look for matches in .gitignore -- if multiple, let user choose which one(s) to remove, like gem uninstall?

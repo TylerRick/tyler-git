@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+#---------------------------------------------------------------------------------------------------
+# A replacement wrapper for git rebase -i that has a more intuitive name and doesn't suffer the limitations of rebase -i.
+#
+# rebase doesn't handle (that I am aware) rebases that include merge commits
+# this script could somehow replay them
+# I know you can at least creep back to a merge commit with grss1, commit -amend it, and then replay commits on top of it
+# I imagine there's also a way to go back before the merge, and then somehow replay the merge using the same resolutions as before (perhaps using rerere manually if it doesn't automatically do it)
+
+#---------------------------------------------------------------------------------------------------

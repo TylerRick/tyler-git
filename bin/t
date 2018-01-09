@@ -1,0 +1,26 @@
+#!/bin/sh
+
+#git for-each-ref --count=3 --sort='-*authordate' \
+#--format='From: %(*authorname) %(*authoremail)
+#Subject: %(*subject)
+#Date: %(*authordate)
+#Ref: %(*refname)
+#
+#%(*body)
+#' 'refs/tags'
+
+
+#git for-each-ref --shell --sort='refname' --format="ref=%(refname)" refs/tags | \
+#while read entry
+#do
+#       echo "$entry"
+#       echo $ref
+#done
+
+
+
+git for-each-ref --shell --sort='refname' refs/tags | \
+while read sha1 type ref; do
+       echo "$sha1 $type $ref"
+done
+

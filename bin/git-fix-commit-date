@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+# Compare to: git-rebase-set-commit-date-to-author-date
+log=`git log --format=fuller HEAD^..`
+date_line = log.lines.grep(/AuthorDate/).first
+if date_line =~ /AuthorDate: (.*)$/
+  puts $1
+  system "date='#{$1}' git-commit-modify"
+else
+  fail "Couldn't find AuthorDate"
+end

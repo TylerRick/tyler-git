@@ -1,0 +1,109 @@
+#!/usr/bin/env ruby
+
+#---------------------------------------------------------------------------------------------------
+require 'pathname'
+require 'facets/kernel/blank'
+require 'facets/string/cleanlines'
+require 'facets/string/start_with'
+require 'quality_extensions/pathname'
+require 'quality_extensions/enumerable/max_by_value'
+require 'colored'
+require 'pp'
+
+$:.unshift "/home/tyler/dev/git/ruby-git/lib"
+require 'git'      # requires my changes to ruby-git, (git.status.unmerged)
+
+#---------------------------------------------------------------------------------------------------
+# Parse args
+
+require 'optparse'
+
+@options = {
+  :action => :restore
+}
+
+def parse_args
+  ARGV.options do |opts|
+    opts.banner = <<End
+Usage: #{File.basename($0)} extension
+
+where extension is the extension of saved 'rerere' files (for example, '.use' or '.re'
+
+This assumes you have saved your 'backup copies' of all conflicted files from after the commit, each file having the format "old_file.some_ext"
+
+TODO: do a diff first
+
+See also rmgitversions, which can be useful to get rid of leftover '.your_ext' files
+End
+    opts.on("-c", "--create", "Create the backup files instead of restoring from them.")                                                                  { puts @options[:action] = :create }
+    opts.on("-h", "--help", "Show this help message.")                                                                  { puts opts; exit }
+    opts.parse!
+  end
+end
+
+if ARGV.size == 0
+  ARGV.unshift '--help'
+  parse_args
+else
+  parse_args
+end
+
+ext = ARGV[0]
+if ext.start_with?('.')
+  ext = ext[1..-1]
+end
+
+#---------------------------------------------------------------------------------------------------
+
+@repo_root = `git base-dir`.chomp
+@cdup = `git rev-parse --show-cdup`.chomp
+def relative_to_wd(path)
+  @cdup.blank? ? path : File.join(@cdup, path)
+end
+@git = Git.open(@repo_root)
+
+begin
+  #p @git.ls_files['app/controllers/application_controller.rb']
+  #p @git.status.unmerged.to_a  # I would have expected this to work, but doesn't seem to
+  #unmerged = @git.ls_files.select {|f,h| h[:stage]=='3'} # doesn't stay as Hash
+  unmerged = @git.ls_files.reject {|f,h| h[:stage]!='3'}
+  unmerged = unmerged.keys
+
+  files = []
+  unmerged.each do |unmerged|
+    if (backup = Dir["#{unmerged}.#{ext}"]).any?
+      backup = backup.first
+      files << [unmerged, backup]
+    end
+  end
+end
+
+if @options[:action] == :create
+  raise 'not implemented yet'
+
+elsif @options[:action] == :restore
+  if files.any?
+    puts 'Restore the following files from backup?'
+    max = files.max_by_value {|a| a.first.to_s.length}
+    puts "#{'Will be overwritten'.underline.bold.red}#{''.ljust(max - 'Will be overwritten'.length)} <-- #{'Backup'.green.underline}"
+    files.each do |unmerged, backup|
+      puts "#{unmerged.to_s.ljust(max).bold.red} <-- #{backup.to_s.green}"
+    end
+    print "Continue? (y/n) "
+    if STDIN.gets[0..0].downcase == 'y'
+      files.each do |unmerged, backup|
+        puts "cp #{backup} #{unmerged}".green
+        Pathname.new(backup).cp unmerged
+        Pathname.new(backup).unlink
+      end
+    end
+  else
+    puts "No matching files found"
+  end
+
+else
+  raise 'unknown action'
+end
+
+#-------------------------------------------------------------------------------
+

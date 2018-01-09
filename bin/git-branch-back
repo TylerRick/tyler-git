@@ -1,0 +1,24 @@
+#!/usr/bin/env ruby
+
+=begin
+(In case you haven't been using git push/pop)
+
+Parses git reflog.
+
+so if you it is this:
+
+a8b0581 2016-07-12 09:49:17 -0700 - checkout: moving from master to 2016-2017
+a042c06 2016-07-12 17:58:57 +0000 - checkout: moving from 210_attendance_fields to master
+56a4ade 2016-07-11 20:39:04 -0700 - checkout: moving from master to 210_attendance_fields
+
+that means you should have 2016-2017 checked out currently (assertion error if not?)
+so branch-back would take you to master
+
+Then we'd probably have this:
+checkout: moving from 2016-2017 to master
+checkout: moving from master to 2016-2017
+checkout: moving from 210_attendance_fields to master
+checkout: moving from master to 210_attendance_fields
+
+should branch-back go back to 2016-2017 (like cd -) or back to 210_attendance_fields (find the one *before* the mirror image "master <- 2016-2017 -> master")?
+=end

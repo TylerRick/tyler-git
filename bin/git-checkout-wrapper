@@ -1,0 +1,1 @@
+# delegate to git-cat-save if it specifies <commit>:<filename>, because to a user, checking out a specific version of a file is no different than checking out everything from the commit (which is what git checkout does by default)

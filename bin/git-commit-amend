@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+# Usage git-commit-amend commitish [options]
+# Amends that commit specified by commitish instead of amending the HEAD commit (tip of current
+# branch) as git commit --amend would normally do.
+

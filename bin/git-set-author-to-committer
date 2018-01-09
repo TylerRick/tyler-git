@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+# Compare to: git-rebase-set-author-to-committer
+log=`git log --format=fuller HEAD^..`
+line = log.lines.grep(/Commit:/).first
+if line =~ /Commit: .*<(.*)>$/
+  puts $1
+  system "GIT_AUTHOR_EMAIL='#{$1}' git-commit-modify"
+else
+  fail "Couldn't find AuthorDate"
+end

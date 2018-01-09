@@ -1,0 +1,95 @@
+#!/usr/bin/ruby
+
+#---------------------------------------------------------------------------------------------------
+def usage
+  puts "Usage: #{$0} <path>"
+  puts <<End
+Searches the log using -M (Detect renames) option to find the most recent rename (TODO: or n most recent renames) it was involved in, and outputs the filename it had before being renamed.
+
+Example use:
+# If you only want to see the diffs for a certain file, you can usually do git log -p <path>, but apparently when you use the -M flag in combination with specifying paths, you must specify the previous path of the file you are interested in as well as its current path.
+# So, since you probably don't want to know or care what the file's *previous* filename was, you can use this command:
+> git log -p -M -- associated_form_helper_has_many_test.rb `git path-before-rename associated_form_helper_has_many_test.rb`
+
+End
+  exit 1
+end
+
+#-------------------------------------------------------------------------------
+# To do:
+# * also allow -C (Detect copies)?
+
+#---------------------------------------------------------------------------------------------------
+require 'getoptlong'
+
+@limit = 1
+
+opts = GetoptLong.new(
+  [ '--help',                      GetoptLong::NO_ARGUMENT ],
+  [ '--no-limit', '--all', '-a',   GetoptLong::NO_ARGUMENT ],
+  [ '--limit', '-l',               GetoptLong::REQUIRED_ARGUMENT ]
+)
+opts.each do | opt, arg |
+  case opt
+  when '--help'
+    usage
+  when '--no-limit', '--all', '-a'
+    @limit = nil
+  when '--limit', '-l'
+    @limit = arg
+  end
+end
+
+if ARGV.size < 1
+  usage
+end
+
+path = ARGV[0]
+@path = `git absolute-path #{path} 2>/dev/null`.chomp
+
+#-------------------------------------------------------------------------------
+require 'rubygems' 
+require 'facets/kernel/blank'
+
+@repo_root = `git base-dir`.chomp
+@cdup = `git rev-parse --show-cdup`.chomp
+def relative_to_wd(path)
+  @cdup.blank? ? path : File.join(@cdup, path)
+end
+
+#---------------------------------------------------------------------------------------------------
+
+# Surely there's an easier way to do this?? But until I find it...
+#
+# Look for lines like this:
+# 41      42      test/{associated_form_helper_test.rb => associated_form_helper_has_many_test.rb}
+# log_lines = `git log --numstat -M`.grep(/\{.* => .*\}/)
+#
+# Look for lines like this:
+# rename test/{associated_form_helper_test.rb => associated_form_helper_has_many_test.rb} (83%)
+# log_lines = `git log --summary -M`.grep(/rename (.*)\{.* => .*\}.*/)
+
+sought = @path
+old_paths = []
+
+IO.popen("git log --summary -M", 'r') do |io|
+  io.each_line do |line|
+    if line =~ /^\s+rename (.*)\{(.*) => (.*)\}(.*?)( \(.*\))?$/
+      source = File.join($1, $2, $4).chomp('/')
+      dest = File.join($1, $3, $4).chomp('/')
+      if dest == sought
+        #puts "#{source} => #{dest}"
+        old_paths << source
+        sought = source
+      end
+      break if @limit && old_paths.size >= @limit
+    end
+  end
+end
+
+old_paths.map! do |path|
+  relative_to_wd(path)
+end
+
+# TODO: shell escape them
+puts old_paths.join(' ')

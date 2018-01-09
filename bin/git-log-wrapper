@@ -1,0 +1,56 @@
+#!/usr/bin/ruby
+
+# A wrapper for git log
+
+#---------------------------------------------------------------------------------------------------
+# TODO:
+# show lines/markers/dates indicating the start of commits from each pull
+
+#---------------------------------------------------------------------------------------------------
+require 'rubygems' 
+require 'facets'
+
+require 'getoptlong'
+require 'quality_extensions/enumerable/select_until'
+
+# opts.each will raise an error for all options it doesn't recognize, so trick GetoptLong by dynamically informing it of any options we don't actually recognize
+# But this doesn't work perfectly because we don't specify if arg is optional or not.
+known_args = [[ '-M', GetoptLong::NO_ARGUMENT ]]
+unknown_args = ARGV.select {|a| a =~ /^-/ && !known_args.flatten.include?(a) and a != '--'}.map {|a| [a, GetoptLong::OPTIONAL_ARGUMENT]}
+
+opts = GetoptLong.new(
+  *(known_args + unknown_args)
+)
+
+orig_opts = ARGV.select_until {|a| a == '--'}
+orig_opts = ARGV.select_until {|a| a =~ /^-/} # since it may have incorrectly included a last arg (a path, say) that is not an option, so path may be both in orig_opts and post-args-processing ARGV
+end_of_option_marker = !!ARGV.detect {|a| a == '--'}
+
+#p orig_opts
+#saved_ARGV = ARGV.dup
+opts.each do | opt, arg |
+  case opt
+  when '-M'
+    @M = true
+  else
+    #p opt, arg
+  end
+end
+
+#-------------------------------------------------------------------------------
+if @M
+  # We'll just assume for now that the very last argument is the path
+  path = ARGV.pop
+  path_before_rename = `git path-before-rename "#{path}"`
+
+  # git log will complain if we pass two paths but don't set them off with a --
+  if !end_of_option_marker
+    ARGV.push '--'
+  end
+
+  ARGV.push path
+  ARGV.push path_before_rename
+end
+#p ARGV
+puts   %(git log #{orig_opts.join(' ')} #{ARGV.join(' ')})
+system %(git log #{orig_opts.join(' ')} #{ARGV.join(' ')})

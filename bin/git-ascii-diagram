@@ -1,0 +1,163 @@
+#!/usr/bin/perl
+# http://git.or.cz/gitwiki/ExampleScripts
+# Make some ASCII art from (part of your) history
+# Doesn't seem to work...
+# > git-ascii-diagram dev master~20..master 
+# A-B-C-D-E-F-G-H-I-J-K-L-M-N-O-P-Q-R-S-T-U-V
+
+if ($#ARGV < 0) {
+        print STDERR "Usage: $ARGV0 <revision range>\n";
+        print STDERR "Example: $ARGV0 master~20..master\n";
+        exit(1);
+}
+
+open INPUT, 'git rev-list --parents ' . join(' ', @ARGV) . '|';
+
+%commits=();
+@list=();
+
+sub add_parents ($$) {
+        my $parents = $_[0];
+        my $y = $_[1];
+        foreach my $parent (split / /,$parents) {
+                if ($commits->{$parent} == undef) {
+                        $commits->{$parent} = {
+                                'y' => $y++,
+                                'sha1' => $parent
+                        };
+                } else {
+                        if ($commits->{$parent}->{y} < $y) {
+                                $commits->{$parent}->{y} = $y++;
+                        } else {
+                                $y = $commits->{$parent}->{y} + 1;
+                        }
+                }
+        }
+}
+
+# expects output of `rev-list --parents --topo-order`
+$i = 0;
+while (<INPUT>) {
+        if (/^([0-9a-f]{40}) ?(.*)$/) {
+                $sha1 = $1;
+                $parents = $2;
+                if ($commits->{$sha1} == undef) {
+                        $commits->{$sha1} = {
+                                'y' => 0,
+                                'sha1' => $sha1,
+                        };
+                } else {
+                        $commits->{$sha1}->{index} = $#list;
+                }
+                $commits->{$sha1}->{parents} = $parents;
+                $list[$i] = $commits->{$sha1};
+                $commits->{$sha1}->{index} = $i++;
+                add_parents($parents, $commits->{$sha1}->{y});
+        }
+}
+close INPUT;
+
+if ($#list >= 26) {
+        print STDERR "Cannot draw more than 26 revs.";
+        exit(1);
+}
+
+# make labels
+$height = 0;
+for ($i = 0; $i <= $#list; $i++) {
+        $list[$i]->{x} = $#list - $i;
+        $list[$i]->{label} = chr(0x41 + $list[$i]->{x});
+        if ($height < $list[$i]->{y}) {
+                $height = $list[$i]->{y};
+        }
+}
+
+# make a canvas
+$width = $#list * 2 + 1;
+$height = $height * 2 + 1;
+@canvas = ();
+for ($i = 0; $i < $height; $i++) {
+        $canvas[$i] = ' ' x $width . "\n";
+}
+
+sub set_cell ($$$) {
+        my $x = $_[0];
+        my $y = $_[1];
+        my $c = $_[2];
+        $canvas[$y] = substr($canvas[$y], 0, $x) . $c .
+                substr($canvas[$y], $x + 1);
+}
+
+sub get_cell ($$) {
+        my $x = $_[0];
+        my $y = $_[1];
+        return substr($canvas[$y], $x, 1);
+}
+
+sub msg($) {
+        my $info = $_[0];
+        return $info->{label} . ": " . $info->{x} . ", " . $info->{y};
+}
+
+sub draw_line ($$) {
+        my $commit1 = $_[0];
+        my $commit2 = $_[1];
+        my $x1 = $commit1->{x};
+        my $y1 = $commit1->{y};
+        my $x2 = $commit2->{x};
+        my $y2 = $commit2->{y};
+        if ($y1 == $y2) {
+                for (my $i = $x1 * 2 - 1; $i > $x2 * 2; $i--) {
+                        set_cell($i, $y1 * 2, "-");
+                }
+        } else {
+                my $is_straight = 0;
+                my $factor = ($y2 - $y1) / ($x1 - $x2);
+                my $i;
+                if ($x1 - $x2 == $y2 - $y1) {
+                        $is_straight = 1;
+                        for ($i = $x1 * 2 - 1; $i > $x2 * 2; $i -= 2) {
+                                my $y = $y1 * 2 + ($x1 * 2 - $i) * $factor;
+                                my $c = get_cell($i, int($y));
+                                if ($c ne ' ' && $c ne '-') {
+                                        $is_straight = 0;
+                                }
+                        }
+                }
+                if ($is_straight) {
+                        for ($i = $x1 * 2 - 1; $i > $x2 * 2; $i--) {
+                                my $y = $y1 * 2 + ($x1 * 2 - $i) * $factor;
+                                my $c = (get_cell($i, int($y)) ne ' ') ?
+                                        '+' : '/';
+                                set_cell($i, int($y), $c);
+                        }
+                } else {
+                        set_cell($x1 * 2 - 1, $y1 * 2 + 1, '\'');
+                        for ($i = $x1 * 2 - 2; $i > $x2 * 2 + 1; $i--) {
+                                set_cell($i, $y1 * 2 + 1, '-');
+                        }
+                        set_cell($x2 * 2 + 1, $y1 * 2 + 1, ',');
+                        for ($i = $y1 * 2 + 2; $i < $y2 * 2; $i++) {
+                                my $c = (get_cell($x2 * 2, $i) ne ' ') ?
+                                        '+' : '|';
+                                set_cell($x2 * 2, $i, $c);
+                        }
+                }
+        }
+}
+
+# draw it
+for ($i = 0; $i <= $#list; $i++) {
+        $info = $list[$i];
+        $x = $info->{x} * 2;
+        $y = $info->{y} * 2;
+        set_cell ($x, $y, $info->{label});
+        foreach my $parent (split / /,$info->{parents}) {
+                if ($commits->{$parent}->{index} != undef) {
+                        draw_line($info, $commits->{$parent});
+                }
+        }
+}
+
+print @canvas;
+

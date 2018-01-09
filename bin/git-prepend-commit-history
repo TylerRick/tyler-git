@@ -1,0 +1,4 @@
+#!/usr/bin/ruby
+# Use this when you or someone else failed/forgot to/didn't know how to at the time include commit history from an earlier repository
+# For example, you used to have an svn repo, but switched to git, but made the head of svn repo the initial commit of svn repo instead of doing a git svn clone to fetch all revisions/commit history from svn repo into git history first
+# This aims to fix that oversight retroactively by creating a new repo (or starting with an existing git repo) and replaying all commits from current git repo on top of it, resulting in a new repo with combination of commits from both repos

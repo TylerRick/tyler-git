@@ -1,0 +1,18 @@
+#!/bin/bash
+shopt -s expand_aliases
+alias git-upstream='git for-each-ref --format="%(upstream:short)" $(git symbolic-ref -q HEAD)'
+git log --pretty=format:"%h %s" $(git-upstream)..@ | while read line; do
+  #   rev=`echo "$line" | awk '{ print $1 }'`
+  message=`echo "$line" | cut -d' ' -f2-`
+  if echo "$message" | egrep -q '^[sf] '; then
+    rev=`echo "$message" | awk '{ print $2 }'`
+    if git rev-parse -q --verify "$rev"; then
+      # if $debug
+      #echo "$rev $message"
+      echo -n "$rev "
+    else
+      echo >&2 "Warning: Couldn't extract valid rev from: $message"
+    fi
+  fi
+done
+

@@ -1,0 +1,6 @@
+#!/bin/sh
+http://blog.codefarm.co.nz/2009/08/git-diff-and-difftool-open-all-files.html
+
+git diff --name-only "$@" | while read filename; do
+    git difftool "$@" --no-prompt "$filename"
+done
