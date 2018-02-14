@@ -448,13 +448,32 @@ function grbi() {
   # them and go back to that common commit instead
   if [ -n "$1" ]; then
     common_ancestor=$(git common-ancestor "$@")
+    commit_list=("$@" "$common_ancestor")
   else
     # By default, rebase onto the commit that is in common with your local branch and your upstream
     # branch, in case you have diverged
     common_ancestor=$(git common-ancestor $(git-upstream) @)
+    commit_list="$common_ancestor"
   fi
-  # TODO: if not ancestor of HEAD, then try to git-find-equivalent-commit
-  git merge-base --is-ancestor $common_ancestor HEAD || { echo "$common_ancestor is not an ancestor of current head."; return 1; }
+  # If you've already rewritten some history/commits, and then try to rebase onto a commit from
+  # *before* you rewrote that commit, it will give you this warning, because that's probably *not*
+  # what you want to do. [Explain why not.]
+  git merge-base --is-ancestor $common_ancestor HEAD || {
+    echo "$common_ancestor is not an ancestor of current head. Did you mean one of these commits?"
+    declare -A commit_list_uniq; for commit in "${commit_list[@]}"; do commit_list_uniq["$commit"]=1; done
+    for commit in "${!commit_list_uniq[@]}"; do
+      # If not ancestor of HEAD, then try to git-find-equivalent-commit
+      equiv_commit=$(git-find-equivalent-commit $commit 2>/dev/null)
+      if [ -n "$equiv_commit" ]; then
+        echo "- Equivalent commit found for $commit:"
+        echo $equiv_commit
+        git log -n 1 $equiv_commit
+      else
+        echo "- No equivalent commit found for $commit"
+      fi
+    done
+    return 1
+  }
   grb $common_ancestor~ -i
 }
 
@@ -470,13 +489,33 @@ alias grbiauto='grbi $(git-find-rebase-i-commands-in-commit-messages)'
 
 # To do: Also use in git-find-rebase-i-commands-in-commit-messages
 function git-find-equivalent-commit() {
-  # TODO: find ancestor of current head that either has the same or very similar commit message, or
-  # same or similar patch
-  # Because I often find myself wanting to shoot new commits back to squash with the canonical old commit for
-  # the certain topic (like "the one where I upgrade all the gem versions"). But if I just reuse the
-  # same command from my history that I used last time I wanted to shoot it back to that old commit,
-  # it will be the wrong one, because each time I squash with that commit, it gets a new ID.
-  :
+  # Find ancestor of current head that either has the same [done] or very similar [TODO] commit
+  # message, or same or similar patch [TODO].
+  # Because I often find myself wanting to shoot new commits back to squash with the canonical old
+  # commit for the certain topic (like "the one where I upgrade all the gem versions"). But if I
+  # just reuse the same command from my history that I used last time I wanted to shoot it back to
+  # that old commit, it will be the wrong one, because each time I squash with that commit, it gets
+  # a new ID.
+
+  mapfile -t ancestors < <(git rev-list @)
+  #echo ${#ancestors[@]}
+  #printf "%s\n" "${ancestors[@]}"
+  #echo "${ancestors[@]}"
+  #for ancestor in "${ancestors[@]}"; do
+  for (( i=0; i<${#ancestors[@]}; i++)); do
+    ancestor="${ancestors[$i]}"
+    #echo ancestor=$ancestor
+    search_message=$(  git log --format=%B -n 1 $1)
+    ancestor_message=$(git log --format=%B -n 1 $ancestor)
+    #echo search_message:"$search_message"
+    #echo ancestor_message="$ancestor_message"
+    # TODO: also check for approx match, perhaps after checking all candidates for exact match
+    if [ "$ancestor_message" = "$search_message" ]; then
+      echo $ancestor
+      return 0
+    fi
+  done
+  return 1
 }
 alias  grbim='grbi master'
 alias  grbi2='grbi HEAD~2'
