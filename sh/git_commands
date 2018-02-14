@@ -466,7 +466,6 @@ function grbi() {
       equiv_commit=$(git-find-equivalent-commit $commit 2>/dev/null)
       if [ -n "$equiv_commit" ]; then
         echo "- Equivalent commit found for $commit:"
-        echo $equiv_commit
         git log -n 1 $equiv_commit
       else
         echo "- No equivalent commit found for $commit"
@@ -497,24 +496,28 @@ function git-find-equivalent-commit() {
   # that old commit, it will be the wrong one, because each time I squash with that commit, it gets
   # a new ID.
 
-  mapfile -t ancestors < <(git rev-list @)
-  #echo ${#ancestors[@]}
-  #printf "%s\n" "${ancestors[@]}"
-  #echo "${ancestors[@]}"
-  #for ancestor in "${ancestors[@]}"; do
-  for (( i=0; i<${#ancestors[@]}; i++)); do
-    ancestor="${ancestors[$i]}"
-    #echo ancestor=$ancestor
-    search_message=$(  git log --format=%B -n 1 $1)
-    ancestor_message=$(git log --format=%B -n 1 $ancestor)
-    #echo search_message:"$search_message"
-    #echo ancestor_message="$ancestor_message"
+  search_id=$1
+  search_message=$(git log --format=%B -n 1 $search_id)
+  while IFS= read -d '' ancestor; do
+    #readarray -t ancestor_ary <<< "$ancestor"
+    mapfile -t ancestor_ary <<< "$ancestor"
+    ancestor_id=${ancestor_ary[0]}
+
+    #printf -v ancestor_message "%s\n" "${ancestor_ary[@]:1}"
+    ancestor_message="${ancestor_ary[*]:1}"
+    ancestor_message=${ancestor_message%?} # remove trailing newline
+    #echo ancestor_id=$ancestor_id
+    #echo @@search_message:  "$search_message"
+    #echo @@ancestor_message:"$ancestor_message"
+    #declare -p search_message
+    #declare -p ancestor_ary
+    #declare -p ancestor_message
     # TODO: also check for approx match, perhaps after checking all candidates for exact match
     if [ "$ancestor_message" = "$search_message" ]; then
-      echo $ancestor
+      echo $ancestor_id
       return 0
     fi
-  done
+  done < <(git log -z --format="%H%n%B")
   return 1
 }
 alias  grbim='grbi master'
