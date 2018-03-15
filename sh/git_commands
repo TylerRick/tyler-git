@@ -69,7 +69,7 @@ alias git-branch-set-merge-defaults='git config branch.master.remote origin; git
 # Diff
 
 alias    gd='git diff --find-renames --find-copies'                             # staged vs. unstaged (unstaged changes are +)
-alias  gd20='git diff --find-renames --find-copies --unified=20'                # lots of context lines! 
+alias  gd20='git diff --find-renames --find-copies --unified=20'                # lots of context lines!
 alias   gds='git diff --find-renames --find-copies --staged'                    # HEAD   vs. staged   (staged changes are +)
 alias  gdis='git diff --find-renames --find-copies --ignore-all-space'          # staged vs. unstaged (unstaged changes are +)
 alias gdsis='git diff --find-renames --find-copies --ignore-all-space --staged' # HEAD   vs. staged   (staged changes are +)
@@ -350,14 +350,16 @@ alias  glsf='git ls-files'
 alias  glss='git ls-files-by-status'
 
 #alias   grl='git reflog'
-alias   grl='git log --pretty=oneline --abbrev-commit --walk-reflogs --color --pretty=format:"%C(yellow)%h %Cgreen%ci %Creset- %gs"'
+alias   grls='git log --pretty=oneline --abbrev-commit --walk-reflogs --color --pretty=format:"%C(yellow)%h %Cgreen%ci %Creset- %gs"'
+
+
+alias   grl='git log --walk-reflogs --color '
+alias  grll='git log --walk-reflogs --color --numstat'
+alias grllf='git log --walk-reflogs --color --format=fuller'
+alias  grlp='git log --walk-reflogs -c --color --patch-with-stat'
 
 #alias  grlh='git reflog | head -n10'
 alias  grlm='git reflog-menu'
-
-alias  grll='git log --walk-reflogs --color'
-alias grllf='git log --walk-reflogs --color --format=fuller'
-alias  grlp='git log --walk-reflogs -c --color --patch-with-stat'
 
 #------------------------------------------
 alias    ga='git add'
@@ -528,6 +530,8 @@ alias  grbi5='grbi HEAD~5'
 alias grbi10='grbi HEAD~10'
 alias grbi20='grbi HEAD~20'
 alias grbi30='grbi HEAD~30'
+alias grbi40='grbi HEAD~40'
+alias grbi50='grbi HEAD~50'
 
 alias grbabort='git rebase --abort'
 alias  grbskip='git rebase --skip'
@@ -633,7 +637,6 @@ alias gcoh10='git checkout HEAD~10'
 alias gcoh20='git checkout HEAD~20'
 
 
-
 #------------------------------------------
 # How do I undelete a file I've git rm'ed?
 # git reset -- <file>; git checkout <file> ?
@@ -654,6 +657,30 @@ function  gci() {
 function  gaci() {
 	git add       "$@"
 	git commit -v "$@"
+}
+
+alias gcif='git commit --fixup'
+
+# "git commit --amend" a past commit by making a temporary commit and then doing a "fixup" onto the commit you want to amend, using git rebase -i
+function gcifrb() {
+  if [ -z "$1" ]; then
+    echo "Usage: gcifrb <commit>"
+    return 1
+  fi
+  commit=$1
+  #git commit -m "f $commit"
+  #git commit -m "fixup! $(git log --format=%s -n1 $commit)"
+  git commit --fixup $commit
+
+  #grbi $commit
+  # Automate it and tell it to do the "f" command. Otherwise would require user
+  # to move the line up to right below the target commit and change pick to f.
+  # Possible solution: --autosquash
+  git merge-base --is-ancestor $commit HEAD || {
+    echo "Error: $commit is not an ancestor of current head."
+    return 1
+  }
+  git rebase -i --autosquash $commit^
 }
 
 # By default, git-commit will strip lines beginning with # character because it things they are commentary.
