@@ -1,0 +1,20 @@
+#! /bin/bash
+# "git commit --amend" a past commit by making a temporary commit and then doing a "fixup" onto the commit you want to amend, using git rebase -i
+if [ -z "$1" ]; then
+  echo "Usage: gciarb <commit> [file...]"
+  exit 1
+fi
+commit=$1
+#git commit -m "f $commit"
+#git commit -m "fixup! $(git log --format=%s -n1 $commit)"
+git commit --fixup $commit "$@"
+
+#grbi $commit
+# Automate it and tell it to do the "f" command. Otherwise would require user
+# to move the line up to right below the target commit and change pick to f.
+# Possible solution: --autosquash
+git merge-base --is-ancestor $commit HEAD || {
+  echo "Error: $commit is not an ancestor of current head."
+  exit 1
+}
+git rebase -i --autosquash $commit^
