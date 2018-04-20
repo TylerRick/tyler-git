@@ -1,152 +1,156 @@
-#! /bin/bash
+
+===================================================================================================
+
+Trigger grbi to create file
+.git/rebase-merge/git-rebase-todo
+then, matching on commit id, combine with output from
+  git log --reverse --no-color --stat=400 {range}
+Ex:
+  git log --reverse --no-color --stat=400 33d3a9eb4^...@
+adding just the list of files for each commit (add as comments so you don't cause syntax error)
+{range} is the same range of commits included in .git/rebase-merge/git-rebase-todo
+
+Why?
+If you're trying to rearrange commits and squash similar ones together, this helps you to see
+which ones are save to leap frog and change the order of: if they don't touch any of the same
+files, you're free to leap frog (move a commit that is below the other so that it's above it)
+without any fear of conflicts. If they touch the same file, then you have to be a lot more
+careful.
+For example, if you have a bunch of commits that only files A and B, and another bunch of commits
+that only change files C and D, you can combine/squash all the A/B changes into a single commit
+and all the C/D changes into another commit.
+
+Example:
+pick 786af6a2f f bin/set-ci-flag: document
+ Readme.md | 13 +++++++++++++
+
+pick d8fcbea88 Add before_action :require_admin to Admin::SimpleChurchesController
+ app/controllers/admin/simple_churches_controller.rb | 2 ++
 
 
-#===================================================================================================
+pick 39f5a29f2 f 1abe0fef0caa989b1dfa8fb8fdc105f8b6a1cddd f Always fetch
+ bin/get-ci-flag | 6 +-----
+pick 73de783b7 f move parsing of common options (-r) to bin/git_notes_prepare
+ bin/ci/record_test_status         | 12 +++++-------
+ bin/ci/upload_rspec_result_status | 13 +++++--------
+ bin/get-ci-flag                   | 15 ++++++---------
+ bin/git_notes_prepare             | 17 ++++++++++++++++-
+ bin/set-ci-flag                   | 13 +++++--------
 
-# Trigger grbi to create file
-# .git/rebase-merge/git-rebase-todo
-# then, matching on commit id, combine with output from
-#   git log --reverse --no-color --stat=400 {range}
-# Ex:
-#   git log --reverse --no-color --stat=400 33d3a9eb4^...@
-# adding just the list of files for each commit (add as comments so you don't cause syntax error)
-# {range} is the same range of commits included in .git/rebase-merge/git-rebase-todo
-
-# Why?
-# If you're trying to rearrange commits and squash similar ones together, this helps you to see
-# which ones are save to leap frog and change the order of: if they don't touch any of the same
-# files, you're free to leap frog (move a commit that is below the other so that it's above it)
-# without any fear of conflicts. If they touch the same file, then you have to be a lot more
-# careful.
-# For example, if you have a bunch of commits that only files A and B, and another bunch of commits
-# that only change files C and D, you can combine/squash all the A/B changes into a single commit
-# and all the C/D changes into another commit.
-
-# Example:
-#pick 786af6a2f f bin/set-ci-flag: document
-# Readme.md | 13 +++++++++++++
-#
-#pick d8fcbea88 Add before_action :require_admin to Admin::SimpleChurchesController
-# app/controllers/admin/simple_churches_controller.rb | 2 ++
-#
-#
-#pick 39f5a29f2 f 1abe0fef0caa989b1dfa8fb8fdc105f8b6a1cddd f Always fetch
-# bin/get-ci-flag | 6 +-----
-#pick 73de783b7 f move parsing of common options (-r) to bin/git_notes_prepare
-# bin/ci/record_test_status         | 12 +++++-------
-# bin/ci/upload_rspec_result_status | 13 +++++--------
-# bin/get-ci-flag                   | 15 ++++++---------
-# bin/git_notes_prepare             | 17 ++++++++++++++++-
-# bin/set-ci-flag                   | 13 +++++--------
-#
-#pick 882c3d6e5 f readme
-#pick c8a2ad346 f c7bef3bbd22d661b8fa43bf5587079fb2383d2c6
-# app/controllers/user_edit_common_controller.rb | 2 +-
+pick 882c3d6e5 f readme
+pick c8a2ad346 f c7bef3bbd22d661b8fa43bf5587079fb2383d2c6
+ app/controllers/user_edit_common_controller.rb | 2 +-
 
 
 
-#===================================================================================================
-# Related feature:
+===================================================================================================
+Related feature:
 
-# Ability to add marker commits, for example, so you have a nice delimeted bucket to put related
-# commits in and still be able to see where they start and end after the rebase is complete ... perhaps
-# because you're planning to do multiple passes of rebases, it's not like you're going to leave
-# these markers there when you push; you're going to leave them there to help you find your place
-# (kind of like a bookmark) when you come back and revisit this history rewriting work later...
-
-
-# Example: perhaps like this:
-# marker { model changes
-# ... other f/s/etc. commands
-# marker } model changes
-
-# and each marker command gets translated to something like:
-# git commit --allow-empty -m '========= {orig text}'
-
-# or perhaps another, more general name for this command would be better:
-# empty-commit (creates an empty commit with the text that follows)
+Ability to add marker commits, for example, so you have a nice delimeted bucket to put related
+commits in and still be able to see where they start and end after the rebase is complete ... perhaps
+because you're planning to do multiple passes of rebases, it's not like you're going to leave
+these markers there when you push; you're going to leave them there to help you find your place
+(kind of like a bookmark) when you come back and revisit this history rewriting work later...
 
 
-# Will probably run into this problem, where grbi will stop on the commit with this warning:
+Example: perhaps like this:
+marker { model changes
+... other f/s/etc. commands
+marker } model changes
 
-# You asked to amend the most recent commit, but doing so would make
-# it empty. You can repeat your command with --allow-empty, or you can
-# remove the commit entirely with "git reset HEAD^".
-# where I have to manually run this to continue:
-# gcia --allow-empty
-# That's not user friendly.
-# grbi should itself have a --allow-empty that lets you tell it that you're okay with empty commits, and then it automatically passes that flag on to git commit.
-# found it! --keep-empty
+and each marker command gets translated to something like:
+git commit --allow-empty -m '========= {orig text}'
 
-# Adding these marker commits at a beginning of a section also gives you somewhat permanent commit,
-# which lets you target that commit as the `onto` of your grbi -- multiple times! (as long as you
-# don't rewrite any history *before* that marker/section).
-# This is handy if you plan to make multiple passes at rewriting a section.
-# All the commits *after* the marker commit at the beginning of the section may get rewritten and
-# get new commit refs, but rebasing *onto* the marker commit won't cause that commit to get
-# rewritten, so its commit ref/id will stay the same...
-# allowing you to do this, for example:
-
-## * c419e3570 2018-03-15 14:04:46 -0700 Tyler Rick ============== { bin/ci
-#grbi c419e3570
-#grbi c419e3570
+or perhaps another, more general name for this command would be better:
+empty-commit (creates an empty commit with the text that follows)
 
 
-#===================================================================================================
-# Related feature:
+Will probably run into this problem, where grbi will stop on the commit with this warning:
 
-# Make it possible to add notes to yourself while editing your .git/rebase-merge/git-rebase-todo
-# Normally, as soon as you quit the file, you basically lose any changes you made to the file except
-# for changes to {command} {commit} part of lines: anything after that line is ignored, and any
-# comments are ignored
+You asked to amend the most recent commit, but doing so would make
+it empty. You can repeat your command with --allow-empty, or you can
+remove the commit entirely with "git reset HEAD^".
+where I have to manually run this to continue:
+gcia --allow-empty
+That's not user friendly.
+grbi should itself have a --allow-empty that lets you tell it that you're okay with empty commits, and then it automatically passes that flag on to git commit.
+found it! --keep-empty
 
-# I propose: add some pre-processing of .git/rebase-merge/git-rebase-todo after you exit the file,
-# but before handing off to main grbi command, that adds some new meta commands/operations, that lets you:
+Adding these marker commits at a beginning of a section also gives you somewhat permanent commit,
+which lets you target that commit as the `onto` of your grbi -- multiple times! (as long as you
+don't rewrite any history *before* that marker/section).
+This is handy if you plan to make multiple passes at rewriting a section.
+All the commits *after* the marker commit at the beginning of the section may get rewritten and
+get new commit refs, but rebasing *onto* the marker commit won't cause that commit to get
+rewritten, so its commit ref/id will stay the same...
+allowing you to do this, for example:
 
-# 1. Edit the commit message (first line of it) following {command} {commit_ref} and have the
-# change actually show up as the commit message when grbi gets to that commit.
-# Because if you just mark it as 'r'[rewrite], by the time grbi gets to that commit you may have already
-# forgotten what change you wanted to make to the message, because there may have been many other
-# commits in between, some requiring much concetration (as in the case of a [e]dit command).
+# * c419e3570 2018-03-15 14:04:46 -0700 Tyler Rick ============== { bin/ci
+grbi c419e3570
+grbi c419e3570
 
-# 2. Add comments directly above a commit, and have those comments added to the bottom of the commit
-# message when grbi gets to that commit and opens the editor for the commit message, similar to the comments grbi adds when you do a [s]quash (but we need it to open the editor even if doing [f]ixups, so that your comments will actually show up for you)
-# These can be hints about additional things to add to the message, or...
-# Maybe even hints about how you wanted to edit the commit if using [e]dit (in which case the message probably needs to show on stdout when grbi stops for you to do the edit, and not just in the commit message?)
-# Make sure git commit opens the editor with
-#       -v, --verbose
-#           Show unified diff between the HEAD commit and what would be committed at the bottom of the commit message template to help the user describe the commit by reminding what changes the commit has. Note that this diff output doesn’t have its lines prefixed with #. This
-#           diff will not be a part of the commit message. See the commit.verbose configuration variable in git-config(1).
-# so that the comment lines just added for you (temporarily) will automatically get removed (unless you uncomment them now).
 
-# 3. split command
-# Like edit but if the only reason you're doing an edit is to split it into 2 commands, maybe you
-# could pre-script the commands for splitting, so that (if it was a simple enough split, such as
-# when only entire files are included in each side of the split) it can be completely automated and
-# not require human intervention. If you use something like git add -p to add only *part* of a file
-# in each commit, however, that would require human intervention -- it could still be (slightly) helpful for
-# that too.
-# It would automatically:
-# 1. note which files were included in original commit
-# 2. git reset --soft @^
-# 3. git unstage the changes, so that your script only needed to worry about adding/commiting? no,
-#   let the script unstage if needed. Most times you can just leave them staged and just git commit
-#   file-names. You only need to unstage changes if you want to commit only part of a file (git add
-#   -p).
-# Example of a completely automated one:
+===================================================================================================
+Related feature:
+
+Make it possible to add notes to yourself while editing your .git/rebase-merge/git-rebase-todo
+Normally, as soon as you quit the file, you basically lose any changes you made to the file except
+for changes to {command} {commit} part of lines: anything after that line is ignored, and any
+comments are ignored
+
+I propose: add some pre-processing of .git/rebase-merge/git-rebase-todo after you exit the file,
+but before handing off to main grbi command, that adds some new meta commands/operations, that lets you:
+
+1. Edit the commit message (first line of it) following {command} {commit_ref} and have the
+change actually show up as the commit message when grbi gets to that commit.
+Because if you just mark it as 'r'[rewrite], by the time grbi gets to that commit you may have already
+forgotten what change you wanted to make to the message, because there may have been many other
+commits in between, some requiring much concetration (as in the case of a [e]dit command).
+
+2. Add comments directly above a commit, and have those comments added to the bottom of the commit
+message when grbi gets to that commit and opens the editor for the commit message, similar to the comments grbi adds when you do a [s]quash (but we need it to open the editor even if doing [f]ixups, so that your comments will actually show up for you)
+These can be hints about additional things to add to the message, or...
+Maybe even hints about how you wanted to edit the commit if using [e]dit (in which case the message probably needs to show on stdout when grbi stops for you to do the edit, and not just in the commit message?)
+Make sure git commit opens the editor with
+      -v, --verbose
+          Show unified diff between the HEAD commit and what would be committed at the bottom of the commit message template to help the user describe the commit by reminding what changes the commit has. Note that this diff output doesn’t have its lines prefixed with #. This
+          diff will not be a part of the commit message. See the commit.verbose configuration variable in git-config(1).
+so that the comment lines just added for you (temporarily) will automatically get removed (unless you uncomment them now).
+
+3. split command
+Like edit but if the only reason you're doing an edit is to split it into 2 commands, maybe you
+could pre-script the commands for splitting, so that (if it was a simple enough split, such as
+when only entire files are included in each side of the split) it can be completely automated and
+not require human intervention. If you use something like git add -p to add only *part* of a file
+in each commit, however, that would require human intervention -- it could still be (slightly) helpful for
+that too.
+It would automatically:
+1. note which files were included in original commit
+2. git reset --soft @^
+3. git unstage the changes, so that your script only needed to worry about adding/commiting? no,
+  let the script unstage if needed. Most times you can just leave them staged and just git commit
+  file-names. You only need to unstage changes if you want to commit only part of a file (git add
+  -p).
+Example of a completely automated one:
 
 split df0d5c5 [WIP]
 - git commit app/models/ability.rb spec/models/ability_spec.rb -m "Add ability for admins to edit students"
-- git commit --all -c df0d5c5   # it could automatically add this line as the default last/catch-all action with a blank line above it
-# If there were any 'modified' files, it would stop with a warning telling you to manually add (or
+- git commit --all -c df0d5c5
 
-# discard) the remaining changes (which you apparently didn't account for in your script).
-# If the original commit had added *new* files, however, they wouldn't show up as 'modified' files
-# after unstaging them. So it would have to check the list of changed/new files from original commit
-# and also warn you and stop if any of those files had not been added back in any of your new
-# commits. I don't think --all adds untracked files (maybe it does with -u/--untracked-files=all ?),
-# so your script might need an explicit `git add .` -- but then maybe it should warn and ask for
-# confirmation if you added any untracked files that *weren't* present in original commit, because
-# git add . may add files you didn't mean to add.
+If there were any 'modified' files, it would stop with a warning telling you to manually add (or
+discard) the remaining changes (which you apparently didn't account for in your script).
+
+Maybe instead of a warning it could automatically run this catch-all command by default after your
+script was done, or prompt you if you wanted to, or just tell you that maybe you want to run this
+command to commit all remaning files, using the original commit message:
+  git commit --all -c df0d5c5
+
+If the original commit had added *new* files, however, they wouldn't show up as 'modified' files
+after unstaging them. So it would have to check the list of changed/new files from original commit
+and also warn you and stop if any of those files had not been added back in any of your new
+commits. I don't think --all adds untracked files (maybe it does with -u/--untracked-files=all ?),
+so your script might need an explicit `git add .` -- but then maybe it should warn and ask for
+confirmation if you added any untracked files that *weren't* present in original commit, because
+git add . may add files you didn't mean to add.
 
 
