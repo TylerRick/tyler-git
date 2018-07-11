@@ -7,6 +7,7 @@ then, matching on commit id, combine with output from
   git log --reverse --no-color --stat=400 {range}
 Ex:
   git log --reverse --no-color --stat=400 33d3a9eb4^...@
+  git log --reverse --no-color --stat=400 $(git-upstream)...@ > .git/.local/$(now)_rebase_annotated_commit_list
 adding just the list of files for each commit (add as comments so you don't cause syntax error)
 {range} is the same range of commits included in .git/rebase-merge/git-rebase-todo
 
@@ -24,8 +25,8 @@ Example:
 pick 786af6a2f f bin/set-ci-flag: document
  Readme.md | 13 +++++++++++++
 
-pick d8fcbea88 Add before_action :require_admin to Admin::SimpleChurchesController
- app/controllers/admin/simple_churches_controller.rb | 2 ++
+pick d8fcbea88 Add before_action :require_admin to Admin::ThingController
+ app/controllers/admin/thing_controller.rb | 2 ++
 
 
 pick 39f5a29f2 f 1abe0fef0caa989b1dfa8fb8fdc105f8b6a1cddd f Always fetch
@@ -153,4 +154,11 @@ so your script might need an explicit `git add .` -- but then maybe it should wa
 confirmation if you added any untracked files that *weren't* present in original commit, because
 git add . may add files you didn't mean to add.
 
+Note: This is already possible using just pick and x:
 
+  pick d0e5ce5a An admin can manage a list of global course/seminar-specific product offers for each global course/seminar
+  # Isolate: lib/action_view/helpers/form_helper_extensions.rb into its own commit and commit the rest with original message
+  x git reset --soft HEAD~1; git commit lib/action_view/helpers/form_helper_extensions.rb -m "Add currency_field"; git commit -c d0e5ce5a
+
+It's just a bit clunky, verbose, and error-prone.
+So what I am proposing is just some syntactic sugar to make it easier, with less boilerplate and therefore less things to be able to get wrong.

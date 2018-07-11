@@ -4,7 +4,7 @@ if [ -z "$1" ]; then
   echo "Usage: gciarb <commit> [file...]"
   exit 1
 fi
-commit=$1
+commit=$1; shift
 #git commit -m "f $commit"
 #git commit -m "fixup! $(git log --format=%s -n1 $commit)"
 git commit --fixup $commit "$@"

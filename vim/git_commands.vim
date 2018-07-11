@@ -183,6 +183,9 @@ command! -nargs=* Gitcommit               !cd %:p:h; git commit -v "%:p:t" <args
 command! -nargs=* Gitci                   :Gitcommit <args>
 command! -nargs=* Gci                     :Gitcommit <args>
 
+" passes commit as arg1
+command! -nargs=1 Gcifrb                  !cd %:p:h; git commit-fixup-rebase <args> "%:p:t"
+
 " Note: We must include the filename when doing git commit --amend or else it will include *all*
 " currently stashed changes into the amended commit. We want it to only add/include the file you are
 " editing into the amended commit, and leave all other changes that may be staged *still* staged (to

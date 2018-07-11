@@ -13,7 +13,8 @@
 #     https://github.com/github/hub/releases
 
 if which hub >/dev/null; then
-  alias git=hub
+  #alias git=hub
+  : # completion for custom git aliases semes to break with this alias?
 fi
 
 # https://raw.githubusercontent.com/github/hub/master/etc/hub.bash_completion.sh
@@ -157,6 +158,9 @@ function  glrf() {                                                              
 # TODO: figure out to use --stat=width,file_width such that it doesn't chop off filename; how do we specify percentage?; how do we get terminal's current width?
 alias    glp='git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --find-renames --find-copies'                 # See the patch/diff (the actual lines that changed)
 alias   glpf='git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow'        # This only works when a single path is given. Otherwise you get error "usage: git logs can only follow renames on one pathname at a time"
+# Sometimes it doesn't show the diffs because the -M isn't set low enough, sou you can set it really
+# low like this:
+alias glpfM01='git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow -M01'
 #alias    glp='git log -c --color -p   --numstat --no-prefix'                 # See the actual lines that changed
 
 #alias   glpr='git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --reverse'
@@ -231,6 +235,7 @@ alias glpU20='git log -c --color -U20 --numstat --no-prefix'
 alias   gll='git log --color --numstat --graph'
 alias  glls='git log --color --stat --graph'
 alias  gllf='git log --color --numstat --follow'
+alias gllfM01='git log --color --numstat --follow -M01'
 alias  gllr='git log --color --numstat --reverse'
 function  gllrf() {
   commit="$1"; shift
@@ -238,7 +243,7 @@ function  gllrf() {
 }
 
 alias   gwc='git whatchanged'
-alias   glf='git log --color --format=fuller'
+alias   glfull='git log --color --format=fuller'
 
 alias gfileschangedinsamecommitsas='gl --pretty=format:"%h" ./app/views/partials/_transfer_report.html.erb | xargs1 git log -1 --name-status {}'
 
@@ -246,7 +251,8 @@ alias gfileschangedinsamecommitsas='gl --pretty=format:"%h" ./app/views/partials
 alias   gllast='git log --patch-with-stat -n1'          # What is the last thing to be committed? (probably by you)
 
 alias   gl1='git log --color --pretty=oneline'
-alias  glsnc='git log --pretty=format:"%h %ai %an - %s"'  # no color, no graph
+#alias  glsnc='git log --pretty=format:"%h %ai %an - %s"'  # no color, no graph
+alias  glsnc='git log --no-color --graph --pretty=format:"%h %ai %an%d %s"'  # no color, but yes graph
 
 # %d is like decorate, shows ref name.
 alias   gls='git log --color --graph --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s"'    # git log short
@@ -407,7 +413,9 @@ alias git-upstream='git for-each-ref --format="%(upstream:short)" $(git symbolic
 #alias  grbi='echo git rebase -i ${1:-master}'
 
 # git rebase
-alias grb='git rebase'
+# TODO: make --keep-empty optional (added here for now because grbi doesn't accept option args, only commit args)
+alias grb='git rebase --keep-empty'
+alias grbnas='git rebase --no-autosquash' # override git config rebase.autosquash true 
 alias  grbm='git rebase master'
 alias  grbom='git rebase origin/master'
 alias  grbim='git rebase -i master'
@@ -533,9 +541,11 @@ alias grbi30='grbi HEAD~30'
 alias grbi40='grbi HEAD~40'
 alias grbi50='grbi HEAD~50'
 
-alias grbabort='git rebase --abort'
-alias  grbskip='git rebase --skip'
-alias  grbc='git rebase --continue'  # after resolving conflicts, do this to continue
+alias grb-edit-todo='git rebase --edit-todo'
+alias grb-abort='git rebase --abort'
+alias  grb-skip='git rebase --skip'
+alias  grb-continue='git rebase --continue'  # after resolving conflicts, do this to continue
+alias grbc='grb-continue'
 
 #------------------------------------------
 alias   gm='git merge'
@@ -662,26 +672,7 @@ function  gaci() {
 alias gcif='git commit --fixup'
 
 # "git commit --amend" a past commit by making a temporary commit and then doing a "fixup" onto the commit you want to amend, using git rebase -i
-function gcifrb() {
-  if [ -z "$1" ]; then
-    echo "Usage: gcifrb <commit>"
-    return 1
-  fi
-  commit=$1
-  #git commit -m "f $commit"
-  #git commit -m "fixup! $(git log --format=%s -n1 $commit)"
-  git commit --fixup $commit
-
-  #grbi $commit
-  # Automate it and tell it to do the "f" command. Otherwise would require user
-  # to move the line up to right below the target commit and change pick to f.
-  # Possible solution: --autosquash
-  git merge-base --is-ancestor $commit HEAD || {
-    echo "Error: $commit is not an ancestor of current head."
-    return 1
-  }
-  git rebase -i --autosquash $commit^
-}
+alias gcifrb='git-commit-fixup-rebase'
 
 # By default, git-commit will strip lines beginning with # character because it things they are commentary.
 # But sometimes you want to include lines that begin with the # character. For example, if you want to include...

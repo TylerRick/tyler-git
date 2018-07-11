@@ -103,7 +103,7 @@ if @save
   if @name_only
     save_as = @save_as || path
   else
-    save_as = @save_as || "#{path}.#{revision}#{extension}"
+    save_as = @save_as || "#{path}.#{revision.gsub('/', '-')}#{extension}"
   end
 
   save_as = Pathname.new(save_as)

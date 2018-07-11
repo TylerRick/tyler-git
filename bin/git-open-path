@@ -1,0 +1,5 @@
+#!/bin/bash
+# Depends on: https://github.com/paulirish/git-open
+# See also: https://github.com/paulirish/git-open/issues/54
+
+xdg-open "$(BROWSER=echo git open)/blob/$(git symbolic-ref --short HEAD)/$@"

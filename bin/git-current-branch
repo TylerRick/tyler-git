@@ -16,8 +16,8 @@ output=$(git rev-parse --abbrev-ref HEAD 2>&1)
 
 if [ $? -eq 0 ]; then
   #echo "$(git branch | grep '^*' |sed s/\*\ //)"
-  #git symbolic-ref HEAD | sed s#^refs/heads/##
-  git rev-parse --abbrev-ref HEAD 2>&1 | sed s#^refs/heads/##
+  git symbolic-ref --short HEAD
+  #git rev-parse --abbrev-ref HEAD 2>&1 | sed s#^refs/heads/##
 else
   exit 1
 fi
