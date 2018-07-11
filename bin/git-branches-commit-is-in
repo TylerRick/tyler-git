@@ -1,15 +1,3 @@
-#!/usr/bin/env ruby
+#!/bin/sh
 
-# I was able to do git log <sha> for a commit that a saw a notification for
-# but it wasn't listed in the log for master and I wanted to know which
-# branch it WAS in (if not master)....
-
-# (turned out it was in origin/test, for which I had no tracking local branch,
-# so gitk wouldn't even let me jump to it)
-
-# this tool should take a sha, and perhaps recursively look at the commit's parents
-# until it reaches a head
-
-# .git/refs/remotes/origin/test
-
-# actually, I ran into it in .git/FETCH_HEAD
+git branch --contains $@"
