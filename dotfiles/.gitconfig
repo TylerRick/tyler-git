@@ -1,25 +1,193 @@
-[user]
-	email = 
-[branch "master"]
-[color]
-	diff = auto
-	status = auto
-	branch = auto
-[apply]
-	whitespace = nowarn
-[alias]
-    st = status
-    ci = commit
-    co = checkout
-    cp = copy
-    eu = each-unadded
-    sr = svn rebase
-    sdc = svn dcommit
-    uncommit = reset --soft HEAD^
-    pushinit = push origin master:refs/heads/master
-[branch]
-	autosetupmerge = true
+# ~/installed/tyler-git/dotfiles/.gitconfig
+
+
+[include]
+    path = ./.gitconfig.private
+
 [core]
-	excludesfile = /home/tyler/.gitignore
+  excludesfile = ~/.gitignore
+  #whitespace = trailing-space,space-before-tab,indent-with-non-tab
+  whitespace = trailing-space,space-before-tab
+
+[core]
+  # https://github.com/so-fancy/diff-so-fancy/blob/master/pro-tips.md
+  pager = diff-so-fancy | less --tabs=2 -RFX --pattern '^(Date|added|deleted|modified): '
+
+  # https://github.com/so-fancy/diff-so-fancy/blob/master/pro-tips.md
+  # As a shortcut for a 'normal' diff to save as a patch for emailing or later application, it may be helpful to configure an alias:
+[alias]
+  patch = !git --no-pager diff --no-color
+
+[color]
+  ui = always
+  #diff = auto
+  diff = always
+  status = always
+  branch = always
+[apply]
+  whitespace = nowarn
+[alias]
+  clone = clone --recursive
+
+  st = status
+  # Show unified diff between the HEAD commit and what would be committed at the bottom of the
+  # commit message template to help the user describe the commit by reminding what changes the
+  # commit has.
+  commit = commit -v
+  ci     = commit -v
+  cia    = commit -v --amend
+
+  # This is needed if you have a line that begins with a # that you *want* to keep, such as a
+  # reference to a Ruby #method or #123 issue number.
+  commit-no-cleanup = commit -v --cleanup=whitespace # Same as strip except #commentary is not removed.
+  ci-nc             = commit -v --cleanup=whitespace # Same as strip except #commentary is not removed.
+  cia-nc            = commit -v --cleanup=whitespace --amend
+
+  co = checkout
+  ch = cherry-pick
+  rb = rebase
+  rbi = rebase -i
+
+  discard = checkout HEAD
+  # Not the same as merge-base, as man git-merge-base will tell you.
+  common-ancestor = show-branch --merge-base
+  name = name-rev --name-only
+  shorten-ref = rev-parse --short
+
+  #-------------------
+  # Seldom used:
+  #cherry-list = cherry -v
+  cp = copy
+  eu = each-unadded
+  sr = svn rebase
+  sdc = svn dcommit
+  uncommit = reset --soft HEAD^
+
+  # List untracked files (same list as shown by git status)
+  # Allows you to apply a bulk action to all of them; for example, pipe them to xargs rm
+  # see also: git clean
+  #
+  # If file names contain spaces, and you want to pipe them to a command, you'll want to use -z.
+  # These give the same results:
+  # ⟫ git ls-untracked | wc -l
+  # ⟫ git ls-untracked -z | xargs -0 ls -1 -d | wc -l
+  # Example command:
+  # ⟫ git ls-untracked -z | xargs1 -0 mv {} archive
+  ls-untracked               = ls-files --others --exclude-standard --directory
+
+  # Tells you if you have any files in the specified dir that would be wiped out if you rm -rf that dir
+  ls-all-untracked           = ls-files --others --ignored --exclude-standard --directory
+  ls-modified-untracked      = ls-files --modified --others --exclude-standard --directory
+
+  # List tracked files that have been modified but not staged to index
+  ls-modified      = ls-files --modified --directory
+
+  pushinit = push origin master:refs/heads/master
+
+  # https://stackoverflow.com/questions/7534184/git-alias-multiple-commands-and-parameters/7534289#7534289
+  chs = !git checkout $1 && git status
+
+  # https://stackoverflow.com/questions/1307114/how-can-i-archive-git-branches
+  archive-ref = "!git update-ref refs/archive/$(date '+%Y%m%d-%s')"
+  list-archive-ref = for-each-ref --sort=-authordate --format='%(refname) %(objectname:short) %(contents:subject)' refs/archive/
+
+  # https://stackoverflow.com/a/32354260/47185
+  arc            = ! git tag archive/$1 @ && echo -n "Created archive tag 'archive/$1': " && git log -1 --color --graph --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' archive/$1 && echo
+  # && echo -n "Archiving branch '$1' as a tag... " 
+  archive-branch = ! git tag archive/$1 $1 && git branch -D
+  archive-list   = ! git tag | grep '^archive/'
+
+  prune-remote-dry-run = remote prune origin --dry-run
+  prune-remote         = remote prune origin
+
+  # https://stackoverflow.com/a/35487209/47185
+  set-upstream = !git branch --set-upstream-to=origin/`git symbolic-ref --short HEAD`
+
+[branch]
+  # git config --global branch.autoSetupMerge true
+  #autoSetupMerge = true
+  # Doesn't really seem needed. Already says this when checking out a branch that has a remote:
+  # Branch something set up to track remote branch something from origin by rebasing.
+
+  # git config --global branch.autoSetupRebase always
+  autoSetupRebase = always
+
+[pager]
+  # I sometimes get `diff-highlight | less: diff-highlight: Permission denied` (presumably after
+  # upgrading git package). Fix with;
+  # sudo chmod +x /usr/share/doc/git/contrib/diff-highlight/diff-highlight
+
+  #log = diff-highlight | less
+  #show = diff-highlight | less
+  #diff = diff-highlight | less
+
+#[merge]
+#  tool = vimdiff
+
+[log]
+date=iso
+
+[diff]
+  unified = 15
+  compactionHeuristic = true
+
+# https://code.visualstudio.com/Docs/editor/versioncontrol#_git-patchdiff-mode
+[difftool "vscode"]
+  cmd = code --wait --diff $LOCAL $REMOTE
+
+# http://onestepback.org/index.cgi/Tech/Git/UsingP4MergeWithGit.red
 [merge]
-    tool = vimdiff
+  summary = true
+  #tool = "p4merge" 
+  tool = "vimdiff" 
+
+[rebase]
+  autoStash = true
+  # git config --global rebase.autoSquash true
+  autoSquash = true
+
+  # don't see a config option for --keep-empty
+  missingCommitsCheck = warn
+
+  stat = true
+
+  # *only* allows fast-forward commits... which is great until you need to merge 2 topic
+  # branches into master... then what?? git merge --no-ff topic b gives:
+  #   fatal: You cannot combine --no-ff with --ff-only.
+  #ff = only
+  ff = true
+
+  conflictstyle = diff3
+[mergetool "p4merge"]
+  #cmd = ~/bin/p4merge \
+  cmd = $HOME/installed/shell/bin/p4merge \
+    "$PWD/$BASE" \
+    "$PWD/$LOCAL" \
+    "$PWD/$REMOTE" \
+    "$PWD/$MERGED" 
+  keepBackup = false
+  trustExitCode = false
+
+[push]
+# http://mislav.uniqpath.com/2010/07/git-tips/
+# git push will by default push all branches that have the same name on the remote. To
+# limit this behavior to just the current branch, set this configuration option:
+# $ git config --global push.default tracking
+# This is to prevent accidental pushes to branches which you’re not ready to push yet.
+default = tracking
+# https://raw.github.com/git/git/master/Documentation/RelNotes/1.8.4.txt
+#default = simple
+[interactive]
+  diffFilter = diff-highlight
+[gitopen "gitlab"]
+  domain = hub.k3integrations.com
+[notes]
+  # Carry over notes on rewrites
+  # Git has the inconvenient default that notes are not carried over when a commit is rewritten. So if you for example rebase a series of commits, the notes will not carry over to the new commits.
+  # The variable notes.rewrite.<command> is by default set to true, so one might assume that notes are carried over. But the problem is that the variable notes.rewriteRef, which determines which notes will be carried over, has no deafult vaule. To set this value to match all notes, execute the following:
+  # git config --global notes.rewriteRef "refs/notes/*"
+  rewriteRef = refs/notes/*
+[flags]
+  autopush = true
+[merge "ours"]
+  driver = true
