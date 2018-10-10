@@ -178,7 +178,10 @@ function   glprf() {
 alias glpfullhistory='git log -p --full-history'
 
 # Show the diff for *all* files changed by commits that changed {file}
-alias glpfulldiff='git log -p --follow --full-diff'
+alias glpfulldiff='git log -p --full-diff'
+# TODO: add --follow if exactly 1 path passed
+# otherwise we get:
+# fatal: --follow requires exactly one pathspec
 
 # Similar, but filter which files you want to see the diffs for (still only looking at commits that
 # changed {file}
@@ -618,6 +621,7 @@ alias      grmc='git rm --cached -r'		    # For example, you notice that after y
 # So if you've staged some changes from <file> but have made other changes since then that you want to discard, git checkout <file> is safe, because it replaces file with the version that is staged (in index), not the version that is [cached] (HEAD)
 alias   gco='git checkout'
 alias  gcom='git checkout master'
+alias  gcoom='git checkout origin/master'
 alias  gcod='git checkout develop'
 alias gcomerge='git checkout -m'
 # To check out a file from ("revert" a single file to) an older revision...
@@ -627,9 +631,21 @@ alias gcomerge='git checkout -m'
 alias gcotheirs='git checkout --theirs'
 alias   gcomine='git checkout --mine'
 
-# If you've already staged a file (added it to the index), then git checkout <file> will not reset it to HEAD, but to what you have staged! So you'd need to specify...
-# git "discard" -- discard changes to working copy and replace with fresh version from HEAD
-alias gdisc='git checkout HEAD'
+# git "discard" -- discard changes to your working copy and index for the given file
+#   In the case of a modified file: revert to (replace with) the version from HEAD
+#   In the case of a new file:      delete it locally and from the index
+# Why you can't just use 'git checkout file':
+#   If you've already staged a file (added it to the index), then git checkout <file> will not reset it to HEAD, but to what you have staged! So you'd need to specify...
+function git-discard() {
+  file=$1
+  if [ "$(git ls-tree --name-only HEAD "$file")" == "" ]; then
+    # File doesn't exist in HEAD, so we can't use 'git checkout HEAD'
+    git rm -f $file
+  else
+    git checkout HEAD $file
+  fi
+}
+alias gdisc='git-discard'
 
 # why doesn't co recognize the filename when I use symbolic ref but it does when I use sha (I was in master, and the file in question was untracked wrt master, but was committed in adoption branch)
 #> gco heads/adoption -- config/initializers/time_extensions.rb 
