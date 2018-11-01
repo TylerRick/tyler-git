@@ -271,7 +271,7 @@ function glsrf() {  # git log short reverse from
 # More concise variation of gls
 alias  gls2='git log --color --graph --oneline --decorate'
 function  glsh() {
-  git log --color --graph --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s" "$@" | head -n 20
+  gls "$@" | head -n 20
 }    # git log short | head
 alias glsnp='git log --color --graph --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s" origin/master..HEAD'    # git log short not pushed
 
@@ -359,7 +359,7 @@ alias  glsf='git ls-files'
 alias  glss='git ls-files-by-status'
 
 #alias   grl='git reflog'
-alias   grls='git log --pretty=oneline --abbrev-commit --walk-reflogs --color --pretty=format:"%C(yellow)%h %Cgreen%ci %Creset- %gs"'
+alias   grls='git log --pretty=oneline --abbrev-commit --walk-reflogs --color --pretty=format:"%C(yellow)%h %C(blue)%aI %C(green)%ci %Creset- %gs"'
 
 
 alias   grl='git log --walk-reflogs --color '
@@ -409,7 +409,15 @@ alias   gus='git unstage' # tyler-git
 #------------------------------------------
 # Upstream/Rebase
 
-alias git-upstream='git for-each-ref --format="%(upstream:short)" $(git symbolic-ref -q HEAD)'
+function git-upstream() {
+  upstream=$(git for-each-ref --format="%(upstream:short)" $(git symbolic-ref -q HEAD))
+  if [ "$upstream" == "" ]; then
+    #echo 'No upstream'
+    return 1  # No upstream
+  else
+    echo "$upstream"
+  fi
+}
 
 # These didn't work. That expanded to master followed by the supplied $1, when we wanted it to expand to only the supplied $1 if there was one...
 #alias   grb='git rebase    ${1:-master}'  # don't forget to pass -i if you want interactive
@@ -418,7 +426,7 @@ alias git-upstream='git for-each-ref --format="%(upstream:short)" $(git symbolic
 # git rebase
 # TODO: make --keep-empty optional (added here for now because grbi doesn't accept option args, only commit args)
 alias grb='git rebase --keep-empty'
-alias grbnas='git rebase --no-autosquash' # override git config rebase.autosquash true 
+alias grbnas='git rebase --no-autosquash' # override git config rebase.autosquash true
 alias  grbm='git rebase master'
 alias  grbom='git rebase origin/master'
 alias  grbim='git rebase -i master'
@@ -427,7 +435,7 @@ alias  grbiom='git rebase -i origin/master'
 # stupid:
 #function  grb() {
 #	upstream=${1:-master}
-#	git branch --contains $upstream | grep $(git-current-branch) || { 
+#	git branch --contains $upstream | grep $(git-current-branch) || {
 #	  echo -e "\033[01;31mWarning: $upstream is not an ancestor of the current branch ($(git-current-branch))"
 #	  echo -e "While this *might* in fact be what you want to do, if you're just trying to clean up the history in the current branch, then it is *not* what you want to do.\033[00m"
 #	  echo
@@ -455,38 +463,65 @@ alias  grbiom='git rebase -i origin/master'
 #	git rebase $upstream "$@"
 #}
 
+function git-is-branch-name() {
+  git rev-parse --symbolic-full-name $1 | grep -q 'refs/heads'
+}
+
 # git rebase interactive
 function grbi() {
-  # Allow passing as many commits as you want, and it will find the common ancestor of all of
-  # them and go back to that common commit instead
-  if [ -n "$1" ]; then
-    common_ancestor=$(git common-ancestor "$@")
-    commit_list=("$@" "$common_ancestor")
+  # TODO: More accurately get list of refs that were passed (ignore --options which affect $# here);
+  # save options and then pass them along when we actually exec grb.
+  if [ $# == 1 ] && $(git-is-branch-name $1); then
+    echo "Rebasing onto branch $1"
+    onto=$1
   else
-    # By default, rebase onto the commit that is in common with your local branch and your upstream
-    # branch, in case you have diverged
-    common_ancestor=$(git common-ancestor $(git-upstream) @)
-    commit_list="$common_ancestor"
+    # Allow passing as many commits as you want, and it will find the common ancestor of all of
+    # them and go back to that common commit instead
+    if [ -n "$1" ]; then
+      common_ancestor=$(git common-ancestor "$@")
+      commit_list=("$@" "$common_ancestor")
+    elif git-upstream; then
+      # By default, rebase onto the commit that is in common with your local branch and your upstream
+      # branch, in case you have diverged
+      common_ancestor=$(git common-ancestor $(git-upstream) @)
+      echo "Finding common ancestor between upstream ($(git-upstream)) and HEAD... $common_ancestor"
+      commit_list="$common_ancestor"
+    else
+      common_ancestor=@
+      commit_list="$common_ancestor"
+    fi
+
+    # If you've already rewritten some history/commits, and then try to rebase onto a commit from
+    # *before* you rewrote that commit, it will give you this warning and exit with an error, because
+    # that's probably *not* what you want to do. When you are using git rebase to rewrite the history
+    # of itself (*not* basing on another branch), then rebasing onto a commit that isn't an ancestor
+    # would cause you to lose commits. (TODO: Could we honor rebase.missingCommitsCheck = warn and
+    # maybe give the same error?)
+
+    # On the other hand, if you're simply rebasing onto another branch (like master after pulling down
+    # commits from upstream), that is exactly what you want to do, which is why we allow that case
+    # with the git-is-branch-name check above.
+
+    git merge-base --is-ancestor $common_ancestor HEAD || [ "$is_branch" = 1 ] || {
+      echo "$common_ancestor is not an ancestor of current head. Did you mean one of these commits?"
+      declare -A commit_list_uniq; for commit in "${commit_list[@]}"; do commit_list_uniq["$commit"]=1; done
+      for commit in "${!commit_list_uniq[@]}"; do
+        # If not ancestor of HEAD, then try to git-find-equivalent-commit
+        equiv_commit=$(git-find-equivalent-commit $commit 2>/dev/null)
+        if [ -n "$equiv_commit" ]; then
+          echo "- Equivalent commit found for $commit:"
+          git log -n 1 $equiv_commit
+        else
+          echo "- No equivalent commit found for $commit"
+        fi
+      done
+      return 1
+    }
+    onto=$common_ancestor~
   fi
-  # If you've already rewritten some history/commits, and then try to rebase onto a commit from
-  # *before* you rewrote that commit, it will give you this warning, because that's probably *not*
-  # what you want to do. [Explain why not.]
-  git merge-base --is-ancestor $common_ancestor HEAD || {
-    echo "$common_ancestor is not an ancestor of current head. Did you mean one of these commits?"
-    declare -A commit_list_uniq; for commit in "${commit_list[@]}"; do commit_list_uniq["$commit"]=1; done
-    for commit in "${!commit_list_uniq[@]}"; do
-      # If not ancestor of HEAD, then try to git-find-equivalent-commit
-      equiv_commit=$(git-find-equivalent-commit $commit 2>/dev/null)
-      if [ -n "$equiv_commit" ]; then
-        echo "- Equivalent commit found for $commit:"
-        git log -n 1 $equiv_commit
-      else
-        echo "- No equivalent commit found for $commit"
-      fi
-    done
-    return 1
-  }
-  grb $common_ancestor~ -i
+
+  echo "Rebasing onto $onto"
+  grb $onto -i
 }
 
 # Rebase onto your upstream
@@ -563,7 +598,52 @@ alias gmtm='git update; git rebase master; git merge-to master'
 
 alias  gmb='git merge-better'
 
+# Interactively diff the next modified lile so that you can interactively choose which hunks to
+# keep/merge.
+# This is useful if you want to use a generator like rails app:update to force/overwrite all your
+# changes with the stock upstream version but still want to be able to merge your changes back in
+# afterwords. Usually generators give you the option to overwrite, skip, or view a diff, but they
+# don't give any option to interactively merge the upstream version with your version (combination
+# of overwrite and skip, or a hybrid somewhere in between). This function aims to add that missing
+# functionality in a general way.
+# Make sure all your changes are committed. Run your generator. You can just tell the generator 'a'
+# to overwrite/force all files, safe in the knowledge that your version is safely stored in git. Now
+# use git-diff-next-modified to see an interactive diff between your version and their (upstream)
+# version. Use 'do' etc. to obtain (copy over) hunks from one side to the other.
+# By the end of your editing session you should resolved all differences until the left and right
+# sides are identical. (You can 'do' copy everything you want over to the Gdiff (left)
+# side, and then either copy the entire contents of the left buffer over to and replace the right
+# buffer or do 'git checkout file' which has the same effect.)
+# If you've done that, then running git add isn't even needed. But if you made the right side your
+# final state instead, then when everything is how you want it in the right side, just stage it (git
+# add), so that it's no longer listed as a modified file, exit the editor, and run
+# git-diff-next-modified to move on to the next file.  Or run git-diff-all-modified to automate that
+# loop.
+#
+# Currently depends on vim and Fugitive.
+function git-diff-next-modified() {
+  next_modified=$(git ls-files --modified | head -n1)
+  if [ -n "$next_modified" ]; then
+    vim_session=~/tmp/git-diff-next-modified.vim
+    cat - <<End > $vim_session
+source ~/.vimrc
+edit $next_modified
+Gdiff
+End
+    vim -S $vim_session
+  else
+    echo "No more modified files"
+    return 1
+  fi
+}
 
+# Loop through each modified file, calling git-diff-next-modified
+# Can exit the loop by exiting vim with :cquit instead of :quit
+function git-diff-all-modified() {
+  while git-diff-next-modified; do
+    :
+  done
+}
 
 #------------------------------------------
 # Interruption managagement
@@ -648,7 +728,7 @@ function git-discard() {
 alias gdisc='git-discard'
 
 # why doesn't co recognize the filename when I use symbolic ref but it does when I use sha (I was in master, and the file in question was untracked wrt master, but was committed in adoption branch)
-#> gco heads/adoption -- config/initializers/time_extensions.rb 
+#> gco heads/adoption -- config/initializers/time_extensions.rb
 #error: pathspec 'config/initializers/time_extensions.rb' did not match any file(s) known to git.
 #
 #> gco 5093bec -- config/initializers/time_extensions.rb
