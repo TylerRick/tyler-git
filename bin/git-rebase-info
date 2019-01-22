@@ -18,7 +18,7 @@ require 'optparse'
 
 @options = {
   :verbose => 0,
-  :show => 'revision',
+  :show => 'stopped',
 }
 
 def parse_args
@@ -30,14 +30,14 @@ Git rebase applies a series of commits (up to a specified 'head' commit, but exc
 
 This command tells you various details about the state of the rebase.
 
-Default output is revision only.
+Default output is stopped revision only.
 End
 
     opts.on("-v", "--verbose", "Be more verbose")                                                                       { @options[:verbose] = 1 }
     opts.on("-f", "--filename", "Output only the filename for the commit_info_file (normal rebase only)")               { @options[:show] = 'commit_info_filename' }
     opts.on("--onto", "Output which commit we're applying/replaying commits onto")                                      { @options[:show] = 'onto' }
     opts.on("--head", "Output the original HEAD revision")                                                              { @options[:show] = 'head' }
-    opts.on("--rev", "--current-rev", "--revision", "Output which commit in that series of commits it is *currently* stopped on. (And I suppose the only reason it would have stopped is because it had a merge conflict.)"   )     { @options[:show] = 'revision' }
+    opts.on("--stopped", "--stopped-rev", "--current", "Output which commit in that series of commits it is *currently* stopped on. (And I suppose the only reason it would have stopped is because it had a merge conflict.)"   )     { @options[:show] = 'stopped' }
     opts.on("-s", "--summary",  "Output the summary from the 'commit_info_file'")                                       { @options[:show] = 'commit_info_file_summary' }
     opts.on("-p", "--patch",  "Output the entire 'commit_info_file' including patch")                                   { @options[:show] = 'commit_info_file' }
     opts.on("--vv", "--debug",  "Be more verbose")                                                                      { @options[:verbose] = 2 }
@@ -61,32 +61,8 @@ end
 
 #---------------------------------------------------------------------------------------------------
 # This is the "current patch"
-patch_file = rebase_dir + 'patch'
-patch = patch_file.read.chomp
-#puts patch.lines.to_a[0..10]
-
-=begin
-# Extract (from the 'patch' file) the list of files changes
-# app/views/whatever/file.html.erb    |    5 +-
-# .../_file2.html.erb                 |   40 +-----------------
-# .../_file3.html.erb                 |   45 ++++++++++----------
-files_changed_from_patch = ''
-state = :initial
-patch.lines.each do |line|
-  #puts state
-  if state == :initial and line =~ /^---$/
-    state = :saving
-  end
-  if state == :saving and line =~ /^diff --git/
-    break
-  end
-  if state == :saving
-    files_changed_from_patch << line
-  end
-end
-puts files_changed_from_patch
-puts ('-'*100).green
-=end
+stopped_file = rebase_dir + 'stopped-sha'
+stopped_ref = stopped_file.read.chomp
 
 #---------------------------------------------------------------------------------------------------
 # represents the result of git log -p for one commit (or probably git show), or of a commit info file in .git/rebase-apply
@@ -129,6 +105,7 @@ end
 #---------------------------------------------------------------------------------------------------
 
 if rebase_type == :normal
+  raise 'does this still use patch file?'
   # Now try to find the 00nn file that contains the patch so we can get the rest of the metadata for that commit
   commit_info_files = Dir["#{rebase_dir}/[0-9][0-9][0-9][0-9]"]
   #p commit_info_files
@@ -146,24 +123,9 @@ if rebase_type == :normal
   puts "commit_info_file: #{commit_info_file}\n\n" if @options[:verbose] >= 1
   commit_info = CommitInfo.new(commit_info_file.read)
 
-else
-  commit_info = nil
-  Pathname.new('.git/rebase-merge/done').read.cleanlines.each do |line|
-    #puts line
-    if line =~ /^(\w+)\s+(\w+)/
-      rev = $2
-      #puts "rev=#{rev.pretty_inspect}"
-      log_p = `git log --no-color -p -1 #{rev}`
-      if log_p.include?(patch)
-        #puts "log_p=#{log_p}"
-        commit_info = CommitInfo.new(log_p, rev)
-        break commit_info
-      end
-    end
-    false
-  end
-  #puts "commit_info=#{commit_info.inspect}"
-
+else # interactive
+  log_p = `git log --no-color -p -1 #{stopped_ref}`
+  commit_info = CommitInfo.new(log_p, stopped_ref)
 end
 
 #---------------------------------------------------------------------------------------------------
@@ -196,7 +158,7 @@ elsif @options[:show] == 'commit_info_file_summary'
   exit 0
 
 else
-  # Default behavior: extract and print revision
+  # Default behavior: extract and print stopped revision
   puts "#{commit_info.rev}"
 end
 

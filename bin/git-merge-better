@@ -152,7 +152,6 @@ End
 
     opts.on("-f", "--force", "Overwrite temporary files that may exist from a previous invocation of this command.") { @options[:force] = true }
     opts.on("-c", "--continue", "--no-overwrite", "--reuse-files", "Don't overwrite temporary files that may exist from a previous invocation of this command. Useful if you made changes to those files that you want to keep and you want to open up the views again after exiting this script.") { @options[:continue] = true }
-    
 
     opts.on("-n", "--no-act", "Don't create/copy/modify files or open the editor")                                      { @options[:no_act] = true }
 
