@@ -1,13 +1,46 @@
 #! /bin/bash
-# "git commit --amend" a past commit by making a temporary commit and then doing a "fixup" onto the commit you want to amend, using git rebase -i
+
+# TODO: add option to prompt user if the commit looks good before starting the grbi
+# it would just do a glp -1 and if they want to continue or abort
+# usefel because sometimes you've staged only parts (chunks) and then you want to make sure it
+# includes only those commits even though you're passing a filename to git-commit-fixup-rebase (git
+# commit would commit only the passed paths).
+# I suppose that's what
+#   git diff --find-renames --find-copies --staged
+# is for, but this would help you be absolutely sure that your commit contains what you think it
+# contains before you squash into another commit and make it impossible to separate out again and
+# see what you're changing now.
+# is it more like rm --interactive or --verbose?
+
 if [ -z "$1" ]; then
-  echo "Usage: gciarb <commit> [file...]"
+  echo "Usage: gcifrb <commit> [file...]"
+  echo '"git commit --amend" a past commit by making a temporary commit and then doing a "fixup" onto the commit you want to amend, using git rebase -i'
+  echo "If you've already staged the changes/files/hunks you wish to commit, you can omit passing any files."
+  echo "In place of <commit>, you can pass a "file-relative commit ref" in addition to the usual commitish formats (documented by man git-rev-parse under SPECIFYING REVISIONS):"
+  echo "  file~0 or file@ ? means most recent commit that changed file"
+  echo "  file~1 or file^ means the 2nd commit back looking only at commits that changed file"
   exit 1
 fi
 commit=$1; shift
-#git commit -m "f $commit"
-#git commit -m "fixup! $(git log --format=%s -n1 $commit)"
-git commit --fixup $commit "$@"
+
+if (( ${#commit} <= 3 )); then
+  # TODO: use file-relative commit refs described above instead of position args
+  echo "Treating $commit as number of commits back to go"
+  commit=$(git-n-commits-ago $commit "$@")
+
+  # Don't pass file name to git commit because that will cause the whole file to be committed, which
+  # may not be what you want if you've already staged portions of files (with git add -p, for
+  # instance).
+  # Can we do the same in the else case? In the else case, they don't even need to pass the file to
+  # this command if everything is already staged. It's only this case where the path is needed for
+  # other reasons (to pass on to git-n-commits-ago). That's the reason for this inconsistency,
+  # though I wish I knew of a better solution. Maybe a more explicit -n path:1 instead of passing as
+  # positional arg?
+  git commit --fixup $commit
+else
+  # TODO: also allow --squash
+  git commit --fixup $commit "$@"
+fi
 
 #grbi $commit
 # Automate it and tell it to do the "f" command. Otherwise would require user
