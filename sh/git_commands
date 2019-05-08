@@ -156,8 +156,10 @@ function  glrf() {                                                              
 
 #alias   glp='git log -c --color --patch-with-stat'
 # TODO: figure out to use --stat=width,file_width such that it doesn't chop off filename; how do we specify percentage?; how do we get terminal's current width?
-alias    glp='git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --find-renames --find-copies'                 # See the patch/diff (the actual lines that changed)
-alias   glpf='git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow'        # This only works when a single path is given. Otherwise you get error "usage: git logs can only follow renames on one pathname at a time"
+# Removed -cc from main glp because it makes it list merges even when those commits don't contain # match, when using -S search.
+alias           glp='git log             --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --find-renames --find-copies'                 # See the patch/diff (the actual lines that changed)
+alias glp-no-merges='git log --no-merges --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --find-renames --find-copies'                 # See the patch/diff (the actual lines that changed)
+alias    glp-follow='git log --cc        --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow'        # This only works when a single path is given. Otherwise you get error "usage: git logs can only follow renames on one pathname at a time"
 # Sometimes it doesn't show the diffs because the -M isn't set low enough, sou you can set it really
 # low like this:
 alias glpfM01='git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow -M01'
@@ -257,8 +259,12 @@ alias   gl1='git log --color --pretty=oneline'
 #alias  glsnc='git log --pretty=format:"%h %ai %an - %s"'  # no color, no graph
 alias  glsnc='git log --no-color --graph --pretty=format:"%h %ai %an%d %s"'  # no color, but yes graph
 
+# git log short
 # %d is like decorate, shows ref name.
-alias   gls='git log --color --graph --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s"'    # git log short
+# Converted these to aliases in ~/.gitconfig
+#converted to log-short-nograph: alias  glsnograph='git log --color --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s"'
+alias   gls='git log-short-nograph --graph'
+alias glsnw='git log-short-nograph --no-walk'
 #alias  glsr='git log --color         --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s" --reverse'    # git log short reverse
 function gls-from-merge-base() {
   rev=$1; shift
@@ -269,7 +275,9 @@ function glsrf() {  # git log short reverse from
   git log --color --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s" --reverse "$@" $rev^..HEAD
 }
 # More concise variation of gls
-alias  gls2='git log --color --graph --oneline --decorate'
+alias  gls2nograph='git log --color --oneline --decorate'
+alias  gls2='gls2nograph --graph'
+
 function  glsh() {
   gls "$@" | head -n 20
 }    # git log short | head
@@ -278,6 +286,14 @@ alias glsnp='git log --color --graph --pretty=format:"%Cred%h %Cgreen%ai %Cblue%
 alias  glcl='git log --color --pretty=format:"%s"'    # git log "changelog" (show only the messages)
 alias   glc='git log --color --date-order'                                                  # git log (reverse) chronological -- maybe not...
 
+
+
+function    git-diff-commits() {
+     diff <(glp -1 --no-color $1) <(glp -1 --no-color $2)
+}
+function git-vimdiff-commits() {
+  vimdiff <(glp -1 --no-color $1) <(glp -1 --no-color $2)
+}
 
 #------------------------------------------
 # Side-by-side diff instead of patch
@@ -515,9 +531,16 @@ function grbi() {
           echo "- No equivalent commit found for $commit"
         fi
       done
-      return 1
+      read -n1 -p "Continue rebase onto $common_ancestor anyway? [y/N] " reply >&2
+      if [ "$reply" == "y" ]; then
+        :
+      else
+        return 1
+      fi
     }
-    onto=$common_ancestor~
+    # Do we ever want the ~?
+    #onto=$common_ancestor~
+    onto=$common_ancestor
   fi
 
   echo "Rebasing onto $onto"
@@ -617,7 +640,7 @@ alias  gmb='git merge-better'
 # If you've done that, then running git add isn't even needed. But if you made the right side your
 # final state instead, then when everything is how you want it in the right side, just stage it (git
 # add), so that it's no longer listed as a modified file, exit the editor, and run
-# git-diff-next-modified to move on to the next file.  Or run git-diff-all-modified to automate that
+# git-diff-next-modified to move on to the next file.  Or run git-diff-each-modified to automate that
 # loop.
 #
 # Currently depends on vim and Fugitive.
@@ -639,7 +662,7 @@ End
 
 # Loop through each modified file, calling git-diff-next-modified
 # Can exit the loop by exiting vim with :cquit instead of :quit
-function git-diff-all-modified() {
+function git-diff-each-modified() {
   while git-diff-next-modified; do
     :
   done
@@ -717,13 +740,14 @@ alias   gcomine='git checkout --mine'
 # Why you can't just use 'git checkout file':
 #   If you've already staged a file (added it to the index), then git checkout <file> will not reset it to HEAD, but to what you have staged! So you'd need to specify...
 function git-discard() {
-  file=$1
-  if [ "$(git ls-tree --name-only HEAD "$file")" == "" ]; then
-    # File doesn't exist in HEAD, so we can't use 'git checkout HEAD'
-    git rm -f $file
-  else
-    git checkout HEAD $file
-  fi
+  for file in "$@"; do
+    if [ "$(git ls-tree --name-only HEAD "$file")" == "" ]; then
+      # File doesn't exist in HEAD, so we can't use 'git checkout HEAD'
+      git rm -f $file
+    else
+      git checkout HEAD $file
+    fi
+  done
 }
 alias gdisc='git-discard'
 
