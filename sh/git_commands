@@ -518,6 +518,7 @@ function grbi() {
     # commits from upstream), that is exactly what you want to do, which is why we allow that case
     # with the git-is-branch-name check above.
 
+    # TODO: Extract and reuse git-ensure-commit-is-ancestor
     git merge-base --is-ancestor $common_ancestor HEAD || [ "$is_branch" = 1 ] || {
       echo "$common_ancestor is not an ancestor of current head. Did you mean one of these commits?"
       declare -A commit_list_uniq; for commit in "${commit_list[@]}"; do commit_list_uniq["$commit"]=1; done
@@ -557,6 +558,29 @@ function grbiupstream() {
 
 alias grbiauto='grbi $(git-find-rebase-i-commands-in-commit-messages)'
 
+function git-ensure-commit-is-ancestor() {
+  commit=$1
+  git merge-base --is-ancestor $commit HEAD || {
+    echo >&2  "$commit is not an ancestor of current head. Did you mean one of these commits?"
+    # If not ancestor of HEAD, then try to git-find-equivalent-commit
+    equiv_commit=$(git-find-equivalent-commit $commit 2>/dev/null)
+    if [ -n "$equiv_commit" ]; then
+      echo >&2 "- Equivalent commit found for $commit:"
+      git log -n 1 $equiv_commit >&2
+    else
+      echo >&2 "- No equivalent commit found for $commit"
+      read -n1 -p "Use $commit anyway? [y/N] " reply >&2
+      if [ "$reply" == "y" ]; then
+        :
+      else
+        return 1
+      fi
+    fi
+  }
+  echo ${equiv_commit:-$commit}
+}
+export -f git-ensure-commit-is-ancestor
+
 # To do: Also use in git-find-rebase-i-commands-in-commit-messages
 function git-find-equivalent-commit() {
   # Find ancestor of current head that either has the same [done] or very similar [TODO] commit
@@ -566,6 +590,7 @@ function git-find-equivalent-commit() {
   # just reuse the same command from my history that I used last time I wanted to shoot it back to
   # that old commit, it will be the wrong one, because each time I squash with that commit, it gets
   # a new ID.
+  echo >&2 "Searching for equivalent commit for $1 …"
 
   search_id=$1
   search_message=$(git log --format=%B -n 1 $search_id)
@@ -574,23 +599,43 @@ function git-find-equivalent-commit() {
     mapfile -t ancestor_ary <<< "$ancestor"
     ancestor_id=${ancestor_ary[0]}
 
-    #printf -v ancestor_message "%s\n" "${ancestor_ary[@]:1}"
+    # Q: Why aren't we doing it this way here?
+      #printf -v ancestor_message "%s\n" "${ancestor_ary[@]:1}"
     ancestor_message="${ancestor_ary[*]:1}"
     ancestor_message=${ancestor_message%?} # remove trailing newline
+    #echo '===================================================================================================='
     #echo ancestor_id=$ancestor_id
     #echo @@search_message:  "$search_message"
     #echo @@ancestor_message:"$ancestor_message"
     #declare -p search_message
     #declare -p ancestor_ary
     #declare -p ancestor_message
-    # TODO: also check for approx match, perhaps after checking all candidates for exact match
     if [ "$ancestor_message" = "$search_message" ]; then
       echo $ancestor_id
       return 0
     fi
   done < <(git log -z --format="%H%n%B")
+
+  # Now that we've checked all candidates for exact match, fall back to checking for approx. match
+  echo >&2 "No exact match found. Searching for approximate match (first line of message is the same) …"
+  while IFS= read -d '' ancestor; do
+    mapfile -t ancestor_ary <<< "$ancestor"
+    ancestor_id=${ancestor_ary[0]}
+    # Store lines 1..end in a variable, with newlines added back in
+    printf -v ancestor_message "%s\n" "${ancestor_ary[@]:1}"
+    #echo '===================================================================================================='
+    #echo ancestor_id=$ancestor_id
+    #echo "`echo "$ancestor_message" | head -n1`"
+    if [ "`echo "$ancestor_message" | head -n1`" = "`echo "$search_message" | head -n1`" ]; then
+      echo $ancestor_id
+      return 0
+    fi
+  done < <(git log -z --format="%H%n%B")
+
   return 1
 }
+export -f git-find-equivalent-commit
+
 alias  grbim='grbi master'
 alias  grbi2='grbi HEAD~2'
 alias  grbi3='grbi HEAD~3'
