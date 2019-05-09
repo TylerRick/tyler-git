@@ -12,6 +12,8 @@
 # see what you're changing now.
 # is it more like rm --interactive or --verbose?
 
+# Add --squash option like git-commit has (also --fixup to be complete?)
+
 if [ -z "$1" ]; then
   echo "Usage: gcifrb <commit> [file...]"
   echo '"git commit --amend" a past commit by making a temporary commit and then doing a "fixup" onto the commit you want to amend, using git rebase -i'
@@ -39,6 +41,7 @@ if (( ${#commit} <= 3 )); then
   git commit --fixup $commit
 else
   # TODO: also allow --squash
+  commit=$(git-ensure-commit-is-ancestor $commit || exit 1)
   git commit --fixup $commit "$@"
 fi
 
