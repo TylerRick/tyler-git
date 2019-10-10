@@ -1,7 +1,50 @@
 #!/bin/bash
-grl|while read line; do
+# When you think you added or made a change to a certain file, but can't find the commit that
+# contains it (maybe it's in a stash, a tag, a branch?), you can search your gitlog for evidence of that commit.
+
+# TODO: Make it generalized, so you can pass:
+# - what to search: reflog, stash, or both
+# - a file name (or dir name? or multiple files?) to search for the changes in; or none to just
+#   search the entire patch
+# - if searching a file, do you want to search the file contents (git cat) or only the patch/diff (git log -U0
+#   -p -1) (maybe only the latter should be allowed)
+# - a regex pattern, which if matched means we found a candidate
+#   or if a single regex isn't powerful enough (like you need to check if this matches this but not
+#   this), provide a script that checks if it is a match
+# - what to show/do if a candidate is found: just print the ref, just print the short log line, show
+#   the actual patch, ...?
+
+{
+  git stash list --pretty=oneline;
+  git reflog
+} | while read line; do
+  #echo $line
   rev=`echo $line|gawk '{ print $1 }'|nocolor`
-  git-cat $rev:app/views/core4_mailer/baptism_confirmation_1.html.haml 2>/dev/null|grep link_to|grep -v root_url && \
-	  echo Found in $rev!
+  found=0
+
+  # Should we set GIT_PAGER=cat in case they have a custom pager like diff-pretty in use? but maybe we
+  # actually don't want the leading +/- because the search regex might match that by mistake (one
+  # argument for using git show on file instead of git log -p / git show on commit ref)
+
+  #git-cat $rev:app/views/core4_mailer/baptism_confirmation_1.html.haml 2>/dev/null|grep link_to|grep -v root_url && \
+  #git-cat $rev:spec/features/instructors_report_spec.rb 2>/dev/null|grep link_to|grep -v root_url && echo "Found in $rev!"
+  #git-cat $rev:app/assets/stylesheets/app_tables.scss 2>/dev/null | grep -B3 margin-bottom:.*0 | grep -A3 table && echo "Found in $rev!"
+  #git-cat $rev:app/views/exception_notifier/_current_user.text.haml 2>/dev/null | grep inspect|grep -v inspect_2 && git log-short -1 $rev
+  #git-cat $rev:app/views/enrollments/_episode_deliveries.html.haml 2>/dev/null | grep attended? && found=1
+  #git log -U0 -p -1 $rev app/views/enrollments/_episode_deliveries.html.haml 2>/dev/null | grep to_a && found=1
+  git log -U0 -p -1 $rev | grep querySelectorAll && found=1
+
+  if [ $found == 1 ]; then
+    echo '════════════════════════════════════════════════'
+    git log-short -1 $rev
+    git log -U0 -p -1 $rev app/views/enrollments/_episode_deliveries.html.haml
+  fi
+
+  # Example of looking for a file that was added by a commit and doesn't exist in current head (so
+  # git show will complain about the file not existing for most of these commits).
+  #git show $rev:doc/reports.md 2>/dev/null && {
+  #  echo '════════════════════════════════════════════════'
+  #  git log -1 --color --numstat --graph $rev
+  #}
 done
 
