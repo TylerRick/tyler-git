@@ -54,13 +54,40 @@ alias   gbm='git branch-menu'
 alias   gbv='git branch -v'    # Show all branches and which commit they are pointing to
 #alias   gbv='git branch -v ?'    # Show all branches (including remote branches) and which commit they are pointing to
 alias  gbrm='git branch-rm' # remove
+
+function git-branch-list-plain() {
+  git branch --color=never | cut -c 3-
+}
+#function git-delete-all-deletable-branches() {
+#  git remote prune origin
+#  # If it's not merged in yet, it will refuse to delete it.
+#  for b in $(git-branch-list-plain); do
+#    git branch -rd $b
+#  done
+#}
+
+# https://stackoverflow.com/questions/20106712/what-are-the-differences-between-git-remote-prune-git-prune-git-fetch-prune
+# https://stevenharman.net/git-clean-delete-already-merged-branches
+# https://stackoverflow.com/questions/6127328/how-can-i-delete-all-git-branches-which-have-been-merged
+# [alias]
+#    cleanup = "!git branch --merged | grep  -v '\\*\\|master\\|develop' | xargs -n 1 git branch -d"
 function git-delete-all-deletable-branches() {
+  # Delete from refs/remotes/ (but not refs/heads/) any branches that have been deleted remotely
   git remote prune origin
-  # If it's not merged in yet, it will refuse to delete it.
-  for b in $(git-branch-list-plain); do
-    git branch -d $b
+  #git fetch --prune
+
+  reference_branch=${1:-master}
+  # Delete remotely any branches that have been merged into master
+  for branch in $(git branch -r --merged $reference_branch --color=never | grep -v "^ .*\b$reference_branch\b"); do
+    git branch -rd $branch
+  done
+  # Delete local branch (from refs/heads/) which may or may not even exist in remote
+  for branch in $(git branch --merged $reference_branch --color=never | grep -v "^ .*\b$reference_branch\b"); do
+    git branch -d $branch
   done
 }
+
+
 alias  gbmv='git branch-mv' # move
 
 alias git-branch-set-merge-defaults='git config branch.master.remote origin; git config branch.master.merge refs/heads/master'
@@ -236,8 +263,8 @@ alias glpU20='git log -c --color -U20 --numstat --no-prefix'
 
 # gll="git log --color long"
 #alias   gll='git log --color --stat'
-# I got tired of it truncating the beginnig of paths (making it impossible to copy and paste paths onto the command line, so I'm now using --numstat instead of --stat)
-alias   gll='git log --color --numstat --graph'
+# old: I got tired of it truncating the beginnig of paths (making it impossible to copy and paste paths onto the command line, so I'm now using --numstat instead of --stat)
+alias   gll='git log --color --stat --graph'
 alias  glls='git log --color --stat --graph'
 alias  gllf='git log --color --numstat --follow'
 alias gllfM01='git log --color --numstat --follow -M01'
@@ -422,6 +449,11 @@ alias   grm='git rm'
 
 alias   gus='git unstage' # tyler-git
 
+# Cross between git stash (in that it stashes what isn't yet committed) and git bak (in that it
+# creates a regular backup tag, rather than using git stash)
+alias git-bak-stash='gau; gci -m 'wip'; git bak; grss1; gus .'
+
+
 #------------------------------------------
 # Upstream/Rebase
 
@@ -582,6 +614,12 @@ function git-ensure-commit-is-ancestor() {
 export -f git-ensure-commit-is-ancestor
 
 # To do: Also use in git-find-rebase-i-commands-in-commit-messages
+# To do: Let user specify different types of "equivalence". Current type is "same commit message".
+# That's usually what I want, because if I fixup/squash a previous commit, its content changes but
+# commit message usually stays nearly the same.
+# But they *may* also mean identical content. How do we check the SHA of the tree referenced by a
+# commit? https://rtyley.github.io/bfg-repo-cleaner/ mentions this should be possible:
+# > ... their commit ids will change, to reflect the changed history - only the SHA-1 id of the filesystem-tree will remain the same.
 function git-find-equivalent-commit() {
   # Find ancestor of current head that either has the same [done] or very similar [TODO] commit
   # message, or same or similar patch [TODO].
@@ -821,11 +859,34 @@ alias gcoh20='git checkout HEAD~20'
 # This adds the files specified (if any) before attempting the commit, because git will give an error if you try to commit a file that isn't added (in the index?) yet.
 # It seemed to me that it would be more user-friendly if it simply added them (similar to how you can do git commit on files that have local/unstaged modifications and it will automatically include those unstaged changes when you do the git commit) (the difference there, I suppose, is that it didn't actually stage/add those changes, so if you abort the commit, it won't have changed anything...but I don't think that's a big problem).
 function  gci() {
-	# TOOD: add this back once I change it to only match files and not add whole directories recursively
-	#if [ $# -ge 1 ]; then
-	#	git add "$@"
-	#fi
-	git commit -v "$@"
+  # TOOD: add this back once I change it to only match files and not add whole directories recursively
+  #if [ $# -ge 1 ]; then
+  # git add "$@"
+  #fi
+
+  # TODO: filter out options and only check the non-option args (the ones intended to be files)
+  # instead of using ls
+  if [ $# -ge 1 ] && ls "$@" &>/dev/null; then
+    list_of_files_given=true
+  else
+    # Other no args, or the args are not a list of files
+    list_of_files_given=
+  fi
+  echo list_of_files_given=$list_of_files_given
+  if [ -n "$list_of_files_given" ]; then
+    # This is so that I can use wildcards without worrying that it might match a file that's not in
+    # git:
+    #⟫ gci Gemfile*
+    #error: pathspec 'Gemfile.lock.master.lock' did not match any file(s) known to git
+    #error: pathspec 'Gemfile.master' did not match any file(s) known to git
+    readarray -t files < <(git ls-files "$@")
+    git commit -v "${files[@]}"
+  else
+    # If no files were given, we can't use ls-files.
+    # If partial contents of files have been staged, then we *must not* pass a list of files to git
+    # commit.
+    git commit -v "$@"
+  fi
 }
 
 # Add (new file) and commit it
@@ -846,7 +907,9 @@ alias gcifrb='git-commit-fixup-rebase'
 # Note: you'll have to manually delete the # commentary that git-commit adds to the bottom of your commit message by default
 alias gciwithhashchars='git commit --cleanup=whitespace'
 
+alias  gcie="git commit --allow-empty-message -m ''"
 alias  gcia='git commit --amend'   # (can be used with paths, that is, specify which paths to (only) include in the new, amended commit)
+alias  gcioh='gci -c ORIG_HEAD'    # useful when you 'edit' a commit with git rebase -i, commit some of the patches as new commits, and want to commit the rest as the "original commit"
 alias  gca='git commit -a -v'   # (can't be used with paths, but that's not a problem because you don't need the -a flag when you specify paths -- git commit will automatically add/stage any unstaged changes made to those paths)
 alias  gcq='git commit -m "."'  # if you're just working on a personal repository that doesn't matter too much, we might let you get by with being lazy and not specifying a commit message...
 alias gciq='git commit -m "."'
