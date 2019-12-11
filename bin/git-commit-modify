@@ -131,9 +131,18 @@ git cat-file commit "$rev" | sed "1,/^$/d" > .git/git-commit-modify-message
 # Re-commit
 
 failed=f
+set -x
 
-git reset --soft HEAD^1 ||
-  die "Cannot rewind the HEAD"
+git reset --soft HEAD^1 &>/dev/null || {
+  #die "Cannot rewind the HEAD"
+  # Actually handle the case where this is the first commit so that it works for that case as
+  # well.
+
+  git update-ref -d HEAD
+  # Example of how to do it *without* this command:
+  #GIT_COMMITTER_DATE='2019-12-10 12:08:02 -0800' git commit --date='2019-12-10 12:08:02 -0800' -m 'Initial commit'
+}
+
 
 GIT_AUTHOR_NAME="$GIT_AUTHOR_NAME"         \
 GIT_AUTHOR_EMAIL="$GIT_AUTHOR_EMAIL"       \
