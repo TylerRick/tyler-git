@@ -140,7 +140,9 @@ git reset --soft HEAD^1 &>/dev/null || {
 
   git update-ref -d HEAD
   # Example of how to do it *without* this command:
-  #GIT_COMMITTER_DATE='2019-12-10 12:08:02 -0800' git commit --date='2019-12-10 12:08:02 -0800' -m 'Initial commit'
+  # GIT_COMMITTER_DATE='2019-12-10 12:08:02 -0800' git commit --date='2019-12-10 12:08:02 -0800' -m 'Initial commit'
+  # Actually it looks like it's even possible without using git update-ref -d HEAD :
+  # GIT_COMMITTER_DATE='2019-12-10 12:08:02 -0800' git commit --date='2019-12-10 12:08:02 -0800' --amend
 }
 
 
