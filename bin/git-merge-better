@@ -400,10 +400,11 @@ end
 ].each do |version, revs|
   next if revs.nil?
   # TODO: if reverse...
-  common_opts = '--reverse --no-prefix --no-color'
+  common_opts = '--reverse --no-prefix --no-color --follow'
   # -c (combined) for merge commits? or not? or do it each way? or make it an option?
 
   opts = "--pretty=format:'%h %ai %an - %s'"
+  # TODO: when currently on the commit that does the rename (as opposed to the rename was in a previous commit), file_name_as_of does *not* seem to be detecting the old file name 
   short_command = "git log #{common_opts} #{opts} #{revs} -- #{file_name_as_of[version]}"
   puts short_command if @options[:verbose]
 
