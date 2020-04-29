@@ -112,6 +112,12 @@ alias   gwd='git diff --word-diff'
 alias   gdw='git diff --find-renames --find-copies --ignore-all-space --color-words'
 alias  gdws='git diff --find-renames --find-copies --ignore-all-space --color-words --staged'
 
+# Usage: git-diff-list-files rev1 rev2
+# git-diff-list-files deployed/staging/2020-04-28T23-32-10 @ | xargs bin/hot_fix_staging -r
+function git-diff-list-files() {
+  git diff "$@" | grep 'diff --git' | nocolor | sed 's#diff --git a/##; s# b/.*##'
+}
+
 #------------------------------------------
 # Getting state/status/metadata
 
