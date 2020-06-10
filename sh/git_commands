@@ -117,6 +117,7 @@ alias  gdws='git diff --find-renames --find-copies --ignore-all-space --color-wo
 function git-diff-list-files() {
   git diff "$@" | grep 'diff --git' | nocolor | sed 's#diff --git a/##; s# b/.*##'
 }
+export -f git-diff-list-files
 
 #------------------------------------------
 # Getting state/status/metadata
@@ -192,7 +193,9 @@ function  glrf() {                                                              
 # Removed -cc from main glp because it makes it list merges even when those commits don't contain # match, when using -S search.
 alias           glp='git log             --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --find-renames --find-copies'                 # See the patch/diff (the actual lines that changed)
 alias glp-no-merges='git log --no-merges --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --find-renames --find-copies'                 # See the patch/diff (the actual lines that changed)
-alias    glp-follow='git log --cc        --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow'        # This only works when a single path is given. Otherwise you get error "usage: git logs can only follow renames on one pathname at a time"
+alias    glp-follow='git log -r          --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow'        # This only works when a single path is given. Otherwise you get error "usage: git logs can only follow renames on one pathname at a time"
+alias glp-follow-cc='git log --cc        --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow'        # This only works when a single path is given. Otherwise you get error "usage: git logs can only follow renames on one pathname at a time"
+
 # Sometimes it doesn't show the diffs because the -M isn't set low enough, sou you can set it really
 # low like this:
 alias glpfM01='git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow -M01'
