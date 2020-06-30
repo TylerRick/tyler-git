@@ -13,7 +13,7 @@ adding just the list of files for each commit (add as comments so you don't caus
 
 Why?
 If you're trying to rearrange commits and squash similar ones together, this helps you to see
-which ones are save to leap frog and change the order of: if they don't touch any of the same
+which ones are safe to leap frog and change the order of: if they don't touch any of the same
 files, you're free to leap frog (move a commit that is below the other so that it's above it)
 without any fear of conflicts. If they touch the same file, then you have to be a lot more
 careful.
