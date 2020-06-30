@@ -17,7 +17,7 @@ which ones are safe to leap frog and change the order of: if they don't touch an
 files, you're free to leap frog (move a commit that is below the other so that it's above it)
 without any fear of conflicts. If they touch the same file, then you have to be a lot more
 careful.
-For example, if you have a bunch of commits that only files A and B, and another bunch of commits
+For example, if you have a bunch of commits that only change files A and B, and another bunch of commits
 that only change files C and D, you can combine/squash all the A/B changes into a single commit
 and all the C/D changes into another commit.
 
