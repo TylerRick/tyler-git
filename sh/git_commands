@@ -1,4 +1,5 @@
 #!/bin/bash
+# See also: ~/.gitconfig, /home/tyler/installed/tyler-git/bin
 
 # TODO: use https://github.com/mikegerwitz/git-shortmaps to define short maps, and then change my
 # aliases to use longer names
@@ -113,9 +114,12 @@ alias   gdw='git diff --find-renames --find-copies --ignore-all-space --color-wo
 alias  gdws='git diff --find-renames --find-copies --ignore-all-space --color-words --staged'
 
 # Usage: git-diff-list-files rev1 rev2
+# Usage: git-diff-list-files rev
 # git-diff-list-files deployed/staging/2020-04-28T23-32-10 @ | xargs bin/hot_fix_staging -r
 function git-diff-list-files() {
-  git diff "$@" | grep 'diff --git' | nocolor | sed 's#diff --git a/##; s# b/.*##'
+  # https://stackoverflow.com/questions/424071/how-to-list-all-the-files-in-a-commit
+  #git diff "$@" | grep 'diff --git' | nocolor | sed 's#diff --git a/##; s# b/.*##'
+  git diff-tree --no-commit-id --name-only -r "$@"
 }
 export -f git-diff-list-files
 
