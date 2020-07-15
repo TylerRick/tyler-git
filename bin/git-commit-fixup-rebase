@@ -12,7 +12,18 @@
 # see what you're changing now.
 # is it more like rm --interactive or --verbose?
 
-# Add --squash option like git-commit has (also --fixup to be complete?)
+# TODO: If your current branch is based on (includes them as ancestors) another branch (such as
+# master), offer to also rebase that branch(es) at the same time, so that this branch *continues* to
+# be based on that branch, without diverging (and without having to manually rebase both).
+# Technically, there is no need to *actually* use the rebase operation on both. Just rebase this
+# current branch (which has more commits than the base branch), and then simply use update-ref to
+# update the ancestor branch(es) to the respective new rewritten commit that corresponds to the
+# previous tip of those branch(es).
+
+# TODO: Warn if any rebase would cause it to diverge from upstream (that is, warn if you rewrite any
+# history/commits prior to the tip of the branch's upstream)
+
+# TODO: Add --squash option like git-commit has (also --fixup to be complete?)
 
 if [ -z "$1" ]; then
   echo "Usage: gcifrb <commit> [file...]"
