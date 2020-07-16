@@ -1,7 +1,9 @@
 #!/usr/bin/env ruby
 # To do:
-# * Let you specify multiple a list of commits to cherry pick
+# * Let you specify multiple (a list of) commits to cherry pick
 #   git cherry-pick-other-repo /path/to/other_repo rev1 rev2 ?
+#   That would not be an uncommon thing to expect, since it is comparable to taking multiple commits
+#   from an mbox, like mentioned in (https://git.vger.kernel.narkive.com/laHrDpJG/git-am-failed-what-s-next)
 
 def usage
   puts <<End
@@ -64,7 +66,7 @@ if success
   end
 else
   puts "Detected failure. Leaving patches in current directory..."
-  puts "You may want to git am --skip before trying this again."
+  puts "You may want to try re-applying with different options. For example: git am -C2"
 end
 #if (print "Remove patches? "; STDIN.gets[0].chr.downcase == 'y')
 
