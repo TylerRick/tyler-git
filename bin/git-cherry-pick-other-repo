@@ -67,6 +67,7 @@ if success
 else
   puts "Detected failure. Leaving patches in current directory..."
   puts "You may want to try re-applying with different options. For example: git am -C2"
+  puts "You could also try the --reject option to allow it to partially apply the patcth."
 end
 #if (print "Remove patches? "; STDIN.gets[0].chr.downcase == 'y')
 
