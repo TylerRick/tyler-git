@@ -4,11 +4,12 @@
 Trigger grbi to create file
 .git/rebase-merge/git-rebase-todo
 then, matching on commit id, combine with output from
-  git log --reverse --no-color --stat=400 {range}
+  git log --reverse --no-color --stat=100 {range}
 Ex:
-  git log --reverse --no-color --stat=400 @~10...@  (useful for grbi10)
-  git log --reverse --no-color --stat=400 33d3a9eb4^...@
-  git log --reverse --no-color --stat=400 $(git-upstream)...@ > $(echo_to_both .git/.local/$(now)_rebase_annotated_commit_list)
+  onto=6a98e02bd;  git log --reverse --no-color --stat=100 --pretty=format:"______________________________________%n%h  (%ai)%n%s%b"  $onto...master > $(file=.git/.local/$(now)_rebase_annotated_commit_list; ln -s $file .git/.local/rebase_annotated_commit_list; echo_to_both $file); gcifrb  $onto
+  git log --reverse --no-color --stat=100 @~10...@  (useful for grbi10)
+  git log --reverse --no-color --stat=100 33d3a9eb4^...@
+  git log --reverse --no-color --stat=100 $(git-upstream)...@ > $(echo_to_both .git/.local/$(now)_rebase_annotated_commit_list)
 adding just the list of files for each commit (add as comments so you don't cause syntax error)
 {range} is the same range of commits included in .git/rebase-merge/git-rebase-todo
 
