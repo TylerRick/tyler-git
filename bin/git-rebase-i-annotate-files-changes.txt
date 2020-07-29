@@ -8,7 +8,7 @@ then, matching on commit id, combine with output from
 Ex:
   git log --reverse --no-color --stat=400 @~10...@  (useful for grbi10)
   git log --reverse --no-color --stat=400 33d3a9eb4^...@
-  git log --reverse --no-color --stat=400 $(git-upstream)...@ > .git/.local/$(now)_rebase_annotated_commit_list
+  git log --reverse --no-color --stat=400 $(git-upstream)...@ > $(echo_to_both .git/.local/$(now)_rebase_annotated_commit_list)
 adding just the list of files for each commit (add as comments so you don't cause syntax error)
 {range} is the same range of commits included in .git/rebase-merge/git-rebase-todo
 
@@ -43,7 +43,16 @@ pick 882c3d6e5 f readme
 pick c8a2ad346 f c7bef3bbd22d661b8fa43bf5587079fb2383d2c6
  app/controllers/user_edit_common_controller.rb | 2 +-
 
+===================================================================================================
+Related feature:
 
+It would be nice if I didn't have to manually inspect those lists of changed files for each commit.
+It would be nice if, as I was re-arranging commit order in the grbi list, if it could automatically check the changed file list for any moved commits and warn me if I swapped the order of any two commits that changed any of the same files.
+I could confirm and dismiss the warning, but most of the time, the lack of a warning would give me the confidence as I'm making my list that my changes are guaranteed to be safe, that they couldn't *possibly* trigger a merge conflict because they don't touch the same files (except in the case that those commits that do touch the same files are kept in the same relative order, which is what this helps us to ensure).
+
+Better to find out immediately while in the planning stage of our history-rewriting than after you close the grbi window and it actually starts the rebase.
+If it actually starts the rebase and gets to a conflict, I'm not sure that there is any way to alter the "plan" (maybe for commits later on in the to-do list, by editing the to-do list, but probably not easy to change the order of commits already cherry picked by the grbi!).
+By that time it's too late. And it may force you to completely abort, losing all progress so far (successful cherry picks), and start over with your reorder list. Hopefully you have a backup of your grbi to-do list that you can use as a starting point; if not, you really have lost all your work! (Well, some of it, the commits successfully cherry picked should be in the reflog.)
 
 ===================================================================================================
 Related feature:
