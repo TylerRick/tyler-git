@@ -1,0 +1,22 @@
+#!/bin/bash
+# Oops, I guess we already have this built in: git rev-parse --git-dir
+
+# When inside a checked out submodule, .git is not a dir but a file:
+#  ⟫ cat .git
+#  gitdir: ../.git/modules/api
+# That seems to be the equivalent to the .git dir from a "regular" repo.
+# This command returns whichever of those ".git"-equivalent dirs applies to the current "repo".
+# This is different from git base-dir:
+#   Type of repo    | git base-dir    | git git-dir
+#   ----------------------------------------------
+#   regular         | .               | .git
+#   submodule "api" | ../.git/modules | ../.git/modules/api
+
+if [ -d "$(git base-dir)/.git" ]; then
+  "$(git base-dir)/.git"
+else
+  # TODO: https://unix.stackexchange.com/questions/6463/find-searching-in-parent-directories-instead-of-subdirectories
+  git_file=$(find_up .git)
+  contents=$(cat git_file)
+  echo ${contents##gitdir: }
+fi
