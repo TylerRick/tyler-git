@@ -124,6 +124,7 @@ echo GIT_AUTHOR_DATE=$GIT_AUTHOR_DATE
 echo GIT_COMMITTER_DATE=$GIT_COMMITTER_DATE
 
 # TODO: file_list=`git list files from commit`
+mkdir -p .git  # in case we're in a submodule of a parent git repo
 git cat-file commit "$rev" | sed "1,/^$/d" > .git/git-commit-modify-message
 #cat .git/git-commit-modify-message
 
