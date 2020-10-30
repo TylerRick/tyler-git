@@ -1,5 +1,6 @@
 #!/bin/bash
-# Oops, I guess we already have this built in: git rev-parse --git-dir
+# Oops, I guess we already have this built in:
+#   git rev-parse --git-dir
 
 # When inside a checked out submodule, .git is not a dir but a file:
 #  ⟫ cat .git
