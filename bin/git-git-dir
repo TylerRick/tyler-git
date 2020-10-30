@@ -18,6 +18,7 @@ if [ -d $git_file ]; then
 else
   contents=$(cat $git_file)
   dir_relative_from_toplevel="${contents##gitdir: }"
+  # Could also use git rev-parse --show-cdup instead of git rev-parse --show-toplevel
   dir="$(git rev-parse --show-toplevel)/$dir_relative_from_toplevel"
   realpath $dir
 fi
