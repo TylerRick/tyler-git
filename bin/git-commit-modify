@@ -36,6 +36,7 @@
 # Dependencies/lib
 
 pushd "$(git rev-parse --show-cdup)" > /dev/null
+git_dir=$(git rev-parse --git-dir)
 
 . "$(git --exec-path)/git-sh-setup"
 
@@ -124,8 +125,7 @@ echo GIT_AUTHOR_DATE=$GIT_AUTHOR_DATE
 echo GIT_COMMITTER_DATE=$GIT_COMMITTER_DATE
 
 # TODO: file_list=`git list files from commit`
-mkdir -p .git  # in case we're in a submodule of a parent git repo
-git cat-file commit "$rev" | sed "1,/^$/d" > .git/git-commit-modify-message
+git cat-file commit "$rev" | sed "1,/^$/d" > $git_dir/git-commit-modify-message
 #cat .git/git-commit-modify-message
 
 #---------------------------------------------------------------------------------------------------
@@ -153,12 +153,12 @@ GIT_AUTHOR_DATE="$GIT_AUTHOR_DATE"         \
 GIT_COMMITTER_NAME="$GIT_COMMITTER_NAME"   \
 GIT_COMMITTER_EMAIL="$GIT_COMMITTER_EMAIL" \
 GIT_COMMITTER_DATE="$GIT_COMMITTER_DATE"   \
-git commit $file_list --quiet --no-verify -F .git/git-commit-modify-message || failed=t
+git commit $file_list --quiet --no-verify -F $git_dir/git-commit-modify-message || failed=t
 
 #---------------------------------------------------------------------------------------------------
 # Clean up
 
-rm .git/git-commit-modify-message
+rm $git_dir/git-commit-modify-message
 
 popd > /dev/null
 
