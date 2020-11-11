@@ -22,3 +22,15 @@
 #   if not:
 #     ask them if they want to do a git-forgot-to-switch-to-dev-branch so that they can rebase against the current branch
 #     better yet, make it reliable enough that we don't even have to ask them: just create a temporary branch, rewind previous branch, and rebase against it
+#
+#
+#
+# 2020-11-11 12:52
+# Wrapper or editor extension (!) for a better git rebase -i
+# The editor (vim, VS code) extension would give you helpful feedback/info while editing .git/rebase-merge/git-rebase-todo
+# When reordering/adding/removing commits, it will check to see if this change will definitely (such
+# as if you both delete/move and modify a file), could possibly, or could never cause a merge
+# conflict.
+# It does this by checking the list of files modified (deleted, etc.) for all commits involved in
+# the change.
+# Ex.: git-rebase-interactive-wrapper.example_1.txt
