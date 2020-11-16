@@ -466,6 +466,7 @@ alias   gus='git unstage' # tyler-git
 # creates a regular backup tag, rather than using git stash)
 alias git-bak-stash='gau; gci -m 'wip'; git bak; grss1; gus .'
 
+alias git-create-local-dir="mkdir .local;  cd .local/;  git init;  git ci -m 'Initial'"
 
 #------------------------------------------
 # Upstream/Rebase
@@ -641,9 +642,11 @@ function git-find-equivalent-commit() {
   # just reuse the same command from my history that I used last time I wanted to shoot it back to
   # that old commit, it will be the wrong one, because each time I squash with that commit, it gets
   # a new ID.
-  echo >&2 "Searching for equivalent commit for $1 …"
 
   search_id=$1
+  tree_top=${2:-@}
+  echo >&2 "Searching for equivalent commit for $search_id in the tree with tip $tree_top …"
+
   search_message=$(git log --format=%B -n 1 $search_id)
   while IFS= read -d '' ancestor; do
     #readarray -t ancestor_ary <<< "$ancestor"
@@ -665,7 +668,7 @@ function git-find-equivalent-commit() {
       echo $ancestor_id
       return 0
     fi
-  done < <(git log -z --format="%H%n%B")
+  done < <(git log -z --format="%H%n%B" $tree_top)
 
   # Now that we've checked all candidates for exact match, fall back to checking for approx. match
   echo >&2 "No exact match found. Searching for approximate match (first line of message is the same) …"
@@ -681,7 +684,7 @@ function git-find-equivalent-commit() {
       echo $ancestor_id
       return 0
     fi
-  done < <(git log -z --format="%H%n%B")
+  done < <(git log -z --format="%H%n%B" $tree_top)
 
   return 1
 }
