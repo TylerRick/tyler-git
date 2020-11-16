@@ -28,9 +28,60 @@
 # 2020-11-11 12:52
 # Wrapper or editor extension (!) for a better git rebase -i
 # The editor (vim, VS code) extension would give you helpful feedback/info while editing .git/rebase-merge/git-rebase-todo
-# When reordering/adding/removing commits, it will check to see if this change will definitely (such
-# as if you both delete/move and modify a file), could possibly, or could never cause a merge
-# conflict.
+# When reordering/adding/removing commits, it will check to see if this change
+# - will definitely (such as if you both delete/move and modify a file),
+# - could possibly (changed same file, but possibly parts of thefile that were far enough part),
+# -  or could never cause a merge conflict (changed completely not overlapping sets of files).
 # It does this by checking the list of files modified (deleted, etc.) for all commits involved in
 # the change.
+# It then highlights (and/or adds info to the text following the commit ref, since it can be any text) commit lines that won't conflict in green, may conflict in yellow, and _will_ conflict in red.
+# It could even get smarter and do a trial run of your steps in the background
+# (in a copy repo, possibly) to remove the "may conflict" altogether, and instead
+# tell you _definitively_ if it will or not, and if so, the type (delete +
+# modified, both modified, etc.) and how bad the conflict it is (maybe just the
+# sum of number of lines in each conflict block)
 # Ex.: git-rebase-interactive-wrapper.example_1.txt
+
+
+
+
+# When you're rebasing your branch onto another "upstream" branch, and either of them have rewritten commits that are part of their common "merge base" tree, then it will list those "duplicate"/modified commits (from your current branch that you're rebasing, even if it still has the *original* version of that modified commit), it will include it with all the other "pick" commits as if it's a new commit from your branch (even though it's not new) and it will be easy to not notice these "duplicate" commits that snuck in with your *real* new commits.
+#   pick 6770ecc3f rails webpacker:install:typescript
+#   pick 4326187cd Add back some things to tsconfig.json
+# Which of these are new and which are dups?
+# Well, this tool can help automatically identify the possible dups, *and* give you enough info to help you decide which version of the duplicate commit is the one you want to commit.
+# (Hopefully you want to keep the "upstream" version, and then you would just delete the "pick" command for the "original" version of the commit).
+# In the command list, it might highlight the possible duplicate commit in yellow.
+# It could even change the "pick" to a "drop" if the other/onto branch had the newer version of this commit. (But still highlight it in yellow so you could manually review the suggested action.)
+# and then if you want/need additional info, you could just press a key to get additional output.
+#
+# The additional output might look like:
+#⟫ ref=6770ecc3f; git-diff-commits $ref $(git-find-equivalent-commit $ref master 2>/dev/null)
+#commit 6770ecc3f97f0ba04683bda4397be1b23da0b516
+#Author:     Tyler Rick <tyler@k3.is>
+#AuthorDate: 2020-09-02 14:51:47 -0700
+#Commit:     Tyler Rick <tyler@k3.is>
+#CommitDate: 2020-09-03 10:19:55 -0700
+#
+#    rails webpacker:install:typescript
+#commit 850fe5b452ef5fd52cd3029cb7287cb81ec415e1
+#Author:     Tyler Rick <tyler@k3.is>
+#AuthorDate: 2020-09-02 14:51:47 -0700
+#Commit:     Tyler Rick <tyler@k3.is>
+#CommitDate: 2020-11-13 12:27:52 -0800
+#
+#    rails webpacker:install:typescript
+#1c1
+#< commit 6770ecc3f97f0ba04683bda4397be1b23da0b516
+#---
+#> commit 850fe5b452ef5fd52cd3029cb7287cb81ec415e1
+#95c95
+#< index bfb9ee5c9..bd034ff63 100644
+#---
+#> index 77fe7a64a..6b7bbc276 100644
+#127c127
+#<      "vendor",
+#---
+#>      "node_modules.*",
+#
+# From this you would see the later commit date and most likely decide to keep the newer-commited commit.
