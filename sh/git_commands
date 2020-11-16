@@ -329,6 +329,10 @@ alias   glc='git log --color --date-order'                                      
 
 
 function    git-diff-commits() {
+  # Compare metadata
+  glfull -1 $1
+  glfull -1 $2
+  # Compare patch
      diff <(glp -1 --no-color $1) <(glp -1 --no-color $2)
 }
 function git-vimdiff-commits() {
