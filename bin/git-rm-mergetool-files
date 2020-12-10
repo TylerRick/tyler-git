@@ -1,7 +1,7 @@
 #!/bin/sh
 # See also/merge with: git rmversions
 
-find_command="find . -type f -a \( -name '*.REMOTE.*' -o -name '*.LOCAL.*' -o -name '*.BASE.*' -o -name '*.BACKUP.*' \)"
+find_command="find . -type f -a \( -name '*[._]REMOTE[._]*' -o -name '*[._]LOCAL[._]*' -o -name '*[._]BASE[._]*' -o -name '*[._]BACKUP[._]*' \)"
 eval $find_command
 
 echo -n "Delete these files [y/n]? "
