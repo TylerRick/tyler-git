@@ -74,4 +74,4 @@ end
 
 run %(git add #{files.join(' ')})
 run %(git commit #{files.join(' ')} #{shell_ready_args})
-run %(date='#{commit_time}' git commit-modify #{files.join(' ')})
+run %(git_date='#{commit_time}' git commit-modify #{files.join(' ')})
