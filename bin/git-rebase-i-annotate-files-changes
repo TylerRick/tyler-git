@@ -1,0 +1,28 @@
+#!/bin/bash
+set -e
+
+# See notes in git-rebase-i-annotate-files-changes.txt
+
+commit_list_file=.git/.local/rebase_annotated_commit_list
+
+if [ -z "$1" ]; then
+  echo >&2 "Usage: $(basename $0) <onto_commit>"
+  echo >&2 "Rebases onto <onto_commit>."
+  echo >&2 "Generates a file, $commit_list_file, containing the list of commits that will be applied onto <onto_commit> along with information that will be helpful in determining which commits can be safely reordered without any chance of a merge conflict."
+  exit 1
+fi
+
+onto=$1; shift
+
+cd $(dirname "$(git rev-parse --git-dir)")
+ls -lA $commit_list_file
+git log --reverse --no-color --name-status --pretty=format:"______________________________________%n%h  (%ai)%n%s%b"  $onto...@ > $(
+  file=.git/.local/$(now)_rebase_annotated_commit_list
+  symlink -f $file $commit_list_file
+  echo_to_both $file
+)
+
+git-commit-fixup-rebase  $onto
+#git commit --fixup $onto
+#git rebase -i --autosquash $onto^
+
