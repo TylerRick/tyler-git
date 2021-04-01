@@ -3,6 +3,7 @@ set -e
 
 # See notes in git-rebase-i-annotate-files-changes.txt
 
+mkdir -p .git/.local
 commit_list_file=.git/.local/rebase_annotated_commit_list
 
 if [ -z "$1" ]; then
@@ -15,7 +16,7 @@ fi
 onto=$1; shift
 
 cd $(dirname "$(git rev-parse --git-dir)")
-ls -lA $commit_list_file
+[ -e $commit_list_file ] && ls -lA $commit_list_file
 git log --reverse --no-color --name-status --pretty=format:"______________________________________%n%h  (%ai)%n%s%b"  $onto...@ > $(
   file=.git/.local/$(now)_rebase_annotated_commit_list
   symlink -f $file $commit_list_file
