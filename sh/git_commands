@@ -302,9 +302,9 @@ alias  glsnc='git log --no-color --graph --pretty=format:"%h %ai %an%d %s"'  # n
 # git log short
 # %d is like decorate, shows ref name.
 # Converted these to aliases in ~/.gitconfig
-#converted to log-short-nograph: alias  glsnograph='git log --color --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s"'
-alias   gls='git log-short-nograph --graph'
-alias glsnw='git log-short-nograph --no-walk'
+#converted to log-oneline-nograph: alias  glsnograph='git log --color --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s"'
+alias   gls='git log-oneline-graph'
+alias glsnw='git log-oneline-graph --no-walk'
 #alias  glsr='git log --color         --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s" --reverse'    # git log short reverse
 function gls-from-merge-base() {
   rev=$1; shift
@@ -333,7 +333,10 @@ function    git-diff-commits() {
   glfull -1 $1
   glfull -1 $2
   # Compare patch
-     diff <(glp -1 --no-color $1) <(glp -1 --no-color $2)
+  diff <(glp -1 --no-color $1) <(glp -1 --no-color $2)
+  echo
+  echo 'Or, only diffing addition lines:'
+  diff <(glp -1 --no-color $1 | grep '^+') <(glp -1 --no-color $2 | grep '^+')
 }
 function git-vimdiff-commits() {
   vimdiff <(glp -1 --no-color $1) <(glp -1 --no-color $2)
@@ -616,7 +619,7 @@ function git-ensure-commit-is-ancestor() {
       echo >&2 "Warning: Using it anyway because \$git_skip_ancestor_check is set"
       echo $commit; exit 0
     else
-      echo >&2 "Did you mean one of these commits?"
+      echo >&2 "Did you mean one of these commits?  (Tip: skip this check by setting git_skip_ancestor_check=1)"
     fi
 
     # If not ancestor of HEAD, then try to git-find-equivalent-commit
