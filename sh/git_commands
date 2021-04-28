@@ -611,12 +611,20 @@ alias grbiauto='grbi $(git-find-rebase-i-commands-in-commit-messages)'
 function git-ensure-commit-is-ancestor() {
   commit=$1
   git merge-base --is-ancestor $commit HEAD || {
-    echo >&2  "$commit is not an ancestor of current head. Did you mean one of these commits?"
+    echo >&2 -n "$commit is not an ancestor of current head. "
+    if [ -n "$git_skip_ancestor_check" ]; then
+      echo >&2 "Warning: Using it anyway because \$git_skip_ancestor_check is set"
+      echo $commit; exit 0
+    else
+      echo >&2 "Did you mean one of these commits?"
+    fi
+
     # If not ancestor of HEAD, then try to git-find-equivalent-commit
     equiv_commit=$(git-find-equivalent-commit $commit 2>/dev/null)
     if [ -n "$equiv_commit" ]; then
       echo >&2 "- Equivalent commit found for $commit:"
       git log -n 1 $equiv_commit >&2
+      # read -n1 -p "Use equivalent commit $equiv_commit? [Y/n] " reply >&2
     else
       echo >&2 "- No equivalent commit found for $commit"
       read -n1 -p "Use $commit anyway? [y/N] " reply >&2
