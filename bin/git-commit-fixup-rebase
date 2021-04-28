@@ -60,8 +60,9 @@ fi
 # Automate it and tell it to do the "f" command. Otherwise would require user
 # to move the line up to right below the target commit and change pick to f.
 # Possible solution: --autosquash
+
 git merge-base --is-ancestor $commit HEAD || {
-  echo "Error: $commit is not an ancestor of current head."
-  exit 1
+  echo "Warning: $commit is not an ancestor of current head."
 }
+
 git rebase -i --autosquash $commit^
