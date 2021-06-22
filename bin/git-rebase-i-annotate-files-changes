@@ -1,36 +1,42 @@
 #!/bin/bash
 set -e
+#set -m # enable job control
 
 # See notes in git-rebase-i-annotate-files-changes.txt
 
 mkdir -p .git/.local
-commit_list_file=.git/.local/rebase_annotated_commit_list
+commit_list_file=.git/.local/$(now)_rebase_annotated_commit_list
+commit_list_link=.git/.local/rebase_annotated_commit_list
+rebase_todo_tmp_file=.git/rebase-merge/git-rebase-todo
+rebase_todo_file=.git/.local/$(now)_rebase_todo
+rebase_todo_link=.git/.local/rebase_todo
 
 if [ -z "$1" ]; then
   echo >&2 "Usage: $(basename $0) <onto_commit>"
   echo >&2 "Rebases onto <onto_commit>."
-  echo >&2 "Generates a file, $commit_list_file, containing the list of commits that will be applied onto <onto_commit> along with information that will be helpful in determining which commits can be safely reordered without any chance of a merge conflict."
+  echo >&2 "Generates a file, $commit_list_link, containing the list of commits that will be applied onto <onto_commit> along with information that will be helpful in determining which commits can be safely reordered without any chance of a merge conflict."
   exit 1
 fi
 
 onto=$1; shift
 
 cd $(dirname "$(git rev-parse --git-dir)")
-[ -e $commit_list_file ] && ls -lA $commit_list_file
 
-# --noninteractive
-orig_base=$(git-ensure-commit-is-ancestor $onto 2>/dev/null)
+# TODO: --noninteractive or  2>/dev/null
+orig_base=$(git-ensure-commit-is-ancestor $onto)
 git log-oneline --reverse $orig_base..@ > .git/.local/commits_from_orig_base
+
+git log --reverse --no-color --name-status --pretty=format:"______________________________________%n%h  (%ai)%n%s%b"  $onto^...@ > $commit_list_file
+symlink -f $commit_list_file $commit_list_link
+
 # For a one-line-formatted list of commits from original base that you can compare against
-echo "Do vertical split with .git/.local/commits_from_orig_base if you want to compare original list of commits with new list (to make sure you haven't included a duplicate commit, for example, if you are rebasing on a new base with many similar + diverging commits)
+echo "Do vertical split with .git/.local/commits_from_orig_base if you want to compare original list of commits with new list (to make sure you haven't included a duplicate commit, for example, if you are rebasing on a new base with many similar + diverging commits)"
+[ -e $commit_list_link ] && ls -lA $commit_list_link
 
-git log --reverse --no-color --name-status --pretty=format:"______________________________________%n%h  (%ai)%n%s%b"  $onto^...@ > $(
-  file=.git/.local/$(now)_rebase_annotated_commit_list
-  symlink -f $file $commit_list_file
-  echo_to_both $file
-)
-
-git-commit-fixup-rebase  $onto
 #git commit --fixup $onto
 #git rebase -i --autosquash $onto^
+git-commit-fixup-rebase $onto
 
+cp $rebase_todo_tmp_file $rebase_todo_file
+symlink -f $rebase_todo_file $rebase_todo_link
+[ -e $rebase_todo_link ] && ls -lA $rebase_todo_link
