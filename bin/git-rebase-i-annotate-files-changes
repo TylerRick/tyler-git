@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-#set -m # enable job control
+set -m # enable job control
 
 # See notes in git-rebase-i-annotate-files-changes.txt
 
@@ -25,6 +25,10 @@ cd $(dirname "$(git rev-parse --git-dir)")
 # TODO: --noninteractive or  2>/dev/null
 orig_base=$(git-ensure-commit-is-ancestor $onto)
 git log-oneline --reverse $orig_base..@ > .git/.local/commits_from_orig_base
+# could also make a backup copy of the generated .git/rebase-merge/git-rebase-todo, which might be
+# even better for diffing against, but that would probably require backgrounding
+# git-commit-fixup-rebase, making copy, and then using fg'ing it, because it wouldn't existing until
+# we invoke git rebase.
 
 git log --reverse --no-color --name-status --pretty=format:"______________________________________%n%h  (%ai)%n%s%b"  $onto^...@ > $commit_list_file
 symlink -f $commit_list_file $commit_list_link
@@ -35,8 +39,12 @@ echo "Do vertical split with .git/.local/commits_from_orig_base if you want to c
 
 #git commit --fixup $onto
 #git rebase -i --autosquash $onto^
-git-commit-fixup-rebase $onto
+git-commit-fixup-rebase $onto &
 
+sleep 1
+cp $rebase_todo_tmp_file $rebase_todo_file.orig
 cp $rebase_todo_tmp_file $rebase_todo_file
 symlink -f $rebase_todo_file $rebase_todo_link
 [ -e $rebase_todo_link ] && ls -lA $rebase_todo_link
+
+fg
