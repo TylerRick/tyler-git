@@ -4,9 +4,11 @@
 set -e
 
 mkdir -p .git/.local
-commit_list_file=.git/.local/$(now)_rebase_annotated_commit_list
-commit_list_link=.git/.local/rebase_annotated_commit_list
-rebase_todo_back=.git/.local/$(now)_rebase_todo.bak
+log_short_with_name_status_file=.git/.local/rebase/$(now)_log_short_with_name_status
+log_short_with_name_status_link=.git/.local/rebase/log_short_with_name_status
+log_with_patch_file=.git/.local/$(now)_log_with_patch
+log_with_patch_link=.git/.local/log_with_patch
+rebase_todo_orig=.git/.local/$(now)_rebase_todo.orig
 rebase_todo_file=.git/.local/$(now)_rebase_todo
 rebase_todo_link=.git/.local/rebase_todo
 
@@ -16,18 +18,22 @@ rebase_todo_link=.git/.local/rebase_todo
 # For a one-line-formatted list of commits from original base that you can compare against
 #echo "Do vertical split with .git/.local/commits_from_orig_base if you want to compare original list of commits with new list (to make sure you haven't included a duplicate commit, for example, if you are rebasing on a new base with many similar + diverging commits)"
 
-set -x
-git log --reverse --no-color --name-status --pretty=format:"______________________________________%n%h  (%ai)%n%s%b"  $onto^...@ > $commit_list_file
-symlink -f $commit_list_file \
-           $commit_list_link
-[ -e $commit_list_link ] && ls -lA $commit_list_link
+#set -x
+export GIT_PAGER=
+git log --reverse --no-color --name-status --pretty=tformat:"______________________________________%n%h  (%ai)%n%B"                   $onto^...@ > $log_short_with_name_status_file
+git log --reverse --no-color               --pretty=tformat:"%n%n______________________________________%n%h  (%ai)%n%w(0,4,4)%B" -p   $onto^...@ > $log_with_patch_file
+
+symlink -f $log_short_with_name_status_file \
+           $log_short_with_name_status_link
+[ -e $log_short_with_name_status_link ] && ls -lA $log_short_with_name_status_link
 
 rebase_todo_tmp_file=$1 #.git/rebase-merge/git-rebase-todo
 cp $rebase_todo_tmp_file \
-   $rebase_todo_back
+   $rebase_todo_orig
 
 vim -O $rebase_todo_tmp_file \
-       $commit_list_file
+       $log_short_with_name_status_file \
+    -c "tabnew $log_with_patch_file | tabnew $log_short_with_name_status_file | tabnew $rebase_todo_orig | tabfirst"
 
 cp $rebase_todo_tmp_file \
    $rebase_todo_file
