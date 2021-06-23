@@ -3,14 +3,13 @@
 
 set -e
 
-mkdir -p .git/.local
-log_short_with_name_status_file=.git/.local/rebase/$(now)_log_short_with_name_status
-log_short_with_name_status_link=.git/.local/rebase/log_short_with_name_status
-log_with_patch_file=.git/.local/$(now)_log_with_patch
-log_with_patch_link=.git/.local/log_with_patch
-rebase_todo_orig=.git/.local/$(now)_rebase_todo.orig
-rebase_todo_file=.git/.local/$(now)_rebase_todo
-rebase_todo_link=.git/.local/rebase_todo
+dir=.git/.local/rebase/$(now)
+mkdir -p $dir
+
+log_short_with_name_status_file=$dir/log_short_with_name_status
+:;          log_with_patch_file=$dir/log_with_patch
+:;             rebase_todo_orig=$dir/rebase_todo.orig
+:;             rebase_todo_file=$dir/rebase_todo
 
 # TODO: --noninteractive or  2>/dev/null
 #orig_base=$(git-ensure-commit-is-ancestor $onto)
@@ -20,23 +19,20 @@ rebase_todo_link=.git/.local/rebase_todo
 
 #set -x
 export GIT_PAGER=
-git log --reverse --no-color --name-status --pretty=tformat:"______________________________________%n%h  (%ai)%n%B"                   $onto^...@ > $log_short_with_name_status_file
-git log --reverse --no-color               --pretty=tformat:"%n%n______________________________________%n%h  (%ai)%n%w(0,4,4)%B" -p   $onto^...@ > $log_with_patch_file
+(echo '# vim: ft=diff';      git log --reverse --no-color --name-status --pretty=tformat:"______________________________________%n%h  (%ai)%n%B"                   $onto^...@ ) > $log_short_with_name_status_file
+# prepend with? set ft=diff
+(echo '# vim: ft=gitrebase'; git log --reverse --no-color               --pretty=tformat:"%n%n______________________________________%n%h  (%ai)%n%w(0,4,4)%B" -p   $onto^...@ ) > $log_with_patch_file
 
-symlink -f $log_short_with_name_status_file \
-           $log_short_with_name_status_link
-[ -e $log_short_with_name_status_link ] && ls -lA $log_short_with_name_status_link
-
-rebase_todo_tmp_file=$1 #.git/rebase-merge/git-rebase-todo
+rebase_todo_tmp_file=$1 # Should be .git/rebase-merge/git-rebase-todo
 cp $rebase_todo_tmp_file \
    $rebase_todo_orig
+(echo '# vim: ft=gitrebase'; cat $rebase_todo_orig) | sponge $rebase_todo_orig
 
+# { Open editor
 vim -O $rebase_todo_tmp_file \
        $log_short_with_name_status_file \
     -c "tabnew $log_with_patch_file | tabnew $log_short_with_name_status_file | tabnew $rebase_todo_orig | tabfirst"
+# } Open editor
 
 cp $rebase_todo_tmp_file \
    $rebase_todo_file
-symlink -f $rebase_todo_file \
-           $rebase_todo_link
-[ -e $rebase_todo_link ] && ls -lA $rebase_todo_link
