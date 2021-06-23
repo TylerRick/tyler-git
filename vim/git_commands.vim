@@ -92,7 +92,7 @@ command! -nargs=* Gll                     :Gitlog --color --numstat --graph <arg
 command! -nargs=* Gllfulldiff             :Gitlog --color --numstat --graph --full-diff <args>
 
 "command! -nargs=* Glp                     !cd "$(dirname "$(cd %:p:h; git rev-parse --show-toplevel)")"; git log -p --numstat --ignore-all-space --follow             <args> "%"
-command! -nargs=* Glp                     !cd %:p:h; git log -p --numstat --ignore-all-space --follow             <args> "%:p:t"
+command! -nargs=* Glp                     !cd "%:p:h"; git log -p --numstat --ignore-all-space --follow             <args> "%:p:t"
 command! -nargs=* Glpword                 !cd %:p:h; git log -p --numstat --ignore-all-space --follow --word-diff=color <args> "%:p:t"
 command! -nargs=* Glpfulldiff             !cd %:p:h; git log -p --numstat --ignore-all-space --full-diff <args> "%:p:t"
 
@@ -168,6 +168,8 @@ endfunction
 command! -nargs=* Tig                     !cd %:p:h; tig <args> -- --patch-with-stat "%:p:t"
 
 command! -nargs=* Gitcommit               !cd %:p:h; git commit -v "%:p:t" <args>
+" na = "no add"
+command! -nargs=* Gitcommitna             !cd %:p:h; git commit -v <args>
 
 " The previous version had the problem that special characters (to vim) like #
 " get expanded (see help expand for a list of such characters). It appears
@@ -182,9 +184,27 @@ command! -nargs=* Gitcommit               !cd %:p:h; git commit -v "%:p:t" <args
 
 command! -nargs=* Gitci                   :Gitcommit <args>
 command! -nargs=* Gci                     :Gitcommit <args>
+command! -nargs=* Gcie                    !cd %:p:h; git commit --allow-empty-message <args> "%:p:t" -m '.'
 
-" passes commit as arg1
-command! -nargs=1 Gcifrb                  !cd %:p:h; git commit-fixup-rebase <args> "%:p:t"
+" pass commit to fix up as arg1
+" The Gcifrb variant adds (stages) the file first; if nothing is staged, it won't be able to create
+" a commit; but if you only wanted to stage certain hunks in the file (using git add -p), you need
+" to use the Gcifrbna variant to avoid staging the whole file (FIXME: this currently only works if you pass a
+" commit count and a path; if you pass a commit id and a path, it will still add the whole file,
+" since that's the default behavior for git commit <filename>)
+command! -nargs=1 Gcifrb                  !cd %:p:h; git add "%:p:t"; git commit-fixup-rebase <args> "%:p:t"
+" "no add"
+command! -nargs=1 Gcifrbna                !cd %:p:h;                  git commit-fixup-rebase <args> "%:p:t"
+"command! -nargs=1 Gcifrb                  call GitCommitFixupRebase(<f-args>)
+"command! -nargs=1 Gcisrb                  call GitCommitFixupRebase(<f-args>)
+
+function! GitCommitFixupRebase(revision)
+  echomsg expand("%:p:t")
+  echomsg a:revision
+  if strlen(a:revision) <= 2
+    echo 'commit_count'
+  end
+endfunction
 
 " Note: We must include the filename when doing git commit --amend or else it will include *all*
 " currently stashed changes into the amended commit. We want it to only add/include the file you are
@@ -238,7 +258,7 @@ function! GitCopy(new_path)
 endfunction
 
 " Reminder: fugitive's Gblame is cooler
-command! -range=% -nargs=* Gitblame       !cd %:p:h; git blame "%:p:t"      <args> -L <line1>,<line2>
+command! -range=% -nargs=* Gitblame       !cd "%:p:h"; git blame "%:p:t"      <args> -L <line1>,<line2>
 command! -range=% -nargs=* Gitblamehead   !cd %:p:h; git blame "%:p:t" HEAD <args> -L <line1>,<line2>
 
 
@@ -276,4 +296,6 @@ function! CurrentFileName(ArgLead,CmdLine,CursorPos)
     return expand("%:p:t")
 endfun
 
+" Adds newlines before/after marker commits with message { / }.
+command! -range=% GitrebaseFileGroupIntoSectionsByMarkers :%s/\(pick \S\+\) { .*$/\r&/g | :%s/\(pick \S\+\) } .*$/&\r/g
 
