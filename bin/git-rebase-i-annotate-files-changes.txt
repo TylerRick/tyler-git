@@ -6,7 +6,7 @@ Trigger grbi to create file
 then, matching on commit id, combine with output from
   git log --reverse --no-color --name-status {range}
 Ex:
-  ll .git/.local/rebase_annotated_commit_list; onto=a64c28940;  git log --reverse --no-color --name-status --pretty=format:"______________________________________%n%h  (%ai)%n%s%b"  $onto...master > $(file=.git/.local/$(now)_rebase_annotated_commit_list; symlink -f $file .git/.local/rebase_annotated_commit_list; echo_to_both $file); gcifrb  $onto
+  ll .git/.local/rebase_annotated_commit_list; onto=?;  git log --reverse --no-color --name-status --pretty=format:"______________________________________%n%h  (%ai)%n%s%b"  $onto...@ > $(file=.git/.local/$(now)_rebase_annotated_commit_list; symlink -f $file .git/.local/rebase_annotated_commit_list; echo_to_both $file); gcifrb  $onto
   git log --reverse --no-color --name-status @~10...@  (useful for grbi10)
   git log --reverse --no-color --name-status 33d3a9eb4^...@
   git log --reverse --no-color --name-status $(git-upstream)...@ > $(echo_to_both .git/.local/$(now)_rebase_annotated_commit_list)
@@ -173,3 +173,7 @@ Note: This is already possible using just pick and x:
 
 It's just a bit clunky, verbose, and error-prone.
 So what I am proposing is just some syntactic sugar to make it easier, with less boilerplate and therefore less things to be able to get wrong.
+
+===================================================================================================
+
+===================================================================================================
