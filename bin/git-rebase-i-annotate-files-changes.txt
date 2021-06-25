@@ -176,4 +176,22 @@ So what I am proposing is just some syntactic sugar to make it easier, with less
 
 ===================================================================================================
 
+in the annotated commit list, for each commit show:
+- the overall mobility of the commit:
+  - either "can move it _anywhere_ within this limited list of commits"
+    (in .git/rebase-merge/git-rebase-to)
+  - or a (vertical, one on each line) list of other commits that made changes to any of the same files as in this commit (and
+    therefore would have to be merged) :
+    - <commit_id> and either:
+      - would result in a merge but the merge would be successful [display as green]
+      - or: would result in a merge and the merge would result in conflicts [display as red]
+      [How would we color it? with a vim ft color [scheme], and however it might be done in VS code extension]
+- and then, for each _file_ in the commit, the same info (so that even if the overall commit may
+  conflict with other commits, this lets you see if it might be possible to edit/split the commit
+  into smaller ones that don't conflict, and then send them up to to the earlier commit where you
+  want them to go without conflicting):
+  - either "can move it _anywhere_ within this limited list of commits"
+  - or a list of other commits that made changes to this file (and therefore would have to be merged):
+    - (same details as above)
+
 ===================================================================================================
