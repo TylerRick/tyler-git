@@ -897,29 +897,45 @@ function  gci() {
   # git add "$@"
   #fi
 
-  # TODO: filter out options and only check the non-option args (the ones intended to be files)
-  # instead of using ls
-  if [ $# -ge 1 ] && ls "$@" &>/dev/null; then
-    list_of_files_given=true
-  else
-    # Other no args, or the args are not a list of files
-    list_of_files_given=
-  fi
-  echo list_of_files_given=$list_of_files_given
-  if [ -n "$list_of_files_given" ]; then
+	positional_args=""
+	pass_through_opts=""
+	while (( "$#" )); do
+		case "$1" in
+			-*|--*=) # unknown opts
+				pass_through_opts="$pass_through_opts $1"
+				shift
+				;;
+			*) # preserve positional arguments
+				positional_args="$positional_args $1"
+				shift
+				;;
+		esac
+	done
+	eval set -- "$positional_args"
+	echo pass_through_opts: ${pass_through_opts}
+  #echo "$@"
+
+  if [ -n "$1" ]; then
     # This is so that I can use wildcards without worrying that it might match a file that's not in
     # git:
     #⟫ gci Gemfile*
     #error: pathspec 'Gemfile.lock.master.lock' did not match any file(s) known to git
     #error: pathspec 'Gemfile.master' did not match any file(s) known to git
+    #echo 'Filtering out files that don't exist...'
+
     readarray -t files < <(git ls-files "$@")
-    git commit -v "${files[@]}"
+		#echo files: "${files[@]}"
+		eval set -- "$files"
   else
     # If no files were given, we can't use ls-files.
     # If partial contents of files have been staged, then we *must not* pass a list of files to git
     # commit.
-    git commit -v "$@"
+    :
   fi
+
+	set -x
+	git commit $pass_through_opts -v "$@"
+	{ set +x; } 2>/dev/null
 }
 
 # Add (new file) and commit it
