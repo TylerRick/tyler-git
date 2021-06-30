@@ -212,7 +212,9 @@ alias glpfM01='git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS /
 #}
 function   glprf() {
   rev=$1; shift
-  git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --reverse "$@" $rev^..HEAD
+  # TODO: instead of putting _all_ of "$@" before revpart, only put options before the rev part, and paths at the end, after a --
+  # like 4daf6e3d6..@ app/../..
+  git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --reverse $rev^..HEAD "$@"
 }
 
 # Sometimes git log attempts to simplify history by omitting a commit that was later reverted and
@@ -837,7 +839,7 @@ alias      grmc='git rm --cached -r'		    # For example, you notice that after y
 #       updates the named paths in the working tree from the index file (i.e. it runs git checkout-index -f -u), or from a named commit.
 # So if you've staged some changes from <file> but have made other changes since then that you want to discard, git checkout <file> is safe, because it replaces file with the version that is staged (in index), not the version that is [cached] (HEAD)
 alias   gco='git checkout'
-alias  gcom='git checkout master'
+alias  gcom='git checkout main 2>/dev/null || git checkout master'
 alias  gcoom='git checkout origin/master'
 alias  gcod='git checkout develop'
 alias gcomerge='git checkout -m'
@@ -939,7 +941,7 @@ alias gcifrb='git-commit-fixup-rebase'
 alias gciwithhashchars='git commit --cleanup=whitespace'
 
 alias  gcie="git commit --allow-empty-message -m ''"
-alias  gcia='git commit --amend'   # (can be used with paths, that is, specify which paths to (only) include in the new, amended commit)
+alias  gcia='git commit --allow-empty --amend'   # (can be used with paths, that is, specify which paths to (only) include in the new, amended commit)
 alias  gcioh='gci -c ORIG_HEAD'    # useful when you 'edit' a commit with git rebase -i, commit some of the patches as new commits, and want to commit the rest as the "original commit"
 alias  gca='git commit -a -v'   # (can't be used with paths, but that's not a problem because you don't need the -a flag when you specify paths -- git commit will automatically add/stage any unstaged changes made to those paths)
 alias  gcq='git commit -m "."'  # if you're just working on a personal repository that doesn't matter too much, we might let you get by with being lazy and not specifying a commit message...
