@@ -45,6 +45,11 @@ pick c8a2ad346 f c7bef3bbd22d661b8fa43bf5587079fb2383d2c6
  app/controllers/user_edit_common_controller.rb | 2 +-
 
 ===================================================================================================
+In the log_with_patch file (or possibly even another one too), make it so you can actually edit the full commit message directly in-place.
+
+It will behind the scenes detect the diff, and add an 'exec' command at the appropriate place that applies that commit message diff for you.
+
+===================================================================================================
 Related feature:
 
 It would be nice if I didn't have to manually inspect those lists of changed files for each commit.
