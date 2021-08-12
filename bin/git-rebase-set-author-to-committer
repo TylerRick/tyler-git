@@ -109,26 +109,53 @@ def move_to_original_branch(head_name, orig_head)
 end
 
 #===================================================================================================
-# TODO: parse options
-# add a --continue option like rebase -i has
+# Parse options
 
-@continue = true
+require 'optparse'
+
+@continue = false,
+
+def parse_args
+  ARGV.options do |opts|
+    opts.banner = <<End
+Usage:
+  #{File.basename($0)} <onto_commit>
+  #{File.basename($0)} --continue
+
+A custom rebase tool similar to the standard git rebase.
+
+It cherry picks and performs a given modificatation (such as setting author) to each commit.
+End
+    opts.on("--continue", "Continue if rebase gets interrupted.") { @continue = true }
+    opts.on("--prompt", "Prompt before each cherry-pick") { @prompt = true }
+    opts.on("-h", "--help", "Show this help message.")                                                                  { puts opts; exit }
+    opts.parse!
+  end
+end
+parse_args
+
+#===================================================================================================
+Dir.chdir(File.dirname(`git rev-parse --git-dir`.chomp))
+
 if @continue
   orig_head_input = 'main'
   # Once completed, we will use update-ref to update this head/ref to the new head.
   head_name = "refs/heads/#{orig_head_input}"
+
+  # This makes it continue from the current commit ... up to orig_head 
+  onto = ARGV[0] || `git-find-equivalent-commit @ #{orig_head_input}`.chomp
+  
 else
+  onto = ARGV[0] or raise 'missing onto'
+
   orig_head_input = 'HEAD'
   head_name = `git symbolic-ref -q #{orig_head_input}`.chomp
 end
 
-#===================================================================================================
-
-Dir.chdir(File.dirname(`git rev-parse --git-dir`.chomp))
-
-onto = ARGV[0] or raise 'missing onto'
-orig_head = `git rev-parse --short #{orig_head_input}`.chomp
 head_name =~ %r(^refs/heads/) or raise "head_name must start with refs/heads/ but was #{head_name}"
+orig_head = `git rev-parse --short #{orig_head_input}`.chomp
+
+#===================================================================================================
 
 # The list of commits *not* including onto itself.
 rev_list_with_message = rev_list_with_message("#{onto}..#{orig_head}").to_a
@@ -148,8 +175,10 @@ end
 rev_list_with_message.each do |rev_with_message|
   rev = rev_from_rev_with_message(rev_with_message)
 
-  #puts "Continue to cherry-pick #{rev_with_message}?"
-  #$stdin.gets
+  if @prompt
+    puts "Continue to cherry-pick #{rev_with_message}?"
+    $stdin.gets
+  end
 
   run %(git cherry-pick -n #{rev})
   update_current_commit rev
