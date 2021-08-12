@@ -63,6 +63,7 @@ get_committer_ident_from_commit () {
   }
   '
   encoding=$(git config i18n.commitencoding || echo UTF-8)
+  #git show -s --pretty=raw --encoding="$encoding" "$1" >&2
   git show -s --pretty=raw --encoding="$encoding" "$1" -- |
   LANG=C LC_ALL=C sed -ne "$script"
 }
@@ -97,13 +98,18 @@ eval "$(get_author_ident_from_commit    $rev)"
 eval "$(get_committer_ident_from_commit $rev)"
 
 if test "$show_info_only" = "1" ; then
+  echo GIT_AUTHOR_NAME=$GIT_AUTHOR_NAME
   echo GIT_AUTHOR_EMAIL=$GIT_AUTHOR_EMAIL
   echo GIT_AUTHOR_DATE=$GIT_AUTHOR_DATE
-  #echo GIT_COMMITTER_NAME=$GIT_COMMITTER_NAME
+  echo GIT_COMMITTER_NAME=$GIT_COMMITTER_NAME
   echo GIT_COMMITTER_EMAIL=$GIT_COMMITTER_EMAIL
   echo GIT_COMMITTER_DATE=$GIT_COMMITTER_DATE
   exit 0
 fi
+
+#echo Before:
+#echo GIT_AUTHOR_DATE=$GIT_AUTHOR_DATE
+#echo GIT_COMMITTER_DATE=$GIT_COMMITTER_DATE
 
 # User-supplied values should overwride pre-existing values
 test ! -z "$preserved_GIT_AUTHOR_NAME"     && GIT_AUTHOR_NAME="$preserved_GIT_AUTHOR_NAME"
@@ -119,10 +125,12 @@ test ! -z "$git_email" && GIT_COMMITTER_EMAIL="$git_email"
 test ! -z "$git_date" &&    GIT_AUTHOR_DATE="$git_date"
 test ! -z "$git_date" && GIT_COMMITTER_DATE="$git_date"
 
-echo "After:"
-echo GIT_AUTHOR_EMAIL=$GIT_AUTHOR_EMAIL
-echo GIT_AUTHOR_DATE=$GIT_AUTHOR_DATE
-echo GIT_COMMITTER_DATE=$GIT_COMMITTER_DATE
+#echo "After:"
+#echo GIT_COMMITTER_NAME=$GIT_COMMITTER_NAME
+#echo GIT_AUTHOR_NAME=$GIT_AUTHOR_NAME
+#echo GIT_AUTHOR_EMAIL=$GIT_AUTHOR_EMAIL
+#echo GIT_AUTHOR_DATE=$GIT_AUTHOR_DATE
+#echo GIT_COMMITTER_DATE=$GIT_COMMITTER_DATE
 
 # TODO: file_list=`git list files from commit`
 git cat-file commit "$rev" | sed "1,/^$/d" > $git_dir/git-commit-modify-message
@@ -132,7 +140,7 @@ git cat-file commit "$rev" | sed "1,/^$/d" > $git_dir/git-commit-modify-message
 # Re-commit
 
 failed=f
-set -x
+#set -x
 
 git reset --soft HEAD^1 &>/dev/null || {
   #die "Cannot rewind the HEAD"
