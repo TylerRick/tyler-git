@@ -49,6 +49,8 @@ parse_args
 
 #---------------------------------------------------------------------------------------------------
 
+Dir.chdir(File.dirname(`git rev-parse --git-dir`.chomp))
+
 rebase_normal_dir = Pathname.new('.git/rebase-apply')
 rebase_interactive_dir = Pathname.new('.git/rebase-merge')
 

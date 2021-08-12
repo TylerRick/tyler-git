@@ -70,6 +70,8 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
+Dir.chdir(File.dirname(`git rev-parse --git-dir`.chomp))
+
 rebase_normal_dir = Pathname.new('.git/rebase-apply')
 rebase_interactive_dir = Pathname.new('.git/rebase-merge')
 
@@ -89,7 +91,7 @@ if (rebase_dir = [rebase_normal_dir, rebase_interactive_dir].detect(&:exist?))
   if rebase_type == :normal
     id = `git rebase-info --filename`.chomp
   else
-    id = `git rebase-info --rev`.chomp
+    id = `git rebase-info --stopped-rev`.chomp
   end
   puts "Currently applying this commit".bold + " (#{id.magenta}):"
   system "git rebase-info --summary"

@@ -171,10 +171,12 @@ end
 
 #---------------------------------------------------------------------------------------------------
 
-@file = Pathname.new(ARGV[0])
+@file = Pathname.new(`git-absolute-path #{ARGV[0]}`.chomp)
 ext = @file.extname
 #mtime = @file.mtime
 
+Dir.chdir(File.dirname(`git rev-parse --git-dir`.chomp))
+@file.exist? or fail "#{@file} does not exist"
 
 #---------------------------------------------------------------------------------------------------
 
@@ -191,7 +193,7 @@ system 'git-merge-status'
 if merge_type == :rebase
   upstream = onto = `git rebase-info --onto`.chomp
   mine =     head = `git rebase-info --head`.chomp
-  rebase_current_rev = `git rebase-info --rev`.chomp; $?.success? or fail "Command failed"
+  rebase_current_rev = `git rebase-info --stopped-rev`.chomp; $?.success? or fail "Command failed"
   #puts "rebase_current_rev=#{rebase_current_rev.inspect}"
 
   #system "git rebase-info -p > "
@@ -400,7 +402,8 @@ end
 ].each do |version, revs|
   next if revs.nil?
   # TODO: if reverse...
-  common_opts = '--reverse --no-prefix --no-color --follow'
+  # --follow can cause problems but sometimes may be wanted?
+  common_opts = '--reverse --no-prefix --no-color'
   # -c (combined) for merge commits? or not? or do it each way? or make it an option?
 
   opts = "--pretty=format:'%h %ai %an - %s'"
