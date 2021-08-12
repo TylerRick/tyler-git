@@ -644,69 +644,6 @@ function git-ensure-commit-is-ancestor() {
 }
 export -f git-ensure-commit-is-ancestor
 
-# To do: Also use in git-find-rebase-i-commands-in-commit-messages
-# To do: Let user specify different types of "equivalence". Current type is "same commit message".
-# That's usually what I want, because if I fixup/squash a previous commit, its content changes but
-# commit message usually stays nearly the same.
-# But they *may* also mean identical content. How do we check the SHA of the tree referenced by a
-# commit? https://rtyley.github.io/bfg-repo-cleaner/ mentions this should be possible:
-# > ... their commit ids will change, to reflect the changed history - only the SHA-1 id of the filesystem-tree will remain the same.
-function git-find-equivalent-commit() {
-  # Find ancestor of current head that either has the same [done] or very similar [TODO] commit
-  # message, or same or similar patch [TODO].
-  # Because I often find myself wanting to shoot new commits back to squash with the canonical old
-  # commit for the certain topic (like "the one where I upgrade all the gem versions"). But if I
-  # just reuse the same command from my history that I used last time I wanted to shoot it back to
-  # that old commit, it will be the wrong one, because each time I squash with that commit, it gets
-  # a new ID.
-
-  search_id=$1
-  tree_top=${2:-@}
-  echo >&2 "Searching for equivalent commit for $search_id in the tree with tip $tree_top …"
-
-  search_message=$(git log --format=%B -n 1 $search_id)
-  while IFS= read -d '' ancestor; do
-    #readarray -t ancestor_ary <<< "$ancestor"
-    mapfile -t ancestor_ary <<< "$ancestor"
-    ancestor_id=${ancestor_ary[0]}
-
-    # Q: Why aren't we doing it this way here?
-      #printf -v ancestor_message "%s\n" "${ancestor_ary[@]:1}"
-    ancestor_message="${ancestor_ary[*]:1}"
-    ancestor_message=${ancestor_message%?} # remove trailing newline
-    #echo '===================================================================================================='
-    #echo ancestor_id=$ancestor_id
-    #echo @@search_message:  "$search_message"
-    #echo @@ancestor_message:"$ancestor_message"
-    #declare -p search_message
-    #declare -p ancestor_ary
-    #declare -p ancestor_message
-    if [ "$ancestor_message" = "$search_message" ]; then
-      echo $ancestor_id
-      return 0
-    fi
-  done < <(git log -z --format="%H%n%B" $tree_top)
-
-  # Now that we've checked all candidates for exact match, fall back to checking for approx. match
-  echo >&2 "No exact match found. Searching for approximate match (first line of message is the same) …"
-  while IFS= read -d '' ancestor; do
-    mapfile -t ancestor_ary <<< "$ancestor"
-    ancestor_id=${ancestor_ary[0]}
-    # Store lines 1..end in a variable, with newlines added back in
-    printf -v ancestor_message "%s\n" "${ancestor_ary[@]:1}"
-    #echo '===================================================================================================='
-    #echo ancestor_id=$ancestor_id
-    #echo "`echo "$ancestor_message" | head -n1`"
-    if [ "`echo "$ancestor_message" | head -n1`" = "`echo "$search_message" | head -n1`" ]; then
-      echo $ancestor_id
-      return 0
-    fi
-  done < <(git log -z --format="%H%n%B" $tree_top)
-
-  return 1
-}
-export -f git-find-equivalent-commit
-
 alias  grbim='grbi master'
 alias  grbi2='grbi HEAD~2'
 alias  grbi3='grbi HEAD~3'
