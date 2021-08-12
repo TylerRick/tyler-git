@@ -53,6 +53,10 @@ def author_date
   commit_info =~ /^GIT_AUTHOR_DATE=(.*)$/ and $1
 end
 
+def commit_reuse(rev, rest = nil)
+  run %(git commit --no-verify --reuse-message=#{rev} #{rest})
+end
+
 def update_current_commit(rev)
   @rev = rev
   @commit_info = nil
@@ -81,9 +85,9 @@ def update_current_commit(rev)
     ENV['GIT_COMMITTER_NAME']='Jonathan Morris'
     ENV['GIT_COMMITTER_EMAIL']='jonathan@pro7tech.com'
 
-    run %(git commit --reuse-message=#{rev} --author='Jonathan Morris <jonathan@pro7tech.com>')
+    commit_reuse rev, %(--author='Jonathan Morris <jonathan@pro7tech.com>')
   else
-    run %(git commit --reuse-message=#{rev})
+    commit_reuse rev
   end
 
   system %(git log --format=fuller -1)
@@ -105,13 +109,26 @@ def move_to_original_branch(head_name, orig_head)
 end
 
 #===================================================================================================
+# TODO: parse options
+# add a --continue option like rebase -i has
+
+@continue = true
+if @continue
+  orig_head_input = 'main'
+  # Once completed, we will use update-ref to update this head/ref to the new head.
+  head_name = "refs/heads/#{orig_head_input}"
+else
+  orig_head_input = 'HEAD'
+  head_name = `git symbolic-ref -q #{orig_head_input}`.chomp
+end
+
+#===================================================================================================
 
 Dir.chdir(File.dirname(`git rev-parse --git-dir`.chomp))
 
 onto = ARGV[0] or raise 'missing onto'
-head_name=`git symbolic-ref -q HEAD`.chomp
+orig_head = `git rev-parse --short #{orig_head_input}`.chomp
 head_name =~ %r(^refs/heads/) or raise "head_name must start with refs/heads/ but was #{head_name}"
-orig_head = `git rev-parse --short HEAD`.chomp
 
 # The list of commits *not* including onto itself.
 rev_list_with_message = rev_list_with_message("#{onto}..#{orig_head}").to_a
@@ -124,7 +141,9 @@ end
 
 puts goal_text
 
-run %(git checkout #{onto})
+unless @continue
+  run %(git checkout #{onto})
+end
 
 rev_list_with_message.each do |rev_with_message|
   rev = rev_from_rev_with_message(rev_with_message)
