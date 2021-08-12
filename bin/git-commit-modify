@@ -63,15 +63,13 @@ get_committer_ident_from_commit () {
   }
   '
   encoding=$(git config i18n.commitencoding || echo UTF-8)
-  #git show -s --pretty=raw --encoding="$encoding" "$1" >&2
+  git show -s --pretty=raw --encoding="$encoding" "$1" >&2
   git show -s --pretty=raw --encoding="$encoding" "$1" -- |
   LANG=C LC_ALL=C sed -ne "$script"
 }
 
 #---------------------------------------------------------------------------------------------------
 # Options
-
-rev=HEAD
 
 preserved_GIT_AUTHOR_NAME="$GIT_AUTHOR_NAME"
 preserved_GIT_AUTHOR_EMAIL="$GIT_AUTHOR_EMAIL"
@@ -80,16 +78,25 @@ preserved_GIT_COMMITTER_NAME="$GIT_COMMITTER_NAME"
 preserved_GIT_COMMITTER_EMAIL="$GIT_COMMITTER_EMAIL"
 preserved_GIT_COMMITTER_DATE="$GIT_COMMITTER_DATE"
 
-while test $# != 0
-do
-	case "$1" in
-  # TODO: Split this out to its own stand-alone command?
-	--show-info-only)
-		show_info_only=1
-		;;
-	esac
-	shift
+positional_args=""
+pass_through_opts=""
+while (( "$#" )); do
+  case "$1" in
+    # TODO: Split this out to its own stand-alone command?
+    --show-info-only)
+      show_info_only=1
+      shift ;;
+    -*|--*=) # unknown opts
+      pass_through_opts="$pass_through_opts $1"
+      shift ;;
+    *) # preserve positional arguments
+      positional_args="$positional_args $1"
+      shift ;;
+  esac
 done
+eval set -- "$positional_args"
+
+rev=${1:-HEAD}
 
 #---------------------------------------------------------------------------------------------------
 # Record current (pre-change) commit data
