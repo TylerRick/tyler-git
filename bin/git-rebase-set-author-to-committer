@@ -81,11 +81,11 @@ def update_current_commit(rev)
   # --reuse-message=<commit>, so we have to use --author to override the author from <commit>
   # Fortunately, GIT_COMMITTER_* seem to work.
   puts %(author: #{author_name} <#{author_email}>)
-  if author_email =~ /pro7tech/ || author_name =~ /pro7tech/
-    ENV['GIT_COMMITTER_NAME']='Jonathan Morris'
-    ENV['GIT_COMMITTER_EMAIL']='jonathan@pro7tech.com'
+  if author_email =~ /tyler/ || author_name =~ /Tyler/
+    ENV['GIT_COMMITTER_NAME']='Tyler Rick'
+    ENV['GIT_COMMITTER_EMAIL']='tyler@k3.is'
 
-    commit_reuse rev, %(--author='Jonathan Morris <jonathan@pro7tech.com>')
+    commit_reuse rev, %(--author='#{ENV['GIT_COMMITTER_NAME']} <#{ENV['GIT_COMMITTER_EMAIL']}>')
   else
     commit_reuse rev
   end
@@ -113,7 +113,7 @@ end
 
 require 'optparse'
 
-@continue = false,
+@continue = false
 
 def parse_args
   ARGV.options do |opts|
