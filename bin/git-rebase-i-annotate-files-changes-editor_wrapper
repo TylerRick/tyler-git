@@ -10,6 +10,7 @@ log_short_with_name_status_file=$dir/log_short_with_name_status
 :;          log_with_patch_file=$dir/log_with_patch
 :;             rebase_todo_orig=$dir/rebase_todo.orig
 :;             rebase_todo_file=$dir/rebase_todo
+:;                 session_file=$dir/../sess.vim
 
 # TODO: --noninteractive or  2>/dev/null
 #orig_base=$(git-ensure-commit-is-ancestor $onto)
@@ -19,9 +20,9 @@ log_short_with_name_status_file=$dir/log_short_with_name_status
 
 #set -x
 export GIT_PAGER=
-(echo '# vim: ft=diff';      git log --reverse --no-color --name-status --pretty=tformat:"______________________________________%n%h  (%ai)%n%B"                   $onto^...@ ) > $log_short_with_name_status_file
+(echo '# vim: ft=gitrebase'; git log --reverse --no-color --name-status --pretty=format:"______________________________________%ncommit %h  (%ai)%n%B"                   $onto^...@ ) > $log_short_with_name_status_file
 # prepend with? set ft=diff
-(echo '# vim: ft=gitrebase'; git log --reverse --no-color               --pretty=tformat:"%n%n______________________________________%n%h  (%ai)%n%w(0,4,4)%B" -p   $onto^...@ ) > $log_with_patch_file
+(echo '# vim: ft=diff';      git log --reverse --no-color               --pretty=format:"%n%n______________________________________%ncommit %h  (%ai)%n%w(0,4,4)%B" -p   $onto^...@ ) > $log_with_patch_file
 
 rebase_todo_tmp_file=$1 # Should be .git/rebase-merge/git-rebase-todo
 cp $rebase_todo_tmp_file \
@@ -31,8 +32,12 @@ cp $rebase_todo_tmp_file \
 # { Open editor
 vim -O $rebase_todo_tmp_file \
        $log_short_with_name_status_file \
-    -c "tabnew $log_with_patch_file | tabnew $log_short_with_name_status_file | tabnew $rebase_todo_orig | tabfirst"
+    -c "tabnew $log_with_patch_file | tabnew $log_short_with_name_status_file | tabnew $rebase_todo_orig | tabfirst | mks! $session_file"
 # } Open editor
 
 cp $rebase_todo_tmp_file \
    $rebase_todo_file
+sed -i "s/$rebase_todo_tmp_file/$rebase_todo_file/" $session_file
+
+echo "To open these files again:"
+echo "  vim -S $session_file"
