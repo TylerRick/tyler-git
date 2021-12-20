@@ -1,5 +1,7 @@
 #!/bin/bash
 # Usage: GIT_SEQUENCE_EDITOR=/path/to/this/file git rebase -i
+# Warning: If this has any error, it will abort the entire rebase and your
+# .git/rebase-merge/git-rebase-todo will get deleted/lost.
 
 set -e
 
@@ -10,7 +12,8 @@ log_short_with_name_status_file=$dir/log_short_with_name_status
 :;          log_with_patch_file=$dir/log_with_patch
 :;             rebase_todo_orig=$dir/rebase_todo.orig
 :;             rebase_todo_file=$dir/rebase_todo
-:;                 session_file=$dir/../sess.vim
+:;                 session_file=$dir/sess.vim
+:;            session_file_link=$dir/../sess.vim
 
 # TODO: --noninteractive or  2>/dev/null
 #orig_base=$(git-ensure-commit-is-ancestor $onto)
@@ -24,7 +27,10 @@ export GIT_PAGER=
 # prepend with? set ft=diff
 (echo '# vim: ft=diff';      git log --reverse --no-color               --pretty=format:"%n%n______________________________________%ncommit %h  (%ai)%n%w(0,4,4)%B" -p   $onto^...@ ) > $log_with_patch_file
 
-rebase_todo_tmp_file=$1 # Should be .git/rebase-merge/git-rebase-todo
+# $1 should be .git/rebase-merge/git-rebase-todo, but unfortunately is an absolute path which is not as nice
+rebase_todo_tmp_file=$1
+rebase_todo_tmp_file=${rebase_todo_tmp_file#"$(realpath .)/"}
+
 cp $rebase_todo_tmp_file \
    $rebase_todo_orig
 (echo '# vim: ft=gitrebase'; cat $rebase_todo_orig) | sponge $rebase_todo_orig
@@ -35,9 +41,12 @@ vim -O $rebase_todo_tmp_file \
     -c "tabnew $log_with_patch_file | tabnew $log_short_with_name_status_file | tabnew $rebase_todo_orig | tabfirst | mks! $session_file"
 # } Open editor
 
+set +e # Make sure that an error at this point (after editing .git/rebase-merge/git-rebase-todo) will not abort and cause file to be lost
 cp $rebase_todo_tmp_file \
    $rebase_todo_file
-sed -i "s/$rebase_todo_tmp_file/$rebase_todo_file/" $session_file
+#set -x
+sed -i "s!$rebase_todo_tmp_file!$rebase_todo_file!" $session_file
+ln -s $(realpath $session_file) $session_file_link
 
 echo "To open these files again:"
-echo "  vim -S $session_file"
+echo "  vim -S $session_file_link"
