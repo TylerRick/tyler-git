@@ -39,7 +39,7 @@ cp $rebase_todo_tmp_file \
 # { Open editor
 vim -O $rebase_todo_tmp_file \
        $log_short_with_name_status_file \
-    -c "tabnew $notes_file | tabnew $log_with_patch_file | tabnew $log_short_with_name_status_file | tabnew $rebase_todo_orig | tabfirst | tabnext | mks! $session_file"
+    -c "tabnew $log_with_patch_file | tabnew $log_short_with_name_status_file | tabnew $rebase_todo_orig | tabnew $notes_file | tabfirst | mks! $session_file"
 # } Open editor
 
 set +e # Make sure that an error at this point (after editing .git/rebase-merge/git-rebase-todo) will not abort and cause file to be lost
