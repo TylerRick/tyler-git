@@ -10,7 +10,20 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
-export onto=$1; shift
+export commit=$1; shift
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+# TODO: remove dup with git-commit-fixup-rebase
+if (( ${#commit} <= 3 )); then  # if length <= 3 chars
+  # TODO: use file-relative commit refs described above instead of position args
+  echo "Treating $commit as number of commits back to go"
+  commit=$(git-n-commits-ago $commit "$@")
+else
+  commit=$(git-ensure-commit-is-ancestor $commit || exit 1)
+fi
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+export onto=$commit
 
 cd $(dirname "$(git rev-parse --git-dir)")
 # TODO: add an option to use --squash instead of --fixup
