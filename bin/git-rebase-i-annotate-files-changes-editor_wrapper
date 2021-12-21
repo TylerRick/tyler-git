@@ -47,7 +47,7 @@ cp $rebase_todo_tmp_file \
    $rebase_todo_file
 #set -x
 sed -i "s!$rebase_todo_tmp_file!$rebase_todo_file!" $session_file
-ln -s $(realpath $session_file) $session_file_link
+ln -sf $(realpath $session_file) $session_file_link
 
 echo "To open these files again:"
-echo "  vim -S $session_file_link"
+echo "  vim -S $session_file"
