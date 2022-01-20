@@ -76,6 +76,7 @@ def update_current_commit(rev)
   #system %(GIT_COMMITTER_DATE='#{author_date}' git commit-modify)
   # No we can't. Because by this point it will already have been changed.
   # So switched to git cherry-pick -n instead.
+  # TODO: seems to not work now (is it because of --reuse-message?)
   ENV['GIT_COMMITTER_DATE'] = author_date
 
   # set-author-to-committer
@@ -101,8 +102,8 @@ def update_current_commit(rev)
     #   -C <commit>, --reuse-message=<commit>
     #       Take an existing commit object, and reuse the log message and the authorship information (including the timestamp) when
     #       creating the commit.
-    # Without this, we _lose_ the original committer and set committer to _me_, which is usually not
-    # my intention.
+    # Without this, we _lose_ the original committer name/email/date and set committer to _me_/now,
+    # which is usually not my intention.
     set_author_and_committer(rev, committer_name: author_name, committer_email: author_email)
   end
 
@@ -198,7 +199,6 @@ rev_list_with_message.each do |rev_with_message|
 
   run %(git cherry-pick -n #{rev})
   update_current_commit rev
-  break if author_name =~ /john/i
 end
 
 # For testing:
