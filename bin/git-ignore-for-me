@@ -19,11 +19,12 @@ end
 require 'pathname'
 require 'quality_extensions/pathname'
 
-@repo_root = Pathname.new(`git-base-dir`.chomp).absolutize
+@repo_root = Pathname.new(`git rev-parse --show-toplevel`.chomp).absolutize
+@git_dir = Pathname.new(`git rev-parse --git-dir`.chomp).absolutize
 paths = ARGV.dup
 paths.each do |path|
   path = Pathname.new(path).absolutize.relative_path_from(@repo_root)
-  system %(echo "#{path}" >> #{@repo_root}/.git/info/exclude)
+  system %(echo "#{path}" >> #{@git_dir}/info/exclude)
   system %(git rm --cached #{@force_flag} "#{path}" 2>/dev/null)
 end
 
