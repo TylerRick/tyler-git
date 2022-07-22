@@ -32,6 +32,10 @@
 # * create a wrapper for/modify git-commit to also let you use date= for *new* commits
 # * publish/RFC on git list
 
+# Document or decide whether this command can/should support:
+# To amend _initial_ commit, this command doesn't seem to work but this one does:
+# GIT_COMMITTER_EMAIL='someone@example.com' git commit --amend --reset-author
+
 #---------------------------------------------------------------------------------------------------
 # Dependencies/lib
 
