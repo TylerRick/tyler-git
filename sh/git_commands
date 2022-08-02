@@ -200,6 +200,8 @@ alias glp-no-merges='git log --no-merges --color -p   --stat=$(echo $COLUMNS),$(
 alias    glp-follow='git log -r          --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow'        # This only works when a single path is given. Otherwise you get error "usage: git logs can only follow renames on one pathname at a time"
 alias glp-follow-cc='git log --cc        --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow'        # This only works when a single path is given. Otherwise you get error "usage: git logs can only follow renames on one pathname at a time"
 
+alias glp1='glp -1'
+
 # Sometimes it doesn't show the diffs because the -M isn't set low enough, sou you can set it really
 # low like this:
 alias glpfM01='git log -c --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow -M01'
@@ -776,7 +778,7 @@ alias      grmc='git rm --cached -r'		    # For example, you notice that after y
 #       updates the named paths in the working tree from the index file (i.e. it runs git checkout-index -f -u), or from a named commit.
 # So if you've staged some changes from <file> but have made other changes since then that you want to discard, git checkout <file> is safe, because it replaces file with the version that is staged (in index), not the version that is [cached] (HEAD)
 alias   gco='git checkout'
-alias  gcom='git checkout main 2>/dev/null || git checkout master'
+alias  gcom='if git rev-parse --quiet --verify refs/heads/main; then git checkout main; else git checkout master; fi'
 alias  gcoom='git checkout origin/master'
 alias  gcod='git checkout develop'
 alias gcomerge='git checkout -m'
@@ -847,7 +849,7 @@ function  gci() {
           exit 1
         fi
         ;;
-      --fixup)
+      --fixup|--squash)
         if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
           pass_through_opts="$pass_through_opts $1 $2"
           shift 2
