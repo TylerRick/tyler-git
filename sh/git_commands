@@ -38,8 +38,11 @@ alias gpull='git pull'
 alias  gprb='git pull --rebase'
 # git pull using merge is fine if you do all your work in your own local development branches or if you don't mind (unnecessary and easily avoidable) merge commits, but I prefer doing a fetch/rebase instead to avoid the unnecessary merge commit:
 # git pull --rebase
-#alias gfrb='git checkout master; gwip; git fetch; git rebase origin/master; grss1'
-alias gfrb='git stash; git checkout master; git fetch; git rebase origin/master; git stash pop'
+
+#alias gfrb='git checkout main; gwip; git fetch; git rebase origin/main; grss1'
+# Not needed now that git has autostash
+#alias gfrb='git stash; git checkout main; git fetch; git rebase origin/main; git stash pop'
+
 alias   gup='git update' #  [custom]
 
 #------------------------------------------
@@ -71,14 +74,14 @@ function git-branch-list-plain() {
 # https://stevenharman.net/git-clean-delete-already-merged-branches
 # https://stackoverflow.com/questions/6127328/how-can-i-delete-all-git-branches-which-have-been-merged
 # [alias]
-#    cleanup = "!git branch --merged | grep  -v '\\*\\|master\\|develop' | xargs -n 1 git branch -d"
+#    cleanup = "!git branch --merged | grep  -v '\\*\\|main\\|develop' | xargs -n 1 git branch -d"
 function git-delete-all-deletable-branches() {
   # Delete from refs/remotes/ (but not refs/heads/) any branches that have been deleted remotely
   git remote prune origin
   #git fetch --prune
 
-  reference_branch=${1:-master}
-  # Delete remotely any branches that have been merged into master
+  reference_branch=${1:-main}
+  # Delete remotely any branches that have been merged into main
   for branch in $(git branch -r --merged $reference_branch --color=never | grep -v "^ .*\b$reference_branch\b"); do
     git branch -rd $branch
   done
@@ -91,7 +94,7 @@ function git-delete-all-deletable-branches() {
 
 alias  gbmv='git branch-mv' # move
 
-alias git-branch-set-merge-defaults='git config branch.master.remote origin; git config branch.master.merge refs/heads/master'
+alias git-branch-set-merge-defaults='git config branch.main.remote origin; git config branch.main.merge refs/heads/main'
 
 
 #------------------------------------------
@@ -325,7 +328,7 @@ alias  gls2='gls2nograph --graph'
 function  glsh() {
   gls "$@" | head -n 20
 }    # git log short | head
-alias glsnp='git log --color --graph --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s" origin/master..HEAD'    # git log short not pushed
+alias glsnp='git log --color --graph --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s" origin/main..HEAD'    # git log short not pushed
 
 alias  glcl='git log --color --pretty=format:"%s"'    # git log "changelog" (show only the messages)
 alias   glc='git log --color --date-order'                                                  # git log (reverse) chronological -- maybe not...
@@ -412,8 +415,8 @@ function git-search-message() { git show :/$1
 }
 
 # refs/
-#git log refs/heads/master
-#git log refs/remotes/origin/master
+#git log refs/heads/main
+#git log refs/remotes/origin/main
 
 alias  gH='git rev-parse       HEAD'
 alias gOH='git rev-parse  ORIG_HEAD'
@@ -492,9 +495,9 @@ function git-upstream() {
   fi
 }
 
-# These didn't work. That expanded to master followed by the supplied $1, when we wanted it to expand to only the supplied $1 if there was one...
-#alias   grb='git rebase    ${1:-master}'  # don't forget to pass -i if you want interactive
-#alias  grbi='echo git rebase -i ${1:-master}'
+# These didn't work. That expanded to main followed by the supplied $1, when we wanted it to expand to only the supplied $1 if there was one...
+#alias   grb='git rebase    ${1:-main}'  # don't forget to pass -i if you want interactive
+#alias  grbi='echo git rebase -i ${1:-main}'
 
 # git rebase
 # TODO: make --keep-empty optional (added here for now because grbi doesn't accept option args, only commit args)
@@ -770,6 +773,12 @@ alias      grmc='git rm --cached -r'		    # For example, you notice that after y
 
 
 #------------------------------------------
+alias git-main-branch0='if git rev-parse --quiet --verify refs/heads/main; then echo main; else echo master; fi'
+alias git-main-branch='git rev-parse --abbrev-ref origin/HEAD | sed "s#origin/##"'
+# This is much more likely to be (still) accurate, but also much slower. See https://stackoverflow.com/questions/64904364/how-can-i-ask-git-for-the-name-of-a-repositorys-default-branch
+alias git-remote-main-branch='git remote show $(git remote show|tail -n1)|grep "HEAD branch"|awk '"'"'{print $NF}'"'"
+
+#------------------------------------------
 # Checkout
 
 # git checkout <branch>
@@ -778,8 +787,8 @@ alias      grmc='git rm --cached -r'		    # For example, you notice that after y
 #       updates the named paths in the working tree from the index file (i.e. it runs git checkout-index -f -u), or from a named commit.
 # So if you've staged some changes from <file> but have made other changes since then that you want to discard, git checkout <file> is safe, because it replaces file with the version that is staged (in index), not the version that is [cached] (HEAD)
 alias   gco='git checkout'
-alias  gcom='if git rev-parse --quiet --verify refs/heads/main; then git checkout main; else git checkout master; fi'
-alias  gcoom='git checkout origin/master'
+alias  gcom='git checkout $(git-main-branch)'
+alias  gcoom='git checkout $(git rev-parse --abbrev-ref origin/HEAD)'
 alias  gcod='git checkout develop'
 alias gcomerge='git checkout -m'
 # To check out a file from ("revert" a single file to) an older revision...
@@ -919,14 +928,14 @@ alias  gcioh='gci -c ORIG_HEAD'    # useful when you 'edit' a commit with git re
 alias  gca='git commit -a -v'   # (can't be used with paths, but that's not a problem because you don't need the -a flag when you specify paths -- git commit will automatically add/stage any unstaged changes made to those paths)
 alias  gcq='git commit -m "."'  # if you're just working on a personal repository that doesn't matter too much, we might let you get by with being lazy and not specifying a commit message...
 alias gciq='git commit -m "."'
-alias  gcqpu='git commit -m "."; git push origin master'      # even lazier still
-alias gciqpu='git commit -m "."; git push origin master'
-alias gacpu='git commit -a -m "."; git push origin master'  # can't get any lazier than this
-alias gacpud='git commit -a -m "."; git push origin master; cap staging deploy'  # can't get any lazier than this
+alias  gcqpu='git commit -m "."; git push origin main'      # even lazier still
+alias gciqpu='git commit -m "."; git push origin main'
+alias gacpu='git commit -a -m "."; git push origin main'  # can't get any lazier than this
+alias gacpud='git commit -a -m "."; git push origin main; cap staging deploy'  # can't get any lazier than this
 
 # TODO: create custom git push-all (gpsa) command which pushes to all remotes listed in git config push_all.remotes (or similar)
 alias   gps='git push origin'
-alias  gpsm='git push origin master'
+alias  gpsm='git push origin main'
 
 alias gbs='git bisect'
 
@@ -943,7 +952,7 @@ alias    gsmegs="git submodule foreach 'git status; echo; echo; echo'"
 alias    gsmegd="git submodule foreach 'git diff;   echo; echo; echo'"
 alias   gsmeglp="git submodule foreach 'git log --color -p || : ; echo; echo ; echo; echo ; echo; echo'"
 alias   gsmegau="git submodule foreach 'git add -u; echo; echo; echo'"
-alias   gsmegls="git submodule foreach 'git log origin/master..HEAD --color --graph --pretty=format:\"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s\"; echo; echo; echo'"
+alias   gsmegls="git submodule foreach 'git log origin/main..HEAD --color --graph --pretty=format:\"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s\"; echo; echo; echo'"
 alias  gsmeglsh="git submodule foreach 'git log --color --graph --pretty=format:\"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s\" | head -n 10; echo; echo; echo'"
 alias gsmegpull="git submodule foreach 'git pull || : ; echo; echo'"
 alias gsmegpush="git submodule foreach 'git push || : ; echo; echo'"
@@ -956,10 +965,10 @@ alias    gspegs="git subproject-foreach 'git status; echo; echo; echo'"
 alias    gspegd="git subproject-foreach 'git diff;   echo; echo; echo'"
 alias   gspeglp="git subproject-foreach 'git log --color -p || : ; echo; echo ; echo; echo ; echo; echo'"
 alias   gspegau="git subproject-foreach 'git add -u; echo; echo; echo'"
-alias   gspegls="git subproject-foreach 'git log origin/master..HEAD --color --graph --pretty=format:\"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s\"; echo; echo; echo'"
+alias   gspegls="git subproject-foreach 'git log origin/main..HEAD --color --graph --pretty=format:\"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s\"; echo; echo; echo'"
 alias  gspeglsh="git subproject-foreach 'git log --color --graph --pretty=format:\"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s\" | head -n 10; echo; echo; echo'"
 alias gspegpull="git subproject-foreach 'git pull || : ; echo; echo'"
-alias gspegpush="git subproject-foreach 'git push origin master || : ; echo; echo'"
+alias gspegpush="git subproject-foreach 'git push origin main || : ; echo; echo'"
 
 #------------------------------------------
 
