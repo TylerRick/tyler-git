@@ -774,6 +774,9 @@ alias      grmc='git rm --cached -r'		    # For example, you notice that after y
 
 #------------------------------------------
 alias git-main-branch0='if git rev-parse --quiet --verify refs/heads/main; then echo main; else echo master; fi'
+# In some repos that were cloned long ago using older git version, the file
+# .git/refs/remotes/origin/HEAD is missing. You can fix that with:
+#   echo 'ref: refs/remotes/origin/main' > .git/refs/remotes/origin/HEAD
 alias git-main-branch='git rev-parse --abbrev-ref origin/HEAD | sed "s#origin/##"'
 # This is much more likely to be (still) accurate, but also much slower. See https://stackoverflow.com/questions/64904364/how-can-i-ask-git-for-the-name-of-a-repositorys-default-branch
 alias git-remote-main-branch='git remote show $(git remote show|tail -n1)|grep "HEAD branch"|awk '"'"'{print $NF}'"'"
