@@ -503,10 +503,10 @@ function git-upstream() {
 # TODO: make --keep-empty optional (added here for now because grbi doesn't accept option args, only commit args)
 alias grb='git rebase --keep-empty'
 alias grbnas='git rebase --no-autosquash' # override git config rebase.autosquash true
-alias  grbm='git rebase master'
-alias  grbom='git rebase origin/master'
-alias  grbim='git rebase -i master'
-alias  grbiom='git rebase -i origin/master'
+alias    grbm='git rebase        $(git-main-branch)'
+alias   grbom='git rebase origin/$(git-main-branch)'
+alias   grbim='git rebase -i        $(git-main-branch)'
+alias  grbiom='git rebase -i origin/$(git-main-branch)'
 # I found the following function got in the way more often than it prevented me from doing something
 # stupid:
 #function  grb() {
