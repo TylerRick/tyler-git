@@ -200,8 +200,21 @@ function  glrf() {                                                              
 # Removed -cc from main glp because it makes it list merges even when those commits don't contain # match, when using -S search.
 alias           glp='git log             --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --find-renames --find-copies'                 # See the patch/diff (the actual lines that changed)
 alias glp-no-merges='git log --no-merges --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --find-renames --find-copies'                 # See the patch/diff (the actual lines that changed)
-alias    glp-follow='git log -r          --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow'        # This only works when a single path is given. Otherwise you get error "usage: git logs can only follow renames on one pathname at a time"
+#alias    glp-follow='git log -r          --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow'        # This only works when a single path is given. Otherwise you get error "usage: git logs can only follow renames on one pathname at a time"
 alias glp-follow-cc='git log --cc        --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow'        # This only works when a single path is given. Otherwise you get error "usage: git logs can only follow renames on one pathname at a time"
+
+unalias  glp-follow 2>/dev/null
+function glp-follow() {
+  # diff.relative = true is great most of the time, but can be a pain sometimes.
+  # For example, if you are inside of the directory where the file now lives, but it was previously
+  # outside of that dir (it got moved there in a commit), then even if you have log.follow = true,
+  # it won't show the history from _before_ it was moved inside of the current dir.
+  # This attempts to work around that, by automatically cd'ing up to top-level, and transforming the
+  # given path to absolute (relative to root) path.
+  path_relative_to_top_level=$(git ls-files --full-name "$1")
+  cd $(git rev-parse --show-toplevel)
+  git log -r          --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow -- $path_relative_to_top_level
+}
 
 alias glp1='glp -1'
 
@@ -649,7 +662,6 @@ function git-ensure-commit-is-ancestor() {
 }
 export -f git-ensure-commit-is-ancestor
 
-alias  grbim='grbi master'
 alias  grbi2='grbi HEAD~2'
 alias  grbi3='grbi HEAD~3'
 alias  grbi4='grbi HEAD~4'
