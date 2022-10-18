@@ -100,7 +100,8 @@ alias git-branch-set-merge-defaults='git config branch.main.remote origin; git c
 #------------------------------------------
 # Diff
 
-alias    gd='git diff --find-renames --find-copies'                             # staged vs. unstaged (unstaged changes are +)
+#alias    gd='git diff --find-renames --find-copies'                             # staged vs. unstaged (unstaged changes are +)
+alias    gd='git diff-relative --find-renames --find-copies'                             # staged vs. unstaged (unstaged changes are +)
 alias  gd20='git diff --find-renames --find-copies --unified=20'                # lots of context lines!
 alias   gds='git diff --find-renames --find-copies --staged'                    # HEAD   vs. staged   (staged changes are +)
 alias  gdis='git diff --find-renames --find-copies --ignore-all-space'          # staged vs. unstaged (unstaged changes are +)
@@ -789,6 +790,11 @@ alias git-main-branch0='if git rev-parse --quiet --verify refs/heads/main; then 
 # In some repos that were cloned long ago using older git version, the file
 # .git/refs/remotes/origin/HEAD is missing. You can fix that with:
 #   echo 'ref: refs/remotes/origin/main' > .git/refs/remotes/origin/HEAD
+# or
+#   git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
+# This may also work:
+#   > git remote set-head origin -a
+#   origin/HEAD set to main
 alias git-main-branch='git rev-parse --abbrev-ref origin/HEAD | sed "s#origin/##"'
 # This is much more likely to be (still) accurate, but also much slower. See https://stackoverflow.com/questions/64904364/how-can-i-ask-git-for-the-name-of-a-repositorys-default-branch
 alias git-remote-main-branch='git remote show $(git remote show|tail -n1)|grep "HEAD branch"|awk '"'"'{print $NF}'"'"
