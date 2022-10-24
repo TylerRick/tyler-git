@@ -560,16 +560,23 @@ function git-is-branch-name() {
 # git rebase interactive
 function grbi() {
   # TODO: More accurately get list of refs that were passed (ignore --options which affect $# here);
-  # save options and then pass them along when we actually exec grb.
-  if [ $# == 1 ] && $(git-is-branch-name $1); then
-    echo "Rebasing onto branch $1"
-    onto=$1
-  else
+  # TODO: save options and then pass them along when we actually exec grb. In the meantime (and
+  # maybe this is good enough), we just use shift and pass along all options (but we use simpler
+  # 'else' case for now, which is the downside).
+  onto=$1
+  # Usually $1 is present, but we also allow no args to be passed (see elif git-upstream)
+  if [ -n "$1" ]; then
+    shift
+  fi
+
+  if [ $# == 0 ] && $(git-is-branch-name $onto); then
+    echo "Rebasing onto branch $onto"
+  elif [ $# == 0 ]; then # passed a ref but no options (if options, this path can't currently handle them so use simpler else path instead)
     # Allow passing as many commits as you want, and it will find the common ancestor of all of
     # them and go back to that common commit instead
-    if [ -n "$1" ]; then
-      common_ancestor=$(git common-ancestor "$@")
-      commit_list=("$@" "$common_ancestor")
+    if [ -n "$onto" ]; then
+      common_ancestor=$(git common-ancestor "$onto" "$@")
+      commit_list=("$onto" "$@" "$common_ancestor")
     elif git-upstream; then
       # By default, rebase onto the commit that is in common with your local branch and your upstream
       # branch, in case you have diverged
@@ -616,10 +623,12 @@ function grbi() {
     # Do we ever want the ~?
     #onto=$common_ancestor~
     onto=$common_ancestor
+  else # Options were suplied, so we skip the nice checks above and simply pass everything through as $@
+    :
   fi
 
   echo "Rebasing onto $onto"
-  grb $onto -i
+  grb $onto -i "$@"
 }
 
 # Rebase onto your upstream
