@@ -291,7 +291,7 @@ alias glpothers='glp-diff-other-files-affected-by-commits --reverse --patch'
 alias glpword='git log -c --color -p   --word-diff=color'        # See the changes to lines inline each on a single line, instead of showing -old +new on separate lines (like git diff --word-diff=color)
 
 alias  glpis='git log -c --color -p   --numstat --no-prefix --ignore-all-space'
-alias  glpU5='git log -c --color -U5  --numstat --no-prefix'	# Show more context in the diff/patch
+alias  glpU5='git log -c --color -U5  --numstat --no-prefix'  # Show more context in the diff/patch
 alias glpU10='git log -c --color -U10 --numstat --no-prefix'
 alias glpU20='git log -c --color -U20 --numstat --no-prefix'
 
@@ -386,7 +386,7 @@ alias  glmine='git log --color --reverse --author="`git config user.name`"'
 #------------------------------------------
 # git log head
 
-#alias   glh="glrfl HEAD~5 | sed 's/^\s*//'"    	# Show the last 6 (inclusive) commits, in order, with leading whitespace stripped out
+#alias   glh="glrfl HEAD~5 | sed 's/^\s*//'"      # Show the last 6 (inclusive) commits, in order, with leading whitespace stripped out
 #alias   glh='git log --color | head -n30'      # Only show the first 30 lines of the log. Also, since this isn't paginated, it will wrap long lines for you, so this one is useful if you want to use the mouse to copy and paste the commit message of a recent commit (into an invoice, f.e.).
 
 function  glh() {
@@ -524,33 +524,33 @@ alias  grbiom='git rebase -i origin/$(git-main-branch)'
 # I found the following function got in the way more often than it prevented me from doing something
 # stupid:
 #function  grb() {
-#	upstream=${1:-master}
-#	git branch --contains $upstream | grep $(git-current-branch) || {
-#	  echo -e "\033[01;31mWarning: $upstream is not an ancestor of the current branch ($(git-current-branch))"
-#	  echo -e "While this *might* in fact be what you want to do, if you're just trying to clean up the history in the current branch, then it is *not* what you want to do.\033[00m"
-#	  echo
-#	  echo "This usually occurs because you've already rewritten history and, specifically, you may have rewritten that commit ($upstream). If that is the case, a rewritten version of $upstream still exists in this branch, but simply has a different commit hash."
-#	  echo
-#	  echo -e "\033[00;32mHint: This is the last commit in $upstream:\033[00m"
-#	  echo
-#	  git log -1 $upstream
-#	  echo
-#	  echo -e "\033[00;32mSearch the git log of $(git-current-branch) for a commit with the same log message as (but different commit hash from) that:\033[00m"
-#	  echo
-#	  echo -e "\033[00;32mTip #2: If you find that both branches have some commits in common — just different 'versions' of those commits — then you may want to do a git rebase --interactive onto $upstream and simply remove any 'duplicate' commits from your $(git-current-branch) branch so that it doesn't try to re-apply a slightly different version of the 'same' commit that already exists in $upstream and end up causing a merge conflict. (If it really is an *identical* commit, on the other hand, it most likely will *not* cause a conflict because it will correctly detect that this commit has already bee napplied.\033[00m"
-#	  echo
-#	  echo -e "For now, this will abort with this error, because this alias was written especially for cleaning up history."
-#	  echo "We should make it possible to pass -f to force it to do a rebase anyway. Or ask, 'Is this what you want [y/n]?'"
-#	  echo
-#	  echo "$upstream is contained in the following branches:"
-#	  # Note to self: See also git-cherry
-#	  git branch --contains $upstream
-#	  return 1 # TODO: unless -f
+#  upstream=${1:-master}
+#  git branch --contains $upstream | grep $(git-current-branch) || {
+#    echo -e "\033[01;31mWarning: $upstream is not an ancestor of the current branch ($(git-current-branch))"
+#    echo -e "While this *might* in fact be what you want to do, if you're just trying to clean up the history in the current branch, then it is *not* what you want to do.\033[00m"
+#    echo
+#    echo "This usually occurs because you've already rewritten history and, specifically, you may have rewritten that commit ($upstream). If that is the case, a rewritten version of $upstream still exists in this branch, but simply has a different commit hash."
+#    echo
+#    echo -e "\033[00;32mHint: This is the last commit in $upstream:\033[00m"
+#    echo
+#    git log -1 $upstream
+#    echo
+#    echo -e "\033[00;32mSearch the git log of $(git-current-branch) for a commit with the same log message as (but different commit hash from) that:\033[00m"
+#    echo
+#    echo -e "\033[00;32mTip #2: If you find that both branches have some commits in common — just different 'versions' of those commits — then you may want to do a git rebase --interactive onto $upstream and simply remove any 'duplicate' commits from your $(git-current-branch) branch so that it doesn't try to re-apply a slightly different version of the 'same' commit that already exists in $upstream and end up causing a merge conflict. (If it really is an *identical* commit, on the other hand, it most likely will *not* cause a conflict because it will correctly detect that this commit has already bee napplied.\033[00m"
+#    echo
+#    echo -e "For now, this will abort with this error, because this alias was written especially for cleaning up history."
+#    echo "We should make it possible to pass -f to force it to do a rebase anyway. Or ask, 'Is this what you want [y/n]?'"
+#    echo
+#    echo "$upstream is contained in the following branches:"
+#    # Note to self: See also git-cherry
+#    git branch --contains $upstream
+#    return 1 # TODO: unless -f
 #        }
-#	# TODO: also warn if $upstream is too far back -- that is, if it points to or before a commit that has already pushed to your remote
-#	#   or if it is followed by a merge commit (git rebase doesn't seem to handle merge commits very well -- though maybe I just need to pass the right args to the command)
-#	shift
-#	git rebase $upstream "$@"
+#  # TODO: also warn if $upstream is too far back -- that is, if it points to or before a commit that has already pushed to your remote
+#  #   or if it is followed by a merge commit (git rebase doesn't seem to handle merge commits very well -- though maybe I just need to pass the right args to the command)
+#  shift
+#  git rebase $upstream "$@"
 #}
 
 function git-is-branch-name() {
@@ -785,7 +785,7 @@ alias   grshard='git reset-hard-safe'
 alias     grshm='git reset-hard-menu'
 alias  grshard1='git reset-hard-safe HEAD~1'
 alias grshardOH='git reset-hard-safe ORIG_HEAD'
-alias      grmc='git rm --cached -r'		    # For example, you notice that after you added some back directory, one of its subdirectories was a backup dir and shouldn't be added, so you want to remove the entire subdir from the cache.
+alias      grmc='git rm --cached -r'        # For example, you notice that after you added some back directory, one of its subdirectories was a backup dir and shouldn't be added, so you want to remove the entire subdir from the cache.
 
 
 # How do I discard my changes I've made to the working tree?
@@ -875,13 +875,22 @@ function  gci() {
   # git add "$@"
   #fi
 
-	positional_args=""
-	pass_through_opts=""
-	while (( "$#" )); do
-		case "$1" in
+  positional_args=""
+  pass_through_opts=()
+  while (( "$#" )); do
+    case "$1" in
+      -m|--message)
+        if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+          pass_through_opts+=("$1" "$2")
+          shift 2
+        else
+          echo "Error: Argument for $1 is missing" >&2
+          exit 1
+        fi
+        ;;
       -c|--reedit-message)
         if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
-          pass_through_opts="$pass_through_opts $1 $2"
+          pass_through_opts+=("$1" "$2")
           shift 2
         else
           echo "Error: Argument for $1 is missing" >&2
@@ -890,25 +899,25 @@ function  gci() {
         ;;
       --fixup|--squash)
         if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
-          pass_through_opts="$pass_through_opts $1 $2"
+          pass_through_opts+=("$1" "$2")
           shift 2
         else
           echo "Error: Argument for $1 is missing" >&2
           exit 1
         fi
         ;;
-			-*|--*=) # unknown opts
-				pass_through_opts="$pass_through_opts $1"
-				shift
-				;;
-			*) # preserve positional arguments
-				positional_args="$positional_args $1"
-				shift
-				;;
-		esac
-	done
-	eval set -- "$positional_args"
-	#echo pass_through_opts: ${pass_through_opts}
+      -*|--*=) # unknown opts
+        pass_through_opts+=("$1")
+        shift
+        ;;
+      *) # preserve positional arguments
+        positional_args="$positional_args $1"
+        shift
+        ;;
+    esac
+  done
+  eval set -- "$positional_args"
+  echo "pass_through_opts (${#pass_through_opts[@]}): ${pass_through_opts[@]}"
   #echo positional_args: "$@"
 
   if [ -n "$1" ]; then
@@ -920,8 +929,8 @@ function  gci() {
     #echo 'Filtering out files that don't exist...'
 
     readarray -t files < <(git ls-files "$@")
-		#echo files: "${files[@]}"
-		eval set -- "${files[@]}"
+    #echo files: "${files[@]}"
+    eval set -- "${files[@]}"
   else
     # If no files were given, we can't use ls-files.
     # If partial contents of files have been staged, then we *must not* pass a list of files to git
@@ -929,15 +938,15 @@ function  gci() {
     :
   fi
 
-	set -x
-	git commit $pass_through_opts -v "$@"
-	{ set +x; } 2>/dev/null
+  set -x
+  git commit "${pass_through_opts[@]}" -v "$@"
+  { set +x; } 2>/dev/null
 }
 
 # Add (new file) and commit it
 function  gaci() {
-	git add       "$@"
-	git commit -v "$@"
+  git add       "$@"
+  git commit -v "$@"
 }
 
 alias gcif='git commit --fixup'
