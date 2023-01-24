@@ -801,9 +801,10 @@ alias git-main-branch0='if git rev-parse --quiet --verify refs/heads/main; then 
 #   echo 'ref: refs/remotes/origin/main' > .git/refs/remotes/origin/HEAD
 # or
 #   git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
-# This may also work:
+# This may also work, and seems like a cleaner, better (high-level) solution:
 #   > git remote set-head origin -a
 #   origin/HEAD set to main
+alias git-main-branch-fix='git remote set-head origin -a'
 alias git-main-branch='git rev-parse --abbrev-ref origin/HEAD | sed "s#origin/##"'
 # This is much more likely to be (still) accurate, but also much slower. See https://stackoverflow.com/questions/64904364/how-can-i-ask-git-for-the-name-of-a-repositorys-default-branch
 alias git-remote-main-branch='git remote show $(git remote show|tail -n1)|grep "HEAD branch"|awk '"'"'{print $NF}'"'"
