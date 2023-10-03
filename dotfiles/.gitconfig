@@ -307,8 +307,8 @@
     git branch -D $branch; \
     git branch --delete --remotes $remote/$branch; \
     if git remote-is-usable $remote; then \
-      echo \"Deleting $branch from remote $remote (running in background)...\"; \
-      git push $remote -d $branch & \
+      echo \"Deleting branch '$branch' from remote '$remote' …\"; \
+      git push $remote -d $branch; \
     else \
       echo \"Skipping unusable remote\"; \
     fi; \
