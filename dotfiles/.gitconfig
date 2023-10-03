@@ -1,22 +1,59 @@
 # ~/installed/tyler-git/dotfiles/.gitconfig
+# Try out colors like on https://gitlab.com/mlncn/scripts/blob/master/.gitconfig
 
 
 [include]
-    path = ./.gitconfig.private
+  path = ./.gitconfig.private
 
 [core]
   excludesfile = ~/.gitignore
   #whitespace = trailing-space,space-before-tab,indent-with-non-tab
   whitespace = trailing-space,space-before-tab
 
+[pager]
+  # I sometimes get `diff-highlight | less: diff-highlight: Permission denied` (presumably after
+  # upgrading git package). Fix with;
+  # sudo chmod +x /usr/share/doc/git/contrib/diff-highlight/diff-highlight
+
+  #log = diff-highlight | less
+  #show = diff-highlight | less
+  #diff = diff-highlight | less
+
+[pager]
+  # Temporarily disable with git log-no-pretty/git diff-no-pretty
+  show = diff-so-fancy | less --tabs=2 -RFX
+  log  = diff-so-fancy | less --tabs=2 -RFX
+  diff = diff-so-fancy | less --tabs=2 -RFX --pattern '^(Date|added|deleted|modified): '
+
+[alias]
+  # To override that pager setting (useful if you want to create a patch file that can be applied or to copy and paste into a message or document where you don't have/want color codes), you can set GIT_PAGER=cat
+  # For example: git log-no-pretty -1 -p 629efb6 activesupport/lib/active_support/logger_silence.rb
+  #   or just: git show-no-pretty 629efb6 activesupport/lib/active_support/logger_silence.rb
+  #   or if you want the "after" version (no diff at all), just: git show-no-pretty 629efb6:activesupport/lib/active_support/logger_silence.rb
+  show-no-pretty = ! GIT_PAGER=less git show
+  log-no-pretty  = ! GIT_PAGER=less git log
+  diff-no-pretty = ! GIT_PAGER=less git diff
+
+  # log.follow=true sometimes causes problems; use this to one-off disable it for a single log command
+  log-no-follow= -c log.follow= log
+  # One of the cases where it causes problems is with --full-diff
+  #   > git log --full-diff one_file_name
+  #   fatal: --follow requires exactly one pathspec
+  # Change to this and it works:
+  #   > git -p log-full-diff one_file_name
+  log-full-diff= -c log.follow= log --full-diff
+
+  diff-relative= -c diff.relative=true diff
+
 [core]
   # https://github.com/so-fancy/diff-so-fancy/blob/master/pro-tips.md
-  pager = diff-so-fancy | less --tabs=2 -RFX --pattern '^(Date|added|deleted|modified): '
+  #pager = diff-so-fancy | less --tabs=2 -RFX --pattern '^(Date|added|deleted|modified): '
 
   # https://github.com/so-fancy/diff-so-fancy/blob/master/pro-tips.md
   # As a shortcut for a 'normal' diff to save as a patch for emailing or later application, it may be helpful to configure an alias:
 [alias]
   patch = !git --no-pager diff --no-color
+
 
 [color]
   ui = always
@@ -26,11 +63,56 @@
   branch = always
 [apply]
   whitespace = nowarn
+
 [alias]
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Initialization
+
   clone = clone --recursive
 
+  #pushinit = push origin master:refs/heads/master
+  pushinit = "!branch = `git symbolic-ref --short HEAD`; git push origin $branch:refs/heads/$branch"
+
+  # https://stackoverflow.com/a/35487209/47185
+  set-upstream = !git branch --set-upstream-to=origin/`git symbolic-ref --short HEAD`
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Status
+  current-branch = rev-parse --abbrev-ref HEAD
   st = status
-  # Show unified diff between the HEAD commit and what would be committed at the bottom of the
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Log
+
+  # TODO finish rename from short to oneline to be more in line with built-in pretty formats?
+  log-oneline         = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s'
+  log-oneline-graph   = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' --graph
+  ls                  = log-oneline-graph
+  log-oneline-no-walk = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' --no-walk
+
+  # Very condensed. Almost nothing but body.
+  log-body          = log --pretty=format:'______________________________________%n%Cred%h%Creset  (%Cgreen%ai%Creset)%n%s%n%n%-b'
+  # Very condensed. Almost nothing but body and stats.
+  log-body-stat     = log --pretty=format:'______________________________________%n%Cred%h%Creset  (%Cgreen%ai%Creset)%n%s%n%n%-b' --stat=400
+
+  # the "convert-" commands all expect a list of refs on stdin
+  convert-refs-to-log-xml      = log --color --no-walk=unsorted --stdin --pretty=format:'<ref>%Cred%h%Creset</ref><author-date>%Cgreen%ai%Creset</author-date><author-name>%Cblue%an%Creset</author-name><ref-names>%C(yellow)%D%Creset</ref-names><message>%s</message>'
+  convert-refs-to-log-null-sep = log --color --no-walk=unsorted --stdin --pretty=format:'%Cred%h%Creset%x00%Cgreen%ai%Creset%x00%Cblue%an%Creset%x00%C(yellow)%D%Creset%x00%s'
+  # Replaces %D with only tags matching given pattern
+  convert-refs-to-log-lines-with-backup-tags-via-xml = ! git convert-refs-to-log-xml      | git-format-log-lines-xml-matching-tag-prefix      backup/
+  convert-refs-to-log-lines-with-backup-tags         = ! git convert-refs-to-log-null-sep | git-format-log-lines-null-sep-matching-tag-prefix backup/
+
+  # git log-short --reverse 6079e4980..@
+  #fatal: cannot combine --reverse with --graph
+  log-short-from    = "!bash -c 'f() { \
+    rev=$1; \
+    { git log --color --pretty=format:\"%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s\" --graph $rev^..HEAD; echo; } | tac; \
+  }; f \"$@\"' arg0"
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Commit
+
+  # -v shows unified diff between the HEAD commit and what would be committed at the bottom of the
   # commit message template to help the user describe the commit by reminding what changes the
   # commit has.
   commit = commit -v
@@ -43,25 +125,63 @@
   ci-nc             = commit -v --cleanup=whitespace # Same as strip except #commentary is not removed.
   cia-nc            = commit -v --cleanup=whitespace --amend
 
+  #mark       = commit --allow-empty
+  mark       = "!bash -c 'f() { \
+    set -x; \
+    git commit --allow-empty -m \"$*\"; \
+  }; f \"$@\"' arg0"
+  # Opinion: commit logs are _best_ viewed (and easier to understand) in chronological order (incorrectly called --reverse).
+  # I considered reversing this because most logs are viewed in reverse chronological order; but if
+  # they are mostly for use with `git rebase -i` and `git log --reverse`, maybe we should leave them.
+  mark-start = mark ︽ #'{'
+  mark-begin = mark ︽ #'{'
+  mark-end   = mark ︾ #'}'
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+
   co = checkout
   ch = cherry-pick
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Rebase
+
   rb = rebase
   rbi = rebase -i
+  rba = rebase --abort
 
-  discard = checkout HEAD
-  # Not the same as merge-base, as man git-merge-base will tell you.
+  # Since interactive rebases are safer and more powerful than regular rebases and autoSetupRebase
+  # only helps set it up to use regular rebase.
+  # I can't seem to override `pull` like I could with `commit`. Why not?
+  # Update: May not be needed if we set:
+  #   git config --global pull.rebase interactive
+  pu = pull --rebase=interactive
+
+  #discard = checkout HEAD
+  discard = "!bash -c 'f() { \
+    file=$1; \
+    file_in_head=$(git ls-tree --name-only HEAD \"$file\"); \
+    if [ \"$file_in_head\" == \"\" ]; then \
+        git rm -f $file; \
+    else \
+        git checkout HEAD $file; \
+    fi \
+  }; f \"$@\"' arg0"
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Finding/naming commits or branches
+
+  branches-containing = branch -r --contains
+
+  # Find the common ancestor for a list of commits
+  # (Not quite the same as merge-base, as man git-merge-base will tell you.)
   common-ancestor = show-branch --merge-base
-  name = name-rev --name-only
+
+  # Gives a symbolic name for a rev (relative to the closest tag or branch)
+  name        = name-rev --name-only
+  # Shortens a rev as short as it can make it while still being uniqe
   shorten-ref = rev-parse --short
 
-  #-------------------
-  # Seldom used:
-  #cherry-list = cherry -v
-  cp = copy
-  eu = each-unadded
-  sr = svn rebase
-  sdc = svn dcommit
-  uncommit = reset --soft HEAD^
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
 
   # List untracked files (same list as shown by git status)
   # Allows you to apply a bulk action to all of them; for example, pipe them to xargs rm
@@ -73,35 +193,154 @@
   # ⟫ git ls-untracked -z | xargs -0 ls -1 -d | wc -l
   # Example command:
   # ⟫ git ls-untracked -z | xargs1 -0 mv {} archive
-  ls-untracked               = ls-files --others --exclude-standard --directory
+  # ⟫ git ls-untracked    | xargs rm
+  ls-untracked               = ls-files --others --exclude-standard # --directory
 
   # Tells you if you have any files in the specified dir that would be wiped out if you rm -rf that dir
   ls-all-untracked           = ls-files --others --ignored --exclude-standard --directory
   ls-modified-untracked      = ls-files --modified --others --exclude-standard --directory
 
   # List tracked files that have been modified but not staged to index
+  # See also: git-diff-next-modified
   ls-modified      = ls-files --modified --directory
 
-  pushinit = push origin master:refs/heads/master
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
 
   # https://stackoverflow.com/questions/7534184/git-alias-multiple-commands-and-parameters/7534289#7534289
   chs = !git checkout $1 && git status
 
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+
+  # Move it under archive/ namespace so it doesn't show up when you list branches anymore
+  archive-branch = ! git tag archive/$1 $1 && git branch -D
+
   # https://stackoverflow.com/questions/1307114/how-can-i-archive-git-branches
-  archive-ref = "!git update-ref refs/archive/$(date '+%Y%m%d-%s')"
-  list-archive-ref = for-each-ref --sort=-authordate --format='%(refname) %(objectname:short) %(contents:subject)' refs/archive/
+  #archive-ref = "!git update-ref refs/archive/$(date '+%Y%m%d-%s')"
+  #list-archive-ref = for-each-ref --sort=-authordate --format='%(refname) %(objectname:short) %(contents:subject)' refs/archive/
 
   # https://stackoverflow.com/a/32354260/47185
-  arc            = ! git tag archive/$1 @ && echo -n "Created archive tag 'archive/$1': " && git log -1 --color --graph --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' archive/$1 && echo
+  #arc            = "! git tag archive/$1 @ && { echo -n \"Created archive tag 'archive/$1': \" && git log -1 --color --graph --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' archive/$1 && echo; } || { echo -n 'Last tag: '; git archive-list | tail -n1 ; }"
   # && echo -n "Archiving branch '$1' as a tag... " 
-  archive-branch = ! git tag archive/$1 $1 && git branch -D
-  archive-list   = ! git tag | grep '^archive/'
+#  arc            = "!f() { \
+#      if [ -n \"$1\" ]; then \
+#        git tag archive/$1 @ && echo -n \"Created archive tag 'archive/$1': \" && git log -1 --color --graph --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' archive/$1 && echo; \
+#      else \
+#        echo -n 'Last tag: '; git archive-list | tail -n1; \
+#      fi \
+#    }; f"
+#  arc            = "!f() { \
+#    tag=archive/$(now); \
+#    if [ -n \"$1\" ]; then \
+#      tag=$tag-$1; \
+#    fi; \
+#    if git tag $tag @; then \
+#      echo \"Created archive tag '$tag': \"; \
+#      git log -1 --color --graph --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' $tag && echo; \
+#    fi; \
+#  }; f"
+
+  #archive-list   = ! git tag | grep '^archive/'
+  #arclist        = ! git archive-list
+
+  # Decided that what I used the above for was not really "archiving" but creating backup snapshots
+  # (tags) of work in progress states or things I was about to discard but wanted a backup copy kept
+  # just in case. So I changed the name from "archive" to "backup".
+  bak-plain = "!f() { \
+    tag=backup/$(now s); \
+    if [ -n \"$1\" ]; then \
+      : \"Lets you pass names containing spaces; changes to underscores\"; \
+      safe_name=$(echo \"$1\" | sed 's/ /_/g'); \
+      tag=$tag-$safe_name; \
+    fi; \
+    if git tag $tag @; then \
+      echo \"Created backup tag '$tag': \"; \
+      git log -1 --color --graph --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' $tag && echo; \
+    fi; \
+  }; f"
+  bak = "!f() { \
+    suffix=$(git current-branch); \
+    if [ -n \"$1\" ]; then \
+      : \"Lets you pass names containing spaces; changes to underscores\"; \
+      safe_name=$(echo \"$1\" | sed 's/ /_/g'); \
+      suffix=$suffix-$safe_name; \
+    fi; \
+    git bak-plain \"$suffix\"; \
+  }; f"
+  #backup-list-raw   = ! git tag | grep '^backup/'
+  backup-list-raw   = ! git rev-parse --tags=backup
+  backup-list-simple = ! git backup-list-raw | tac | git log-short-no-walk --no-walk=unsorted --stdin
+  # TODO: let you specify -n to control how many lines (like head). For now just pass as positional arg $1.
+  backup-list       = "!bash -c 'f() { git backup-list-raw | tac | git convert-refs-to-log-lines-with-backup-tags | head -n ${1:-10}; }; f \"$@\"' arg0"
+  # Simpler version I tried, but it doesn't seem to see $1:
+  backup-list-h10   = ! git backup-list-raw | tac | git convert-refs-to-log-lines-with-backup-tags | head -n ${1:-10}
+
+  baklist-raw       = ! git backup-list-raw
+  baklist           = ! git backup-list
+
+  #ls-deployed-staging    = ! git rev-parse --tags=deployed/staging    | git log-short-no-walk --stdin
+  #ls-deployed-production = ! git rev-parse --tags=deployed/production | git log-short-no-walk --stdin
+  ls-deployed-staging    = ! git rev-parse --tags=deployed/staging    | tac | git convert-refs-to-log-null-sep | git-format-log-lines-null-sep-matching-tag-prefix deployed/staging    | head -n10
+  ls-deployed-production = ! git rev-parse --tags=deployed/production | tac | git convert-refs-to-log-null-sep | git-format-log-lines-null-sep-matching-tag-prefix deployed/production | head -n10
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Cleanup
 
   prune-remote-dry-run = remote prune origin --dry-run
   prune-remote         = remote prune origin
 
-  # https://stackoverflow.com/a/35487209/47185
-  set-upstream = !git branch --set-upstream-to=origin/`git symbolic-ref --short HEAD`
+  # https://stackoverflow.com/questions/2003505/how-do-i-delete-a-git-branch-locally-and-remotely
+  # There are 3 different branches to delete!
+  #  arr=(${1//\\// }); \
+  # See also: bin/git-branch-rm   
+  branch-rm = "!bash -c 'f() { \
+    input=${1##remotes/}; \
+    arr=(${input//\\// }); \
+    remote=${arr[0]:-origin}; \
+    branch=${arr[1]}; \
+    : echo remote: $remote; \
+    : echo branch: $branch; \
+    git branch -D $branch; \
+    git branch --delete --remotes $remote/$branch; \
+    if git remote-is-usable $remote; then \
+      git push $remote -d $branch; \
+    else \
+      echo \"Skipping unusable remote\"; \
+    fi; \
+  }; f \"$@\"' arg0"
+  branch-delete = branch-rm
+  remote-is-usable = "!f() { \
+    case $1 in \
+      k3git) exit 1;; \
+      k3old) exit 1;; \
+      *) exit 0;; \
+    esac; \
+  }; f"
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Alias development and debugging
+
+  # Quote / unquote a sh command, converting it to / from a git alias string
+  # https://stackoverflow.com/questions/38057261/git-config-alias-escaping/39616600#39616600
+  quote-string = "!read -r l; printf \\\"!; printf %s \"$l\" | sed 's/\\([\\\"]\\)/\\\\\\1/g'; printf \" #\\\"\\n\" #"
+  quote-string-undo = "!read -r l; printf %s \"$l\" | sed 's/\\\\\\([\\\"]\\)/\\1/g'; printf \"\\n\" #"
+
+  # https://stackoverflow.com/questions/38057261/git-config-alias-escaping/39616600#39616600
+  debug  = "!set -x; GIT_TRACE=2 GIT_CURL_VERBOSE=2 GIT_TRACE_PERFORMANCE=2 GIT_TRACE_PACK_ACCESS=2 GIT_TRACE_PACKET=2 GIT_TRACE_PACKFILE=2 GIT_TRACE_SETUP=2 GIT_TRACE_SHALLOW=2 git"
+
+  # https://stackoverflow.com/questions/46435606/how-to-use-a-bash-function-in-a-git-alias#comment79829519_46435837
+  demo-args = "!bash -c 'f() { echo $1; }; f \"$@\"' arg0"
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Seldom used:
+  #cherry-list = cherry -v
+  cp = copy
+  eu = each-unadded
+  sr = svn rebase
+  sdc = svn dcommit
+  uncommit = reset --soft HEAD^
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # git config --global alias.my_alias command adds aliases to the bottom here:
 
 [branch]
   # git config --global branch.autoSetupMerge true
@@ -110,30 +349,58 @@
   # Branch something set up to track remote branch something from origin by rebasing.
 
   # git config --global branch.autoSetupRebase always
-  autoSetupRebase = always
-
-[pager]
-  # I sometimes get `diff-highlight | less: diff-highlight: Permission denied` (presumably after
-  # upgrading git package). Fix with;
-  # sudo chmod +x /usr/share/doc/git/contrib/diff-highlight/diff-highlight
-
-  #log = diff-highlight | less
-  #show = diff-highlight | less
-  #diff = diff-highlight | less
+  #autoSetupRebase = always
+  # Update: Don't use this, because it sets rebase = true, which overrides this global setting that
+  # would be preferred:
+  #   git config --global pull.rebase interactive
 
 #[merge]
 #  tool = vimdiff
+#  # TODO: how to use vim-fugitive?
 
 [log]
-date=iso
+  date=iso
+
+  # Note: Doesn't work if diff.relative = true.
+	follow = true
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+# Diff
 
 [diff]
   unified = 15
   compactionHeuristic = true
 
+  # diff.relative = true is great most of the time, but can be a pain sometimes.
+  # For example, if you are inside of the directory where the file now lives, but it was previously
+  # outside of that dir (it got moved there in a commit), then even if you have log.follow = true,
+  # it won't show the history from _before_ it was moved inside of the current dir.
+  # See work-around in glp-follow.
+  #relative = true
+
+[diff "zip"]
+  textconv = unzip -v
+[diff "pdf"]
+	textconv = pdftostdout
+[diff "bin"]
+  textconv = hexdump -v -C
+
+# https://www.onwebsecurity.com/configuration/diff-binary-files-docx-odt-pdf-with-git.html 
+[diff "docx"]
+	textconv = pandoc --to=rst
+[diff "odt"]
+  textconv = pandoc --to=rst
+
+[diff "nonums"]
+  # https://stackoverflow.com/questions/54068308/override-gitattributes-from-command-line
+  textconv = "f(){ gsed -E 's/[0-9]+/##/g'  \"$1\" ; }; f"
+
+
 # https://code.visualstudio.com/Docs/editor/versioncontrol#_git-patchdiff-mode
 [difftool "vscode"]
   cmd = code --wait --diff $LOCAL $REMOTE
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
 
 # http://onestepback.org/index.cgi/Tech/Git/UsingP4MergeWithGit.red
 [merge]
@@ -142,7 +409,11 @@ date=iso
   tool = "vimdiff" 
 
 [rebase]
-  autoStash = true
+  # (Recommended for everyone)
+  # git config --global rebase.autoStash true
+	autoStash = true
+
+  # (More advanced)
   # git config --global rebase.autoSquash true
   autoSquash = true
 
@@ -191,3 +462,43 @@ default = tracking
   autopush = true
 [merge "ours"]
   driver = true
+[rerere]
+  enabled = true
+[pull]
+  # git config --global pull.rebase interactive
+	rebase = interactive
+[init]
+	defaultBranch = main
+	templateDir = /home/tyler/.githooks/templates
+
+[alias]
+  #hooks = !\"/home/tyler/.githooks/bin/githooks\"
+
+  # https://github.com/gabyx/githooks
+	hooks = !\"/home/tyler/.githooks/bin/cli\"
+[githooks]
+  # https://github.com/rycus86/githooks
+  # cloneUrl = https://github.com/rycus86/githooks.git
+  # cloneBranch = master
+
+
+	disable = false
+	installDir = /home/tyler/.githooks
+	useCoreHooksPath = false
+	noReadme = yes
+
+  # https://github.com/gabyx/githooks
+	cloneUrl = https://github.com/gabyx/githooks.git
+	cloneBranch = main
+	runner = /home/tyler/.githooks/bin/runner
+	dialog = /home/tyler/.githooks/bin/dialog
+	autoUpdateCheckTimestamp = 1696356663
+	maintainedHooks = all
+	autoUpdateEnabled = true
+	previousSearchDir = /home/tyler/code/k3
+	useManual = false
+
+  # runner = /home/tyler/.githooks/release/base-template.sh
+[githooks "autoupdate"]
+	enabled = true
+	lastrun = 1661286729
