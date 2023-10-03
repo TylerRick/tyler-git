@@ -295,14 +295,20 @@
   branch-rm = "!bash -c 'f() { \
     input=${1##remotes/}; \
     arr=(${input//\\// }); \
-    remote=${arr[0]:-origin}; \
-    branch=${arr[1]}; \
+    if [ -n \"${arr[1]}\" ]; then \
+      remote=${arr[0]}; \
+      branch=${arr[1]}; \
+    else \
+      remote=origin; \
+      branch=${arr[0]}; \
+    fi; \
     : echo remote: $remote; \
     : echo branch: $branch; \
     git branch -D $branch; \
     git branch --delete --remotes $remote/$branch; \
     if git remote-is-usable $remote; then \
-      git push $remote -d $branch; \
+      echo \"Deleting $branch from remote $remote (running in background)...\"; \
+      git push $remote -d $branch & \
     else \
       echo \"Skipping unusable remote\"; \
     fi; \
