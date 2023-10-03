@@ -293,25 +293,28 @@
   #  arr=(${1//\\// }); \
   # See also: bin/git-branch-rm   
   branch-rm = "!bash -c 'f() { \
-    input=${1##remotes/}; \
-    arr=(${input//\\// }); \
-    if [ -n \"${arr[1]}\" ]; then \
-      remote=${arr[0]}; \
-      branch=${arr[1]}; \
-    else \
-      remote=origin; \
-      branch=${arr[0]}; \
-    fi; \
-    : echo remote: $remote; \
-    : echo branch: $branch; \
-    git branch -D $branch; \
-    git branch --delete --remotes $remote/$branch; \
-    if git remote-is-usable $remote; then \
-      echo \"Deleting branch '\\''$branch'\\'' from remote '\\''$remote'\\'' …\"; \
-      git push $remote -d $branch; \
-    else \
-      echo \"Skipping unusable remote\"; \
-    fi; \
+    for input; do \
+      if [ $# -gt 1 ]; then echo; fi; \
+      input=${input##remotes/}; \
+      arr=(${input//\\// }); \
+      if [ -n \"${arr[1]}\" ]; then \
+        remote=${arr[0]}; \
+        branch=${arr[1]}; \
+      else \
+        remote=origin; \
+        branch=${arr[0]}; \
+      fi; \
+      : echo remote: $remote; \
+      : echo branch: $branch; \
+      git branch -D $branch; \
+      git branch --delete --remotes $remote/$branch; \
+      if git remote-is-usable $remote; then \
+        echo \"Deleting branch '\\''$branch'\\'' from remote '\\''$remote'\\'' …\"; \
+        git push $remote -d $branch; \
+      else \
+        echo \"Skipping unusable remote\"; \
+      fi; \
+    done; \
   }; f \"$@\"' arg0"
   branch-delete = branch-rm
   remote-is-usable = "!f() { \
