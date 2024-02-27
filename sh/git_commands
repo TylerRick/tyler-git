@@ -349,18 +349,37 @@ alias   glc='git log --color --date-order'                                      
 
 
 
+# Usage: git-diff-commits a b [opts]
+# It passes through extra options to diff, so you can add some context lines with -C3 or -u, for
+# example.
 function    git-diff-commits() {
   # Compare metadata
-  glfull -1 $1
-  glfull -1 $2
+  a=$1; shift
+  b=$1; shift
+  glfull -1 $a
+  glfull -1 $b
   # Compare patch
-  diff <(glp -1 --no-color $1) <(glp -1 --no-color $2)
+  diff --color "$@" <(glp -1 --no-color $a) <(glp -1 --no-color $b)
   echo
   echo 'Or, only diffing addition lines:'
-  diff <(glp -1 --no-color $1 | grep '^+') <(glp -1 --no-color $2 | grep '^+')
+  diff --color "$@" <(glp -1 --no-color $a | grep '^+') <(glp -1 --no-color $b | grep '^+')
+  echo '<' glp -1 --no-color $a
+  echo '>' glp -1 --no-color $b
+}
+function    git-difffancy-commits() {
+  # Compare metadata
+  a=$1; shift
+  b=$1; shift
+  glfull -1 $a
+  glfull -1 $b
+  # Compare patch
+  diff -u <(glp -1 --no-color $a) <(glp -1 --no-color $b) | diff-so-fancy
+  echo
+  echo 'Or, only diffing addition lines:'
+  diff -u <(glp -1 --no-color $a | grep '^+') <(glp -1 --no-color $b | grep '^+') | diff-so-fancy
 }
 function git-vimdiff-commits() {
-  vimdiff <(glp -1 --no-color $1) <(glp -1 --no-color $2)
+  vimdiff <(glp -1 --no-color $a) <(glp -1 --no-color $b)
 }
 
 #------------------------------------------
