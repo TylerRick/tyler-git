@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+branch="$1"
+# If arg 2 is given, it lets you rename the branch prior to archiving it ("archive as...").
+if [ -n "$2" ]; then
+  git branch -m "$1" "$2"
+  branch="$2"
+fi
+tag="archive/$branch"
+git tag "$tag" "$branch"
+git tag -l "$tag"
+git branch -D "$branch"
