@@ -1,8 +1,13 @@
 #!/bin/sh
+# See also the alias in ~/.gitconfig: git branch-rm
+
+
+exit
+# Old version:
 if [ "$1" = "-f" ]; then
     echo "Forcing delete..."
     shift
-		# the -- is necessary in case you accidentally created a branch called --track, for example, by doing git checkout -b --track whatever
+		# The -- is necessary in case you accidentally created a branch called --track, for example, by doing git checkout -b --track whatever
     git branch -D -- "$@"
 else
     git branch -d -- "$@"
