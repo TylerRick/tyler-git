@@ -1,22 +1,96 @@
-#!/bin/sh
+#!/bin/bash
 # See also the alias in ~/.gitconfig: git branch-rm
+# Depends on usable
+
+function nocolor() { sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mK]//g"; }
+
+function help() {
+  cat - <<End >&2
+Usage: `basename $0` [-l] [-r] <branch> [<branch2>]
+   or: … | `basename $0`
+
+For each branch name given, deletes the branch.
+
+By default, deletes all 3 branches matching the given name.
+
+Options:
+  -l|--local: Removes the local branch for the given name(s) only.
+  -r|--remote: Removes the remote and remote-tracking branches for the given name(s) only (not the local branch).
+
+Examples:
+  git branch -r | `basename $0` -r
+
+  In case you've deleted some local branches but forgotten to delete the remote-tracking branch --
+  and you'd rather just delete them all than figure them out individually. If you keep the local
+  copy of the branch, you can always re-push to the remote later if needed. This is only safe to do
+  if you are the only one who has created remote branches; if you have collaborators, use with
+  caution!
+End
+  exit
+}
+
+positional_args=""
+while (( "$#" )); do
+  case "$1" in
+
+    -l|--local)
+      delete_local=1
+      shift
+      ;;
+
+    -r|--remote)
+      delete_remote=1
+      shift
+      ;;
+
+    -*|--*=)
+      echo "Error: Unsupported flag $1" >&2
+      exit 1
+      ;;
+    *) # preserve positional arguments
+      positional_args="$positional_args $1"
+      shift
+      ;;
+  esac
+done
+eval set -- "$positional_args"
+
+if [ -t 0 ] && [ "$#" -eq 0 ]; then
+  help
+fi
 
 if [ "$#" -eq 0 ]; then
-    cat
+  cat -
 else
-    printf '%s\n' "$@"
+  printf '%s\n' "$@"
 fi |
-while read -r line; do
-  echo "line: $line"
-done
+nocolor |
+while read -r input; do
+  # echo "input: $input"
 
-exit
-# Old version:
-if [ "$1" = "-f" ]; then
-    echo "Forcing delete..."
-    shift
-		# The -- is necessary in case you accidentally created a branch called --track, for example, by doing git checkout -b --track whatever
-    git branch -D -- "$@"
-else
-    git branch -d -- "$@"
-fi
+  if [ $# -gt 1 ]; then echo; fi
+
+  input=${input##remotes/}
+  arr=(${input/\// })
+  if [ -n "${arr[1]}" ]; then
+    remote=${arr[0]}
+    branch=${arr[1]}
+  else
+    remote=origin
+    branch=${arr[0]}
+  fi
+  # echo remote: $remote
+  # echo branch: $branch
+  if [ -n "$delete_local" ]; then
+    git branch -D -- "$branch"
+  fi
+  if [ -n "$delete_remote" ]; then
+    git branch --delete --remotes -- "$remote/$branch"
+    if git remote-is-usable $remote; then
+      echo "Deleting branch '''$branch''' from remote '''$remote''' …"
+      git push $remote -d $branch
+    else 
+      echo "Skipping unusable remote"
+    fi
+  fi
+done
