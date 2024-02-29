@@ -816,10 +816,6 @@ alias      grmc='git rm --cached -r'        # For example, you notice that after
 alias git-main-branch0='if git rev-parse --quiet --verify refs/heads/main; then echo main; else echo master; fi'
 # In some repos that were cloned long ago using older git version, the file
 # .git/refs/remotes/origin/HEAD is missing. You can fix that with:
-#   echo 'ref: refs/remotes/origin/main' > .git/refs/remotes/origin/HEAD
-# or
-#   git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
-# This may also work, and seems like a cleaner, better (high-level) solution:
 #   > git remote set-head origin -a
 #   origin/HEAD set to main
 alias git-main-branch-fix='git remote set-head origin -a'
