@@ -1,23 +1,65 @@
-#!/bin/sh
+#!/bin/bash
 
-# prints the name of the branch to stdout if we are in a git repo and there is a current branch
-# or exits 1 if we are not
+# Prints the name of the branch to stdout if we are in a git repo and there is a current branch
+# or exits 1 if we are not.
 
-#git branch >/dev/null
+# If --fallback is passed, falls back to trying to show the branch that we started on, in case we
+# are in the middle of a rebase. If that fails, still exit 1 if it can't determine the branch.
+# In other words, if you're in the middle of a rebase, git current-branch --fallback will show the
+# branch you are rebasing, but git current-branch will output nothing and exit 1.
 
-# using a custom alias:
-#git symbolic-ref HEAD >/dev/null 2>&1
+fall_back=
+quiet=
+positional_args=""
+while (( "$#" )); do
+  case "$1" in
+    -b|--fallback)
+      fall_back=1
+      shift
+      ;;
 
-# using standard commands:
-output=$(git rev-parse --abbrev-ref HEAD 2>&1)
-#echo output=$output
+#    -q|--quiet)
+#      fall_back=1
+#      shift
+#      ;;
 
-# todo: only suppress 'fatal: Not a git repository' if -q (quiet)
+    -*|--*=)
+      echo "Error: Unsupported flag $1" >&2
+      exit 1
+      ;;
+    *)
+      positional_args="$positional_args $1"
+      shift
+      ;;
+  esac
+done
+eval set -- "$positional_args"
 
-if [ $? -eq 0 ]; then
-  #echo "$(git branch | grep '^*' |sed s/\*\ //)"
-  git symbolic-ref --short HEAD
-  #git rev-parse --abbrev-ref HEAD 2>&1 | sed s#^refs/heads/##
+
+#─────────────────────────────────────────────────────────────────────────────────────────────────
+
+# TODO: Only suppress 'fatal: Not a git repository' if -q (quiet) ? OR, just let it have that error,
+# just like git branch would show! And keep this simpler...
+#if ! [ -n "$quiet" ]; then
+#  git branch --show-current 2>&1
+#else
+#  git branch --show-current
+#fi
+
+branch="$(git branch --show-current || exit 1)"
+cdup="$(git rev-parse --show-cdup)"
+gitdir="${cdup}.git/"
+
+if [ -n "$branch" ]; then
+  echo $branch
+  exit 0
+elif [ -n "$fall_back" ]; then
+  # Based on https://github.com/git/git/blob/master/wt-status.c#L1729 and search for "->branch ="
+  for file in $(ls ${gitdir}/rebase-{apply,merge}/head-name 2>/dev/null); do
+    cat "$file" | sed 's#^refs/heads/##'
+    exit 0
+  done
+  exit 1
 else
   exit 1
 fi
