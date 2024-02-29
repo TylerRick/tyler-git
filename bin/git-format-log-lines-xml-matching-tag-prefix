@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+# Usage: … | git convert-refs-to-log-xml | $0
+
+Signal.trap("PIPE", "EXIT")
+tag_prefix_to_match = ARGV[0]
+
+while $stdin.gets
+  puts $_.sub(%r!<ref>(?<ref>.*)</ref><author-date>(?<author_date>.*)</author-date><author-name>(?<author_name>.*)</author-name><ref-names>(?<ref_names>.*)</ref-names><message>(?<message>.*)</message>!) {
+    line = $~
+    "%s %s \e[33m%s\e[0m %s -%s" % [
+      line[:ref], line[:author_date],
+      line[:ref_names].scan(%r{tag: ((?=#{tag_prefix_to_match})[-\w/]+)(?:, )?}).map {|m| m[0] }.join(", "),
+      line[:message], line[:author_name]
+    ]
+  }
+end

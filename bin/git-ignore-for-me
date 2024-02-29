@@ -24,6 +24,7 @@ require 'quality_extensions/pathname'
 paths = ARGV.dup
 paths.each do |path|
   path = Pathname.new(path).absolutize.relative_path_from(@repo_root)
+  system %(mkdir -p #{@git_dir}/info)
   system %(echo "#{path}" >> #{@git_dir}/info/exclude)
   system %(git rm --cached #{@force_flag} "#{path}" 2>/dev/null)
 end

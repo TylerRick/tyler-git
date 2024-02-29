@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # Compare to: git-rebase-set-author-to-committer
-log=`git log --format=fuller HEAD^..`
+#log=`git log --format=fuller HEAD^..`
+log=`git log --format=fuller -1 HEAD`
 line = log.lines.grep(/Commit:/).first
 if line =~ /Commit: .*<(.*)>$/
   puts $1

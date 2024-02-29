@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+# Simpler alternative to using xml like: convert-refs-to-log-xml | git-convert-refs-to-log-lines-with-backup-tags-from-xml
+# Usage: … | git convert-refs-to-log-xml | $0
+
+Signal.trap("PIPE", "EXIT")
+tag_prefix_to_match = ARGV[0]
+
+while $stdin.gets
+  line = $_.chomp.split("\0")
+  puts "%s %s \e[33m%s\e[0m %s -%s" % [
+    line[0], line[1],
+    line[3].scan(%r{tag: ((?=#{tag_prefix_to_match})[-\w/]+)(?:, )?}).map {|m| m[0] }.join(", "),
+    line[4], line[2]
+  ]
+end

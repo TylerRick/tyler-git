@@ -1,5 +1,10 @@
 #!/usr/bin/env ruby
 
+# See also:
+# ⟫ git-ignore lib/recaptcha/test_helpers.rb
+# Command 'git-ignore' not found, but can be installed with:
+# sudo apt install git-extras
+
 #---------------------------------------------------------------------------------------------------
 require 'getoptlong'
 opts = GetoptLong.new(
@@ -21,6 +26,7 @@ end
 #---------------------------------------------------------------------------------------------------
 require 'pathname'
 require 'facets/class/to_proc'
+gem 'quality_extensions'
 require 'quality_extensions/string/shell_escape'
 
 #---------------------------------------------------------------------------------------------------

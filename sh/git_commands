@@ -91,7 +91,6 @@ function git-delete-all-deletable-branches() {
   done
 }
 
-
 alias  gbmv='git branch-mv' # move
 
 alias git-branch-set-merge-defaults='git config branch.main.remote origin; git config branch.main.merge refs/heads/main'

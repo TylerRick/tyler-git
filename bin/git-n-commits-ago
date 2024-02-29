@@ -1,0 +1,15 @@
+#! /bin/bash
+
+# When given just one argument, n, this is the same as simply doing @~n
+# It is more interesting when given a second argument, path. In this case, it counts back n commits,
+# only counting those commits that touched file. So 1 would be the 1st commit that changed file, 2
+# the 2nd, and so on.
+
+if [ -z "$1" ]; then
+  echo "Usage: $0 <commit_count> [file]"
+  exit 1
+fi
+commit_count=$1; shift
+
+git log -$commit_count --pretty=format:'%h' "$@" | tail -n1
+

@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# May be obsoleted by grb -i --committer-date-is-author-date ?
 
 require 'facets/string/cleanlines'
 

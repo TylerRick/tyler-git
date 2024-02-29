@@ -1,8 +1,9 @@
 #!/bin/sh
 # See also/merge with: git rmversions
 
-find_command="find . -type f -a \( -name '*[._]REMOTE[._]*' -o -name '*[._]LOCAL[._]*' -o -name '*[._]BASE[._]*' -o -name '*[._]BACKUP[._]*' \)"
-eval $find_command
+if false; then
+find_command="find . -path './.git' -prune -o -type f -a \( -name '*[._]REMOTE[._]*' -o -name '*[._]LOCAL[._]*' -o -name '*[._]BASE[._]*' -o -name '*[._]BACKUP[._]*' \)"
+eval $find_command -print
 
 echo -n "Delete these files [y/n]? "
 read x
@@ -12,9 +13,10 @@ if [ "$x" = "y" ]; then
 else
 	echo 'Aborting...'
 fi
+fi
 
-find_command="find . -type f -a \( -name '*.orig' \)"
-eval $find_command
+find_command="find . -path './.git' -prune -o -type f -a \( -name '*.orig' \)"
+eval $find_command -print
 
 echo -n "Delete these files [y/n]? "
 read x

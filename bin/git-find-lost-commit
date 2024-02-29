@@ -19,6 +19,7 @@
   git reflog
 } | while read line; do
   #echo $line
+  echo -n .
   rev=`echo $line|gawk '{ print $1 }'|nocolor`
   found=0
 
@@ -32,12 +33,21 @@
   #git-cat $rev:app/views/exception_notifier/_current_user.text.haml 2>/dev/null | grep inspect|grep -v inspect_2 && git log-short -1 $rev
   #git-cat $rev:app/views/enrollments/_episode_deliveries.html.haml 2>/dev/null | grep attended? && found=1
   #git log -U0 -p -1 $rev app/views/enrollments/_episode_deliveries.html.haml 2>/dev/null | grep to_a && found=1
-  git log -U0 -p -1 $rev | grep querySelectorAll && found=1
+  #git log -U0 -p -1 $rev | grep querySelectorAll && found=1
+  #git log -U0 -p -1 $rev | grep app/javascript/.*/house_church_registration/ && found=1
+  #git log -U0 -p -1 $rev | grep 'def score' && found=1
+  #git log -U0 -p -1 $rev | grep 'facets/array/average' && found=1
+  git log -U0 -p -1 $rev | grep 'this is still the right place' && found=1
+  
 
   if [ $found == 1 ]; then
+    # What to do when possible match found:
+    echo
     echo '════════════════════════════════════════════════'
-    git log-short -1 $rev
-    git log -U0 -p -1 $rev app/views/enrollments/_episode_deliveries.html.haml
+    git log-oneline-graph -1 $rev
+
+    # Old:
+    #git log -U0 -p -1 $rev app/views/enrollments/_episode_deliveries.html.haml
   fi
 
   # Example of looking for a file that was added by a commit and doesn't exist in current head (so

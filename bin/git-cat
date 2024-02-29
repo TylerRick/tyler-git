@@ -118,6 +118,7 @@ end
 
 puts   command unless @quiet
 system command
+exit $?.exitstatus
 
 #---------------------------------------------------------------------------------------------------
 # Original bash function version:
