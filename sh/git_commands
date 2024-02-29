@@ -527,6 +527,13 @@ function git-upstream() {
   fi
 }
 
+# Answers the question, "What do I have locally that is different from the upsteam/remote version of
+# this branch?" -=upstream +=local. It would be a good idea to check/review this prior to `git push
+# -f` force pushing to the remote, to make sure what you are replacing the history on the remote with
+# is what you expect it to be.
+alias git-diff-upstream='git diff $(git-upstream)'
+alias gdup=git-diff-upstream
+
 # These didn't work. That expanded to main followed by the supplied $1, when we wanted it to expand to only the supplied $1 if there was one...
 #alias   grb='git rebase    ${1:-main}'  # don't forget to pass -i if you want interactive
 #alias  grbi='echo git rebase -i ${1:-main}'
