@@ -56,7 +56,7 @@
 
 
 [color]
-  ui = always
+  ui = always # true
   #diff = auto
   diff = always
   status = always
@@ -65,6 +65,16 @@
   whitespace = nowarn
 
 [alias]
+  # Notes:
+  # alias can't seem to see functions defined (and exported with export -f) in your current shell.
+  # (Even though some posts in
+  # https://stackoverflow.com/questions/46435606/how-to-use-a-bash-function-in-a-git-alias say it
+  # should work.)
+  # The only way I could get functions to work is by adding them to .bashrcp and using bash -i, but
+  # that adds a 1+ s delay due to my huge .bashrc.
+  # So for now, I guess we need to either put the function inline here (hard to format it right!) or
+  # extract to a script file.
+
   #─────────────────────────────────────────────────────────────────────────────────────────────────
   # Initialization
 
@@ -212,7 +222,8 @@
   #─────────────────────────────────────────────────────────────────────────────────────────────────
 
   # Move it under archive/ namespace so it doesn't show up when you list branches anymore
-  archive-branch = ! git tag archive/$1 $1 && git branch -D
+  # archive-branch = ! git tag archive/$1 $1 && git branch -D
+  archive-branch = ! git-archive-branch
 
   # https://stackoverflow.com/questions/1307114/how-can-i-archive-git-branches
   #archive-ref = "!git update-ref refs/archive/$(date '+%Y%m%d-%s')"
@@ -291,7 +302,7 @@
   # https://stackoverflow.com/questions/2003505/how-do-i-delete-a-git-branch-locally-and-remotely
   # There are 3 different branches to delete!
   #  arr=(${1//\\// }); \
-  # See also: bin/git-branch-rm   
+  # See also: ~/installed/tyler-git/bin/git-branch-rm
   branch-rm = "!bash -c 'f() { \
     for input; do \
       if [ $# -gt 1 ]; then echo; fi; \
@@ -324,6 +335,11 @@
       *) exit 0;; \
     esac; \
   }; f"
+
+  # In case you've deleted some local branches but forgotten to delete the remote-tracking branch --
+  # and you'd rather just delete them all than figure them out individually. (You can always
+  # repush to get the remote branch back for a local branch.)
+  # branch-rm-all-remote
 
   #─────────────────────────────────────────────────────────────────────────────────────────────────
   # Alias development and debugging
@@ -485,6 +501,7 @@ default = tracking
 
   # https://github.com/gabyx/githooks
 	hooks = !\"/home/tyler/.githooks/bin/cli\"
+	fn = !bash -c 'fn \"$@\"' x
 [githooks]
   # https://github.com/rycus86/githooks
   # cloneUrl = https://github.com/rycus86/githooks.git
@@ -501,7 +518,7 @@ default = tracking
 	cloneBranch = main
 	runner = /home/tyler/.githooks/bin/runner
 	dialog = /home/tyler/.githooks/bin/dialog
-	autoUpdateCheckTimestamp = 1696356663
+	autoUpdateCheckTimestamp = 1700851293
 	maintainedHooks = all
 	autoUpdateEnabled = true
 	previousSearchDir = /home/tyler/code/k3
@@ -511,3 +528,20 @@ default = tracking
 [githooks "autoupdate"]
 	enabled = true
 	lastrun = 1661286729
+
+# https://github.com/so-fancy/diff-so-fancy?tab=readme-ov-file#improved-colors-for-the-highlighted-bits
+# These colors don't all place nicely with current terminal colors. In particular, the "new" color
+# looks gray instead of green.
+#[color "diff-highlight"]
+#	oldNormal = red bold
+#	oldHighlight = red bold 52
+#	newNormal = green bold
+#	newHighlight = green bold 22
+#[color "diff"]
+#	meta = 11
+#	frag = magenta bold
+#	func = 146 bold
+#	commit = yellow bold
+#	old = red bold
+#	new = green bold
+#	whitespace = red reverse
