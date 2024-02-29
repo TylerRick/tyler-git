@@ -336,10 +336,6 @@
     esac; \
   }; f"
 
-  # In case you've deleted some local branches but forgotten to delete the remote-tracking branch --
-  # and you'd rather just delete them all than figure them out individually. (You can always
-  # repush to get the remote branch back for a local branch.)
-  # branch-rm-all-remote
 
   #─────────────────────────────────────────────────────────────────────────────────────────────────
   # Alias development and debugging
