@@ -19,13 +19,11 @@
   #show = diff-highlight | less
   #diff = diff-highlight | less
 
+[pager]
   # Temporarily disable with git log-no-pretty/git diff-no-pretty
   show = diff-so-fancy | less --tabs=2 -RFX
   log  = diff-so-fancy | less --tabs=2 -RFX
   diff = diff-so-fancy | less --tabs=2 -RFX --pattern '^(Date|added|deleted|modified): '
-
-[delta]
-  navigate = true
 
 [alias]
   # To override that pager setting (useful if you want to create a patch file that can be applied or to copy and paste into a message or document where you don't have/want color codes), you can set GIT_PAGER=cat
@@ -50,9 +48,6 @@
 [core]
   # https://github.com/so-fancy/diff-so-fancy/blob/master/pro-tips.md
   #pager = diff-so-fancy | less --tabs=2 -RFX --pattern '^(Date|added|deleted|modified): '
-
-  # https://dandavison.github.io/delta/get-started.html
-  pager = delta
 
   # https://github.com/so-fancy/diff-so-fancy/blob/master/pro-tips.md
   # As a shortcut for a 'normal' diff to save as a patch for emailing or later application, it may be helpful to configure an alias:
@@ -396,8 +391,6 @@
 [diff]
   unified = 15
   compactionHeuristic = true
-  # https://dandavison.github.io/delta/get-started.html
-  colorMoved = default
 
   # diff.relative = true is great most of the time, but can be a pain sometimes.
   # For example, if you are inside of the directory where the file now lives, but it was previously
@@ -477,8 +470,7 @@ default = tracking
 # https://raw.github.com/git/git/master/Documentation/RelNotes/1.8.4.txt
 #default = simple
 [interactive]
-  # diffFilter = diff-highlight
-  diffFilter = delta --color-only
+  diffFilter = diff-highlight
 [gitopen "gitlab"]
   domain = hub.k3integrations.com
 [notes]
