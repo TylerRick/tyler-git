@@ -12,14 +12,21 @@
 
 [pager]
   # I sometimes get `diff-highlight | less: diff-highlight: Permission denied` (presumably after
-  # upgrading git package). Fix with;
+  # upgrading git package). The solution used to be:
   # sudo chmod +x /usr/share/doc/git/contrib/diff-highlight/diff-highlight
+  # But somewhere around git 2.43.2, they no longer include that bin file, including a
+  # diff-highlight.perl instead.
+  # perl /usr/share/doc/git/contrib/diff-highlight/diff-highlight.perl gives:
+  #   Undefined subroutine &DiffHighlight::highlight_stdin called at /usr/share/doc/git/contrib/diff-highlight/diff-highlight.perl line 7.
+  # Ah, discovered https://bugs.launchpad.net/ubuntu/+source/git/+bug/1713690, https://github.com/git/git/commit/0c977dbc8180892af42d7ab9235fd3e51d6c4078, which pointed out that you need to now:
+  #    cd /usr/share/doc/git/contrib/diff-highlight
+  #    sudo make
+  #    ln -s /usr/share/doc/git/contrib/diff-highlight/diff-highlight ~/bin/diff-highlight
 
   #log = diff-highlight | less
   #show = diff-highlight | less
   #diff = diff-highlight | less
 
-[pager]
   # Temporarily disable with git log-no-pretty/git diff-no-pretty
   show = diff-so-fancy | less --tabs=2 -RFX
   log  = diff-so-fancy | less --tabs=2 -RFX
