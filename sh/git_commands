@@ -518,7 +518,7 @@ alias git-create-local-dir="mkdir .local;  cd .local/;  git init;  git ci -m 'In
 # Upstream/Rebase
 
 function git-upstream() {
-  upstream=$(git for-each-ref --format="%(upstream:short)" $(git current-branch --fallback))
+  upstream=$(git rev-parse --abbrev-ref $(git current-branch --fallback)@{upstream})
   if [ "$upstream" == "" ]; then
     #echo 'No upstream'
     return 1  # No upstream
