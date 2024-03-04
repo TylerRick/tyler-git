@@ -28,9 +28,13 @@
   #diff = diff-highlight | less
 
   # Temporarily disable with git log-no-pretty/git diff-no-pretty
-  show = diff-so-fancy | less --tabs=2 -RFX
-  log  = diff-so-fancy | less --tabs=2 -RFX
-  diff = diff-so-fancy | less --tabs=2 -RFX --pattern '^(Date|added|deleted|modified): '
+  #show = diff-so-fancy | less --tabs=2 -RFX
+  #log  = diff-so-fancy | less --tabs=2 -RFX
+  #diff = diff-so-fancy | less --tabs=2 -RFX --pattern '^(Date|added|deleted|modified): '
+
+  show = diffr | less --tabs=2 -RFX
+  log  = diffr | less --tabs=2 -RFX
+  diff = diffr | less --tabs=2 -RFX
 
 [alias]
   # To override that pager setting (useful if you want to create a patch file that can be applied or to copy and paste into a message or document where you don't have/want color codes), you can set GIT_PAGER=cat
@@ -58,6 +62,9 @@
 
   # https://github.com/so-fancy/diff-so-fancy/blob/master/pro-tips.md
   # As a shortcut for a 'normal' diff to save as a patch for emailing or later application, it may be helpful to configure an alias:
+
+  pager = diffr | less -R
+
 [alias]
   patch = !git --no-pager diff --no-color
 
@@ -477,7 +484,8 @@ default = tracking
 # https://raw.github.com/git/git/master/Documentation/RelNotes/1.8.4.txt
 #default = simple
 [interactive]
-  diffFilter = diff-highlight
+  # diffFilter = diff-highlight
+  diffFilter = diffr
 [gitopen "gitlab"]
   domain = hub.k3integrations.com
 [notes]
