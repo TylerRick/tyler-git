@@ -27,11 +27,11 @@
   #show = diff-highlight | less
   #diff = diff-highlight | less
 
-  # Temporarily disable with git log-no-pretty/git diff-no-pretty
-  #show = diff-so-fancy | less --tabs=2 -RFX
-  #log  = diff-so-fancy | less --tabs=2 -RFX
-  #diff = diff-so-fancy | less --tabs=2 -RFX --pattern '^(Date|added|deleted|modified): '
+  show-dsf = diff-so-fancy | less --tabs=2 -RFX
+  log-dsf  = diff-so-fancy | less --tabs=2 -RFX
+  diff-dsf = diff-so-fancy | less --tabs=2 -RFX --pattern '^(Date|added|deleted|modified): '
 
+  # You can temporarily disable these with git log-no-pretty/git diff-no-pretty
   show = diffr | less --tabs=2 -RFX
   log  = diffr | less --tabs=2 -RFX
   diff = diffr | less --tabs=2 -RFX
@@ -448,6 +448,11 @@
   # git config --global rebase.autoStash true
 	autoStash = true
 
+  # (Recommended for everyone)
+  # (https://andrewlock.net/working-with-stacked-branches-in-git-is-easier-with-update-refs/)
+  # git config --global --add --bool rebase.updateRefs true
+	updateRefs = true
+
   # (More advanced)
   # git config --global rebase.autoSquash true
   autoSquash = true
@@ -475,14 +480,16 @@
   trustExitCode = false
 
 [push]
-# http://mislav.uniqpath.com/2010/07/git-tips/
-# git push will by default push all branches that have the same name on the remote. To
-# limit this behavior to just the current branch, set this configuration option:
-# $ git config --global push.default tracking
-# This is to prevent accidental pushes to branches which you’re not ready to push yet.
-default = tracking
-# https://raw.github.com/git/git/master/Documentation/RelNotes/1.8.4.txt
-#default = simple
+  # http://mislav.uniqpath.com/2010/07/git-tips/
+  # git push will by default push all branches that have the same name on the remote. To
+  # limit this behavior to just the current branch, set this configuration option:
+  # $ git config --global push.default tracking
+  # This is to prevent accidental pushes to branches which you’re not ready to push yet.
+  default = tracking
+  # https://raw.github.com/git/git/master/Documentation/RelNotes/1.8.4.txt
+  #default = simple
+  autoSetupRemote = true
+
 [interactive]
   # diffFilter = diff-highlight
   diffFilter = diffr
@@ -511,29 +518,16 @@ default = tracking
   #hooks = !\"/home/tyler/.githooks/bin/githooks\"
 
   # https://github.com/gabyx/githooks
-	hooks = !\"/home/tyler/.githooks/bin/cli\"
 	fn = !bash -c 'fn \"$@\"' x
 [githooks]
   # https://github.com/rycus86/githooks
   # cloneUrl = https://github.com/rycus86/githooks.git
   # cloneBranch = master
 
-
-	disable = false
-	installDir = /home/tyler/.githooks
-	useCoreHooksPath = false
 	noReadme = yes
+	installDir = /home/tyler/.githooks
 
   # https://github.com/gabyx/githooks
-	cloneUrl = https://github.com/gabyx/githooks.git
-	cloneBranch = main
-	runner = /home/tyler/.githooks/bin/runner
-	dialog = /home/tyler/.githooks/bin/dialog
-	autoUpdateCheckTimestamp = 1700851293
-	maintainedHooks = all
-	autoUpdateEnabled = true
-	previousSearchDir = /home/tyler/code/k3
-	useManual = false
 
   # runner = /home/tyler/.githooks/release/base-template.sh
 [githooks "autoupdate"]
