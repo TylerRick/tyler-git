@@ -515,24 +515,9 @@
 	templateDir = /home/tyler/.githooks/templates
 
 [alias]
-  #hooks = !\"/home/tyler/.githooks/bin/githooks\"
-
   # https://github.com/gabyx/githooks
 	fn = !bash -c 'fn \"$@\"' x
-[githooks]
-  # https://github.com/rycus86/githooks
-  # cloneUrl = https://github.com/rycus86/githooks.git
-  # cloneBranch = master
-
-	noReadme = yes
-	installDir = /home/tyler/.githooks
-
-  # https://github.com/gabyx/githooks
-
-  # runner = /home/tyler/.githooks/release/base-template.sh
-[githooks "autoupdate"]
-	enabled = true
-	lastrun = 1661286729
+	hooks = !\"/home/tyler/.githooks/bin/githooks-cli\"
 
 # https://github.com/so-fancy/diff-so-fancy?tab=readme-ov-file#improved-colors-for-the-highlighted-bits
 # These colors don't all place nicely with current terminal colors. In particular, the "new" color
@@ -550,3 +535,13 @@
 #	old = red bold
 #	new = green bold
 #	whitespace = red reverse
+[githooks]
+	installDir = /home/tyler/.githooks
+	cloneUrl = https://github.com/gabyx/githooks.git
+	cloneBranch = main
+	installMode = manual
+	pathForUseCoreHooksPath = /home/tyler/.githooks/templates/hooks
+	runner = /home/tyler/.githooks/bin/githooks-runner
+	dialog = /home/tyler/.githooks/bin/githooks-dialog
+	maintainedHooks = all
+	updateCheckEnabled = true
