@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# A more user-friendly frontend to update-ref, which (unlike porcelain commands), requires you to
-# pass the refs/heads part and silently does the wrong thing if you forget to.
+# A more user-friendly frontend to the plumbing command update-ref, which (unlike porcelain
+# commands), requires you to pass the refs/heads part and silently does the wrong thing if you
+# forget to.
 # (See https://stackoverflow.com/questions/36006054/why-does-git-update-ref-accepts-non-refs-references)
 
 branch=$1
