@@ -3,6 +3,8 @@
 # To do: Also use in git-find-rebase-i-commands-in-commit-messages
 # To do: Let user specify different types of "equivalence". Current type is "same commit message".
 # To do: Extract git-find-commit-matching-subject (match first line only by default?), and use that from here
+# To do: Add --quiet option (or make that default and add --verbove opt?). Maybe not as important
+# now that I realize we're directing commentary to &2.
 # That's usually what I want, because if I fixup/squash a previous commit, its content changes but
 # commit message usually stays nearly the same.
 # But they *may* also mean identical content. How do we check the SHA of the tree referenced by a
@@ -50,7 +52,7 @@ function git-find-equivalent-commit() {
     mapfile -t ancestor_ary <<< "$ancestor"
     ancestor_id=${ancestor_ary[0]}
     # Store lines 1..end in a variable, with newlines added back in
-    printf -v ancestor_message "%s\n" "${ancestor_ary[@]:1}"
+    printf -v ancestor_message "%s\n" "${ancestor_ary[@]:1}" >&2
     #echo '===================================================================================================='
     #echo ancestor_id=$ancestor_id
     #echo "`echo "$ancestor_message" | head -n1`"
