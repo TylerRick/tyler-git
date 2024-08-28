@@ -65,6 +65,18 @@ eval set -- "$positional_args"
 
 commit=$1; shift
 
+# TODO: Add a way to configure defaults (env? a file?) and/or a way to override this with a --no-committer-date-is-author-date
+# This is something I would use if I'm cleaning up commits from months/years ago, but not if I'm
+# doing a rebase of recent commits.
+# Be warned that: This option implies --force-rebase. So it will create new commits for every single
+# commit in your list, which is often not what I want (often I like to be able to repeat rebase
+# using the same "base" commit and have it not actually modify that base commit). Unfortunately, it
+# doesn't skip this modification if no change is needed (if the commit date and author date already
+# match.)
+if [ -n "$commit_date_is_author_date" ]; then
+  echo 'Adding --committer-date-is-author-date'
+  rebase_opts="${rebase_opts} --committer-date-is-author-date"
+fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 if (( ${#commit} <= 3 )); then
