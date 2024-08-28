@@ -73,6 +73,9 @@ commit=$1; shift
 # using the same "base" commit and have it not actually modify that base commit). Unfortunately, it
 # doesn't skip this modification if no change is needed (if the commit date and author date already
 # match.)
+# As a workaround to deal with an each-time-changing base commit id, you can just keep searching for
+# the equivalent replacement commit, like:
+#   gcifrb $(git common-ancestor main $(git find-equivalent-commit 838fb0195e))
 if [ -n "$commit_date_is_author_date" ]; then
   echo 'Adding --committer-date-is-author-date'
   rebase_opts="${rebase_opts} --committer-date-is-author-date"
