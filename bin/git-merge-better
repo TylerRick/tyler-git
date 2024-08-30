@@ -482,19 +482,18 @@ command="vim -c '" +
 
 
 
-
-  # 1 log vs. main file (in case the 3 windows in one tab is too crowded)
-  ("tabedit #{@file                 } | vert split #{files['upstream.log.diff']} | " if files['upstream.log.diff']).to_s +
-
   # 3 windows in one tab: Log from each version with main file in center
   #"tabedit #{files['mine.log.diff']} | vert split #{files['upstream.log.diff']} | wincmd w | vert split #{@file} | " +
-
-  # upstream.from_conflicted vs. mine.from_conflicted
-  "tabedit #{files['mine.from_conflicted']} | vert diffsplit #{files['upstream.from_conflicted']} | " +
 
   # 1 log vs. main file (in case the 3 windows in one tab is too crowded)
   #"tabedit #{files['mine.log.diff']} | vert split #{@file} | " +
   "tabedit #{@file                 } | vert split #{files['mine.log.diff']} | " +
+
+  # 1 log vs. main file (in case the 3 windows in one tab is too crowded)
+  ("tabedit #{@file                 } | vert split #{files['upstream.log.diff']} | " if files['upstream.log.diff']).to_s +
+
+  # upstream.from_conflicted vs. mine.from_conflicted
+  "tabedit #{files['mine.from_conflicted']} | vert diffsplit #{files['upstream.from_conflicted']} | " +
 
 
   "tabclose 1 |" +
