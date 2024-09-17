@@ -228,6 +228,11 @@
   # See also: git-diff-next-modified
   ls-modified      = ls-files --modified --directory
 
+  ls-staged = diff --name-only --cached
+
+  # git ls-in-commit --diff-filter=M @
+  ls-in-commit = diff-tree --no-commit-id --name-only -r
+
   #─────────────────────────────────────────────────────────────────────────────────────────────────
 
   # https://stackoverflow.com/questions/7534184/git-alias-multiple-commands-and-parameters/7534289#7534289
