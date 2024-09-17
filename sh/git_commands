@@ -118,21 +118,22 @@ alias  gdws='git diff --find-renames --find-copies --ignore-all-space --color-wo
 
 #------------------------------------------
 
-# Added git alias: ls-staged = diff --name-only --cached
+# Added git alias: ls-staged
 alias git-ls-staged='git diff --name-only --cached'
 
+# Added git alias: ls-in-commit
 # Usage:
-#   git-diff-list-files @
-#   git-diff-list-files --diff-filter=M @
+#   git-ls-in-commit @
+#   git-ls-in-commit --diff-filter=M @
 #   # added (A), copied (C), deleted (D), renamed (R), or changed (M)
-#   git-diff-list-files rev1 rev2
-#   git-diff-list-files deployed/staging/2020-04-28T23-32-10 @ | xargs bin/hot_fix_staging -r
-function git-diff-list-files() {
+#   git-ls-in-commit rev1 rev2
+#   git-ls-in-commit deployed/staging/2020-04-28T23-32-10 @ | xargs bin/hot_fix_staging -r
+function git-ls-in-commit() {
   # https://stackoverflow.com/questions/424071/how-to-list-all-the-files-in-a-commit
   #git diff "$@" | grep 'diff --git' | nocolor | sed 's#diff --git a/##; s# b/.*##'
   git diff-tree --no-commit-id --name-only -r "$@"
 }
-export -f git-diff-list-files
+export -f git-ls-in-commit
 
 #------------------------------------------
 # Getting state/status/metadata
