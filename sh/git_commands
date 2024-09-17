@@ -116,9 +116,17 @@ alias   gwd='git diff --word-diff'
 alias   gdw='git diff --find-renames --find-copies --ignore-all-space --color-words'
 alias  gdws='git diff --find-renames --find-copies --ignore-all-space --color-words --staged'
 
-# Usage: git-diff-list-files rev1 rev2
-# Usage: git-diff-list-files rev
-# git-diff-list-files deployed/staging/2020-04-28T23-32-10 @ | xargs bin/hot_fix_staging -r
+#------------------------------------------
+
+# Added git alias: ls-staged = diff --name-only --cached
+alias git-ls-staged='git diff --name-only --cached'
+
+# Usage:
+#   git-diff-list-files @
+#   git-diff-list-files --diff-filter=M @
+#   # added (A), copied (C), deleted (D), renamed (R), or changed (M)
+#   git-diff-list-files rev1 rev2
+#   git-diff-list-files deployed/staging/2020-04-28T23-32-10 @ | xargs bin/hot_fix_staging -r
 function git-diff-list-files() {
   # https://stackoverflow.com/questions/424071/how-to-list-all-the-files-in-a-commit
   #git diff "$@" | grep 'diff --git' | nocolor | sed 's#diff --git a/##; s# b/.*##'
@@ -240,8 +248,9 @@ function   glprf() {
 alias glpfullhistory='git log -p --full-history'
 
 # Show the diff for *all* files changed by commits that changed {file}
-alias glpfulldiff='git log -p --full-diff'
-# TODO: add --follow if exactly 1 path passed
+#alias glpfulldiff='git log -p --full-diff'
+alias glpfulldiff='git log-full-diff -p'
+# TODO: add --follow only if exactly 1 path passed
 # otherwise we get:
 # fatal: --follow requires exactly one pathspec
 
