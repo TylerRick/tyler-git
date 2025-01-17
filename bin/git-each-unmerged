@@ -37,8 +37,9 @@ parse_args
 require File.dirname(__FILE__) + '/../lib/handle_backup_and_add_for_user_manually_resolving_conflict'
 
 require 'rubygems' 
-$:.unshift "/home/tyler/installed/ruby-git/lib"
-require 'git'      # requires my changes to ruby-git, (git.status.untracked)
+#$:.unshift "/home/tyler/installed/ruby-git/lib"
+#require 'git'      # requires my changes to ruby-git, (git.status.untracked)
+# TODO: update to use latest https://github.com/ruby-git/ruby-git#v2x-release
 require 'colored'
 require 'pathname'
 require 'facets/kernel/blank'
@@ -62,7 +63,7 @@ end
 def relative_to_wd(path)
   @cdup.blank? ? path : File.join(@cdup, path)
 end
-@git = Git.open(@repo_root)
+#@git = Git.open(@repo_root)
 @lines_preview_to_show = 50
 
 @editor = ENV['VISUAL'] || ENV['EDITOR'] || raise('VISUAL not set')
@@ -76,9 +77,10 @@ begin
 
   # TODO: Get it to pass --no-color to command so we don't have to strip out the color that was
   # added.
-  puts %(@git.status.unmerged=#{(@git.status.unmerged).inspect})
-  puts %(@git.status.modified=#{(@git.status.modified).inspect})
-  unmerged = @git.status.unmerged.map(&:strip_color)
+  #puts %(@git.status.unmerged=#{(@git.status.unmerged).inspect})
+  #puts %(@git.status.modified=#{(@git.status.modified).inspect})
+  #unmerged = @git.status.unmerged.map(&:strip_color)
+  unmerged = `git diff --name-only --diff-filter=U`.split("\n")
   if unmerged.empty?
     puts "No unmerged files found. If this is incorrect (for example, if you mistakenly marked a file as resolved when it wasn't), you can always try git merge-better {file} to open the file anyway."
   end
