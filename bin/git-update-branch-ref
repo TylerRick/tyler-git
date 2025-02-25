@@ -6,7 +6,8 @@
 # (See https://stackoverflow.com/questions/36006054/why-does-git-update-ref-accepts-non-refs-references)
 
 branch=$1
-ref=refs/heads/$branch
+ref=refs/heads/$branch; shift
 git rev-parse "$ref" >/dev/null || exit 1
 
+set -x
 git update-ref $ref "$@"
