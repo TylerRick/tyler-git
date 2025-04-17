@@ -172,7 +172,7 @@ GIT_AUTHOR_DATE="$GIT_AUTHOR_DATE"         \
 GIT_COMMITTER_NAME="$GIT_COMMITTER_NAME"   \
 GIT_COMMITTER_EMAIL="$GIT_COMMITTER_EMAIL" \
 GIT_COMMITTER_DATE="$GIT_COMMITTER_DATE"   \
-git commit $file_list --quiet --no-verify -F $git_dir/git-commit-modify-message || failed=t
+git commit $file_list --quiet --no-verify --allow-empty -F $git_dir/git-commit-modify-message || failed=t
 
 #---------------------------------------------------------------------------------------------------
 # Clean up
