@@ -11,11 +11,17 @@ Usage: `basename $0` [-l] [-r] <branch> [<branch2>]
 
 For each branch name given, deletes the branch.
 
-By default, deletes all 3 branches matching the given name.
+What should it do by default (if neither -l or -t or -f are passed)?
+- local only?
+- -l -r?
+- check which ones are present and ask for each one?
+
+[not true yet:] By default, deletes all 3 branches matching the given name.
 
 Options:
   -l|--local: Removes the local branch for the given name(s) only.
-  -r|--remote: Removes the remote and remote-tracking branches for the given name(s) only (not the local branch).
+  -t|--tracking: Removes the remote-tracking branches for the given name(s) only (not the local branch or remote branch unless those also specified).
+  -r|--remote: Removes the remote branch and remote-tracking branches for the given name(s) only (not the local branch unless it is also specified).
 
 Examples:
   git branch -r | `basename $0` -r
@@ -38,7 +44,13 @@ while (( "$#" )); do
       shift
       ;;
 
+    -t|--tracking)
+      delete_tracking=1
+      shift
+      ;;
+
     -r|--remote)
+      delete_tracking=1
       delete_remote=1
       shift
       ;;
@@ -82,12 +94,15 @@ while read -r input; do
   # echo remote: $remote
   # echo branch: $branch
   if [ -n "$delete_local" ]; then
+    # Should this require -f ?
     git branch -D -- "$branch"
   fi
-  if [ -n "$delete_remote" ]; then
+  if [ -n "$delete_tracking" ]; then
     git branch --delete --remotes -- "$remote/$branch"
+  fi
+  if [ -n "$delete_remote" ]; then
     if git remote-is-usable $remote; then
-      echo "Deleting branch '''$branch''' from remote '''$remote''' …"
+      echo "Deleting branch '$branch' from remote '$remote' …"
       git push $remote -d $branch
     else 
       echo "Skipping unusable remote"
