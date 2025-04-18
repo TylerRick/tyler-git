@@ -1,0 +1,31 @@
+#!/bin/bash
+
+git log --pretty=format:'%H' "$@" | while read commit; do
+    author_name=$(git show -s --format='%an' "$commit")
+    committer_name=$(git show -s --format='%cn' "$commit")
+    author_email=$(git show -s --format='%ae' "$commit")
+    committer_email=$(git show -s --format='%ce' "$commit")
+    author_date=$(git show -s --format='%ad' --date=iso-strict "$commit")
+    committer_date=$(git show -s --format='%cd' --date=iso-strict "$commit")
+
+    if [[ "$author_name" != "$committer_name" || \
+          "$author_email" != "$committer_email" || \
+          "$author_date" != "$committer_date" ]]; then
+
+        #echo "🔸 Commit: $commit"
+        echo "🔸 $(git log -1 --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' $commit)"
+        if [[ "$author_name" != "$committer_name" ]]; then
+            echo "   - Author Name:    $author_name"
+            echo "   - Committer Name: $committer_name"
+        fi
+        if [[ "$author_email" != "$committer_email" ]]; then
+            echo "   - Author Email:    $author_email"
+            echo "   - Committer Email: $committer_email"
+        fi
+        if [[ "$author_date" != "$committer_date" ]]; then
+            echo "   - Author Date:    $author_date"
+            echo "   - Committer Date: $committer_date"
+        fi
+        echo
+    fi
+done
