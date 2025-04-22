@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#
+# git-replay-renames: replay all R (rename) lines from a git --name-status stream
+#
+# Usage:
+#   git show --name-status <commit> | git-replay-renames
+#   # or, if you already saved the output:
+#   git-replay-renames < name-status.txt
+
+set -euo pipefail
+
+# Read each line: STATUS <tab> OLD_PATH <tab> NEW_PATH
+while IFS=$'\t' read -r status old new; do
+  # Look for lines beginning with "R" (e.g. R087, R100, etc.)
+  case "$status" in
+    R*)
+      mkdir -p "$(dirname "$new")"
+      printf "📦 renaming %s → %s\n" "$old" "$new"
+      git mv -- "$old" "$new"
+      ;;
+    *)
+      # ignore A, D, M, etc.
+      ;;
+  esac
+done
