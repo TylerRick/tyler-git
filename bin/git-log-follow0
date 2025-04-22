@@ -1,0 +1,29 @@
+#!/bin/bash
+# Usage: ./$0 <file>
+
+file="$1"
+
+while true; do
+  set -x
+  # Show log up to the first commit
+  git log -n 1 --pretty=format:"%H" -- "$file" || break
+  git log -1 --stat -- "$file"
+  echo "----------------------------------"
+
+  # Find the rename
+  rename_info=$(git log -M --summary -- "$file" | grep "rename" | head -n 1)
+  if [ -z "$rename_info" ]; then
+    break
+  fi
+
+  # Extract old path from rename
+  old_path=$(echo "$rename_info" | sed -E 's/.*{([^}]+)}.*/\1/')
+  if [[ "$rename_info" =~ "=>" ]]; then
+    # Handle full path renames
+    old_path=$(echo "$rename_info" | sed -E 's/.* => (.*)$/\1/' | awk '{print $1}')
+  fi
+
+  # Replace current file with old path and repeat
+  echo "Following rename to: $old_path"
+  file="$old_path"
+done

@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# ./smart-follow.sh <file>
+file="$1"
+
+while [[ -n "$file" ]]; do
+  echo "Showing history for: $file"
+  git log --oneline -- "$file"
+  echo "-----"
+
+  # Look for rename: last commit that *deleted* this file
+  # Doesn't work. We want last commit that _added_ this file.
+  set -x
+  git log --diff-filter=D --summary -- "$file"
+  rename_commit=$(git log --diff-filter=D --summary -- "$file" | grep -B 1 "delete mode" | head -n 1 | awk '{print $2}')
+  if [[ -z "$rename_commit" ]]; then
+    echo 'no rename'
+    break
+  fi
+
+  # Extract old file path from the rename commit
+  old_path=$(git show --name-status "$rename_commit" | grep "^D" | awk '{print $2}')
+  echo "Following back to: $old_path @ $rename_commit"
+  file="$old_path"
+done

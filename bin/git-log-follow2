@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+# Usage: ./git-log-follow-smart.sh <file-path> [--diff]
+# Tracks file history across hard-to-detect renames (like rename+edit).
+
+set -euo pipefail
+
+file="${1:-}"
+show_diff="${2:-}"
+
+if [[ -z "$file" || ! -f "$file" ]]; then
+  echo "Usage: $0 <file-path> [--diff]"
+  exit 1
+fi
+
+declare -a history_files=()
+declare -A seen_files=()
+seen_files["$file"]=1
+
+current_file="$file"
+
+while [[ -n "$current_file" ]]; do
+  history_files+=("$current_file")
+
+  add_commit=$(git log --diff-filter=A --pretty=format:"%H" -- "$current_file" | tail -1)
+  [[ -n "$add_commit" ]] || break
+
+  # Look at all deleted files in the same commit
+  deleted_files=($(git show --name-status "$add_commit" | awk '$1 == "D" { print $2 }'))
+
+  best_match=""
+  for candidate in "${deleted_files[@]}"; do
+    # Skip the same file
+    [[ "$candidate" == "$current_file" ]] && continue
+    [[ "${seen_files[$candidate]:-}" == "1" ]] && continue
+
+    # Exact match by filename
+    if [[ "$(basename "$candidate")" == "$(basename "$current_file")" ]]; then
+      best_match="$candidate"
+      break
+    fi
+
+    # Prefer same directory
+    if [[ "$(dirname "$candidate")" == "$(dirname "$current_file")" ]]; then
+      best_match="$candidate"
+    fi
+  done
+
+  if [[ -z "$best_match" ]]; then
+    break
+  fi
+
+  current_file="$best_match"
+  seen_files["$current_file"]=1
+done
+
+# Show log from oldest to newest
+for ((i=${#history_files[@]}-1; i>=0; i--)); do
+  f="${history_files[$i]}"
+  echo -e "\n\033[1;36m=============================="
+  echo -e "📄 History for: $f"
+  echo -e "==============================\033[0m"
+  if [[ "$show_diff" == "--diff" ]]; then
+    git log --date=short -p -- "$f"
+  else
+    git log --date=short --pretty=format:"%C(yellow)%h%Creset %Cgreen%ad%Creset %C(bold blue)%an%Creset%n  %s%n" -- "$f"
+  fi
+done

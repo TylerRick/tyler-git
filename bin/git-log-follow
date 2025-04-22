@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+#
+# git-log-follow  —  like `git log --follow`, but tracks renames Git might miss
+#
+# Usage:
+#   git-log-follow [--show-filename] <file> [<git-log-opts>...]
+#
+# Examples:
+#   git-log-follow tests/auth/log-in.test.ts
+#   git-log-follow --show-filename tests/auth/log-in.test.ts -p --reverse -n 50
+
+set -euo pipefail
+
+# ---- parse args ----
+show_filename=false
+file=""
+git_args=()
+
+for arg in "$@"; do
+  if [[ "$arg" == "--show-filename" ]]; then
+    show_filename=true
+  elif [[ -z "$file" ]]; then
+    file="$arg"
+  else
+    git_args+=("$arg")
+  fi
+done
+
+if [[ -z "$file" ]]; then
+  cat <<EOF
+Usage: $(basename "$0") [--show-filename] <file-path> [<git-log-opts>...]
+EOF
+  exit 1
+fi
+if [[ ! -e "$file" ]]; then
+  echo "error: file '$file' not found" >&2
+  exit 1
+fi
+
+# ---- build name history ----
+declare -a history_files=()
+declare -A seen_names=()
+current="$file"
+seen_names["$current"]=1
+
+while [[ -n "$current" ]]; do
+  history_files+=("$current")
+
+  # find the commit that added this file
+  add_commit=$(git log --diff-filter=A --format=%H -- "$current" | tail -1)
+  [[ -n "$add_commit" ]] || break
+
+  # collect deletions in that commit
+  mapfile -t dels < <(
+    git show --name-status --oneline "$add_commit" | awk '$1=="D"{print $2}'
+  )
+
+  # pick the best match: same basename first, then same dir
+  best=""
+  base_cur=$(basename "$current")
+  dir_cur=$(dirname  "$current")
+
+  for d in "${dels[@]}"; do
+    [[ -z "$d" || "${seen_names[$d]:-}" ]] && continue
+    if [[ "$(basename "$d")" == "$base_cur" ]]; then
+      best="$d"; break
+    elif [[ "$(dirname "$d")" == "$dir_cur" && -z "$best" ]]; then
+      best="$d"
+    fi
+  done
+
+  [[ -n "$best" ]] || break
+  seen_names["$best"]=1
+  current="$best"
+done
+
+# ---- decide ordering vs --reverse ----
+reverse=false
+for x in "${git_args[@]}"; do
+  [[ "$x" == "--reverse" ]] && reverse=true && break
+done
+
+if $reverse; then
+  # reverse history_files so oldest-name comes first
+  output_files=($(printf '%s\n' "${history_files[@]}" | tac))
+else
+  output_files=("${history_files[@]}")
+fi
+
+# ---- run combined logs under one pager ----
+# build pager command (default less -R)
+pager_cmd=( "${PAGER:-less}" -R )
+
+(
+  first=true
+  for f in "${output_files[@]}"; do
+    if ! $first; then
+      printf "\n"          # blank line between blocks
+    fi
+    first=false
+
+    if $show_filename; then
+      printf "=== %s ===\n" "$f"
+    fi
+
+    # disable inner pagers
+    git -c core.pager=cat --no-pager log "${git_args[@]}" -- "$f"
+  done
+) | "${pager_cmd[@]}"
+
