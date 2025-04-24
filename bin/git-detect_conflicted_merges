@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# From https://chatgpt.com/c/6801c30b-6830-800b-a846-a43228b7e71e
+
+echo "Scanning merge commits for possible conflict resolution..."
+
+# Get all merge commits
+merge_commits=$(git rev-list --merges HEAD)
+
+for commit in $merge_commits; do
+    # Get number of lines changed in the merge commit
+    changes=$(git show --stat --oneline $commit | tail -n +2 | wc -l)
+
+    if [ "$changes" -gt 0 ]; then
+        echo "⚠️  Likely manual resolution in merge commit: $commit"
+        git log --format='%h %s' -n 1 $commit
+        echo "Run: git show $commit"
+        echo
+    fi
+done
+
+echo "Done."
