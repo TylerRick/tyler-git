@@ -2,20 +2,39 @@
 
 # From https://chatgpt.com/c/6801c30b-6830-800b-a846-a43228b7e71e
 
-echo "Scanning merge commits for possible conflict resolution..."
+echo "Detecting merge commits with manual conflict resolution..."
 
-# Get all merge commits
 merge_commits=$(git rev-list --merges HEAD)
 
 for commit in $merge_commits; do
-    # Get number of lines changed in the merge commit
-    changes=$(git show --stat --oneline $commit | tail -n +2 | wc -l)
+    # Get the two parents of the merge commit
+    parents=($(git rev-list --parents -n 1 $commit))
 
-    if [ "$changes" -gt 0 ]; then
-        echo "⚠️  Likely manual resolution in merge commit: $commit"
-        git log --format='%h %s' -n 1 $commit
-        echo "Run: git show $commit"
-        echo
+    # Skip if not a two-parent merge
+    if [ "${#parents[@]}" -ne 3 ]; then
+        continue
+    fi
+
+    echo "===================================================================================================="
+    #echo "Checking $commit"
+    git log-oneline -1 $commit
+    git show $commit | head
+
+    p1=${parents[1]}
+    p2=${parents[2]}
+
+    # Get merge base
+    base=$(git merge-base $p1 $p2)
+
+    # Compare actual merge commit with auto-generated merge tree
+    #git merge-tree $base $p1 $p2 | less
+    diff_output=$(git diff --exit-code $commit $(git merge-tree $base $p1 $p2 | git hash-object -t tree --stdin -w 2>/dev/null))
+    echo "$diff_output" | head
+
+    if [ $? -ne 0 ]; then
+        echo "⚠️  Likely manual merge at $commit"
+        git log -1 --format="%h %s" $commit
+        exit
     fi
 done
 
