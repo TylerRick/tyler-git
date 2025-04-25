@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+# This does the following:
+# - replaces merge commits with placeholder "copy" of the merge commit to preserve its place and its metadata in the history
+# - preserves original committer metadata (using )
+
+function git-show() {
+  git show --no-patch --pretty=format:"$(git config rebase.instructionFormat)" "$1"
+}
+
+todo_file="$1"
+tmp="$(mktemp)"
+while IFS= read -r line; do
+  if [[ $line =~ ^merge\ -C\ ([0-9a-f]+) ]]; then
+    rev=${BASH_REMATCH[1]}
+    echo "exec git-commit-cp $rev #$(git-show $rev)"
+  elif [[ $line =~ ^reset|^label ]]; then
+    : # Don't reset. That only works if creating merge commits.
+  elif [[ $line =~ ^pick\ ([0-9a-f]+) ]]; then
+    rev=${BASH_REMATCH[1]}
+    echo "$line"
+    echo "exec git-commit-amend-copy-committer $rev #$(git-show $rev)"
+  else
+    echo "$line"
+  fi
+done <"$todo_file" >"$tmp"
+mv "$tmp" "$todo_file"
+
+editor="${VISUAL:-${EDITOR:-vim}}"
+
+# Now open the modified to-do list in the real editor for review
+exec "$editor" "$todo_file"

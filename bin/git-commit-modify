@@ -8,6 +8,8 @@
 # Unlike commit --amend, preserves commit timestamp by default rather than changing it to timestamp for now
 # Unlike commit --amend, doesn't work to edit initial commit (because tries to go back to HEAD~1)
 
+# A bit dated. See newer techniques in git-commit-amend-copy-commiter.
+
 # see /home/tyler/dev/git/git/git rebase--interactive.sh
 
 #-----------------
@@ -82,6 +84,10 @@ preserved_GIT_COMMITTER_NAME="$GIT_COMMITTER_NAME"
 preserved_GIT_COMMITTER_EMAIL="$GIT_COMMITTER_EMAIL"
 preserved_GIT_COMMITTER_DATE="$GIT_COMMITTER_DATE"
 
+#GIT_COMMITTER_NAME="$(git show -s --format='%cn'  $rev)" \
+#GIT_COMMITTER_EMAIL="$(git show -s --format='%ce'  $rev)" \
+#GIT_COMMITTER_DATE="$(git show -s --format='%cI'  $rev)" \
+
 positional_args=""
 pass_through_opts=""
 while (( "$#" )); do
@@ -107,6 +113,9 @@ rev=${1:-HEAD}
 
 eval "$(get_author_ident_from_commit    $rev)"
 eval "$(get_committer_ident_from_commit $rev)"
+
+GIT_AUTHOR_DATE="$(git show -s --format='%aI' $rev)"
+GIT_COMMITTER_DATE="$(git show -s --format='%cI' $rev)"
 
 if test "$show_info_only" = "1" ; then
   echo GIT_AUTHOR_NAME=$GIT_AUTHOR_NAME

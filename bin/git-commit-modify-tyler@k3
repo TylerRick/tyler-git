@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Example usage:
+# git rebase -i --exec=~/installed/tyler-git/bin/git-commit-modify-tyler@k3 --committer-date-is-author-date c35e8a1ee27b3082d7e10734dd2b099bba83297e^
+
+
+EMAIL=.*@tylerrick.com
+
+if git commit-modify --show-info-only | grep -q tylerrick.com; then
+  export GIT_AUTHOR_EMAIL=tyler@k3.is
+  export GIT_COMMITTER_EMAIL=tyler@k3.is
+  git commit-modify
+fi

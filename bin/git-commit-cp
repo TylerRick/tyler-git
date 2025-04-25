@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# usage: $0 <orig-sha>
+
+# Create a new commit that is a copy of $1, including author and commiter info.
+# New commit will be a simple commit, however, even if original  $1 is a merge commit.
+
+# See also: git-commit-amend-copy-committer
+
+#====================================================================================================
+rev=$1
+
+# TODO: should we use this instead?:
+# eval "$(git-commit-modify --show-info-only $rev)"
+
+GIT_COMMITTER_NAME="$(git show -s --format='%cn'  $rev)" \
+GIT_COMMITTER_EMAIL="$(git show -s --format='%ce'  $rev)" \
+GIT_COMMITTER_DATE="$(git show -s --format='%cI'  $rev)" \
+git commit --allow-empty -C "$@"
