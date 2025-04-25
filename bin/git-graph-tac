@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# Normally you cannot combine --graph and --reverse for git log.
+# This is a workaround for that limitation.
+# Example:
+#   git log-oneline-graph master | git-graph-tac | less
+# (git-log-oneline-graph-reverse encapsulates this into a single simple command)
+#
+# Given in input stream from git log --graph with a one-line format,
+# this reverses the order of the commits
+# and swaps the / and \ characters so that they are going the right direction for the graph to make sense with the reversed commits.
+
+sed -e 's@/@\x01@g' -e 's@\\@/@g' -e 's@\x01@\\@g' | tac

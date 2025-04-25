@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# Normally you cannot combine --graph and --reverse for git log.
+# This is a workaround for that limitation.
+
+git log-oneline-graph "$@" | git-graph-tac | less -R
