@@ -4,12 +4,18 @@
 # - replaces merge commits with placeholder "copy" of the merge commit to preserve its place and its metadata in the history
 # - preserves original committer metadata (using )
 
+# Remember to override GIT_SEQUENCE_EDITOR if you need to edit your to-do list. Otherwise it will run this again, and you'll end up with duplicate lines added.
+#   GIT_SEQUENCE_EDITOR='vim' git rebase --edit-todo
+
+
 function git-show() {
   git show --no-patch --pretty=format:"$(git config rebase.instructionFormat)" "$1"
 }
 
 todo_file="$1"
-tmp="$(mktemp)"
+tmp_file="$(mktemp)"
+cp "$tmp_file" "$todo_file.orig"
+
 while IFS= read -r line; do
   if [[ $line =~ ^merge\ -C\ ([0-9a-f]+) ]]; then
     rev=${BASH_REMATCH[1]}
@@ -19,12 +25,13 @@ while IFS= read -r line; do
   elif [[ $line =~ ^pick\ ([0-9a-f]+) ]]; then
     rev=${BASH_REMATCH[1]}
     echo "$line"
-    echo "exec git-commit-amend-copy-committer $rev #$(git-show $rev)"
+    #echo "exec git-commit-amend-copy-committer $rev #$(git-show $rev)"
+    echo "exec     git-commit-amend-copy-committer $rev # ↑"
   else
     echo "$line"
   fi
-done <"$todo_file" >"$tmp"
-mv "$tmp" "$todo_file"
+done <"$todo_file" >"$tmp_file"
+mv "$tmp_file" "$todo_file"
 
 editor="${VISUAL:-${EDITOR:-vim}}"
 
