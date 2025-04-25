@@ -45,6 +45,8 @@
   log-no-pretty  = ! GIT_PAGER=less git log
   diff-no-pretty = ! GIT_PAGER=less git diff
 
+  log-raw = log --format=format:\"commit %H %d%nAuthor: %an <%ae>%nDate: %aD%n%n%B\"
+
   # log.follow=true sometimes causes problems; use this to one-off disable it for a single log command
   log-no-follow= -c log.follow= log
   # One of the cases where it causes problems is with --full-diff
@@ -114,6 +116,11 @@
   ls                  = log-oneline-graph
   log-oneline-no-walk = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' --no-walk
 
+  # If it isn't detecting/following renames using --follow then use this wrapper script
+  log-follow-oneline         = log-follow --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s'
+  log-follow-oneline-graph   = log-follow --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' --graph
+  lfs                        = log-follow-oneline-graph
+
   # Very condensed. Almost nothing but body.
   log-body          = log --pretty=format:'______________________________________%n%Cred%h%Creset  (%Cgreen%ai%Creset)%n%s%n%n%-b'
   # Very condensed. Almost nothing but body and stats.
@@ -132,6 +139,15 @@
     rev=$1; \
     { git log --color --pretty=format:\"%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s\" --graph $rev^..HEAD; echo; } | tac; \
   }; f \"$@\"' arg0"
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+ 
+  # Like log-oneline except only shows 1 commit.
+  show-oneline = show --no-patch --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s'
+
+  # Shows type of change (A/M/D/R), shows match % for Renames, and lists full paths for renames
+  show-name-status-raw = show --name-status --oneline
+  show-name-status = show --name-status --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s'
 
   #─────────────────────────────────────────────────────────────────────────────────────────────────
   # Commit
@@ -154,12 +170,15 @@
     set -x; \
     git commit --allow-empty -m \"$*\"; \
   }; f \"$@\"' arg0"
-  # Opinion: commit logs are _best_ viewed (and easier to understand) in chronological order (incorrectly called --reverse).
+
+  # Opinion: commit logs are _best_ viewed (and easier to understand) in chronological order
+  # (incorrectly called --reverse). The pairs ︽︾ are intended for viewing that way.
   # I considered reversing this because most logs are viewed in reverse chronological order; but if
   # they are mostly for use with `git rebase -i` and `git log --reverse`, maybe we should leave them.
-  mark-start = mark ︽ #'{'
-  mark-begin = mark ︽ #'{'
-  mark-end   = mark ︾ #'}'
+  # Update: Changed to left/right markers which are intuitive for either log direction.
+  mark-start = mark ❰ #︽ #'{'
+  mark-begin = mark ❰ #︽ #'{'
+  mark-end   = mark ❱ #︾ #'}'
 
   #─────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -474,6 +493,10 @@
   ff = true
 
   conflictstyle = diff3
+
+  instructionFormat = "[%an @ %ar] %s" # [Name at 3 months ago]
+  instructionFormat = "%s [%an]" # add the commit author to the end of each line
+  instructionFormat = "[%as %an]%d %s" # %as is short ISO date, %d lists branch/tags
 [mergetool "p4merge"]
   #cmd = ~/bin/p4merge \
   cmd = $HOME/installed/shell/bin/p4merge \
@@ -490,7 +513,7 @@
   # limit this behavior to just the current branch, set this configuration option:
   # $ git config --global push.default tracking
   # This is to prevent accidental pushes to branches which you’re not ready to push yet.
-  default = tracking
+	default = current
   # https://raw.github.com/git/git/master/Documentation/RelNotes/1.8.4.txt
   #default = simple
   autoSetupRemote = true
@@ -499,7 +522,7 @@
   # diffFilter = diff-highlight
   diffFilter = diffr
 [gitopen "gitlab"]
-  domain = hub.k3integrations.com
+  #domain = hub.k3integrations.com
 [notes]
   # Carry over notes on rewrites
   # Git has the inconvenient default that notes are not carried over when a commit is rewritten. So if you for example rebase a series of commits, the notes will not carry over to the new commits.
@@ -517,7 +540,7 @@
 	rebase = interactive
 [init]
 	defaultBranch = main
-	templateDir = /home/tyler/.githooks/templates
+#	templateDir = /home/tyler/.githooks/templates
 
 [alias]
   # https://github.com/gabyx/githooks
@@ -540,13 +563,17 @@
 #	old = red bold
 #	new = green bold
 #	whitespace = red reverse
-[githooks]
-	installDir = /home/tyler/.githooks
-	cloneUrl = https://github.com/gabyx/githooks.git
-	cloneBranch = main
-	installMode = manual
-	pathForUseCoreHooksPath = /home/tyler/.githooks/templates/hooks
-	runner = /home/tyler/.githooks/bin/githooks-runner
-	dialog = /home/tyler/.githooks/bin/githooks-dialog
-	maintainedHooks = all
-	updateCheckEnabled = true
+
+#[githooks]
+#	installDir = /home/tyler/.githooks
+#	cloneUrl = https://github.com/gabyx/githooks.git
+#	cloneBranch = main
+#	installMode = manual
+#	pathForUseCoreHooksPath = /home/tyler/.githooks/templates/hooks
+#	runner = /home/tyler/.githooks/bin/githooks-runner
+#	dialog = /home/tyler/.githooks/bin/githooks-dialog
+#	maintainedHooks = all
+#	updateCheckEnabled = true
+[sequence]
+  # editor = /home/tyler/installed/tyler-git/bin/git-rebase-seq_flatten_merges_with_empty_commits
+	editor = /home/tyler/installed/tyler-git/bin/git-rebase-seq_flatten_merges_with_empty_commits
