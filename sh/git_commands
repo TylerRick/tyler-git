@@ -550,6 +550,7 @@ alias gdup=git-diff-upstream
 
 # git rebase
 # TODO: make --keep-empty optional (added here for now because grbi doesn't accept option args, only commit args)
+# TODO: make --committer-date-is-author-date optional here (based on custom git config?)
 alias grb='git rebase --keep-empty'
 alias grbnas='git rebase --no-autosquash' # override git config rebase.autosquash true
 alias    grbm='git rebase        $(git-main-branch)'
