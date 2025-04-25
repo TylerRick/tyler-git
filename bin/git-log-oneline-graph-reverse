@@ -3,4 +3,10 @@
 # Normally you cannot combine --graph and --reverse for git log.
 # This is a workaround for that limitation.
 
-git log-oneline-graph "$@" | git-graph-tac | less -R
+# Examples:
+#   # Add a horizontal line after each "Merge" commit to make it easier to spot them.
+#   git-log-oneline-graph-reverse $rev | git-log-highlight-merges-after | less
+
+
+{ git log-oneline-graph "$@" | git-graph-tac; } \
+  | ( [ -t 1 ] && exec less -R || cat )

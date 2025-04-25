@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# Example:
+#   git log-oneline-graph master | git-log-highlight-merges | less
+
+sed '/Merge branch/{x;s/.*/════════════════════════════════════════════════════════════════════════════════════════════════════/;p;x;}'

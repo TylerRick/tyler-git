@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Examples:
+#   git-log-oneline-graph-reverse $rev | git-log-highlight-merges-after | less
+
+sed '/Merge branch/a\
+════════════════════════════════════════════════════════════════════════════════════════════════════'
