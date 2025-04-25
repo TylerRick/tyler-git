@@ -30,5 +30,10 @@ cd $(dirname "$(git rev-parse --git-dir)")
 #git commit --fixup $onto
 #git rebase -i --autosquash $onto^
 
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
 export GIT_SEQUENCE_EDITOR="$0-editor_wrapper"
-git-commit-fixup-rebase $onto
+
+#git-commit-fixup-rebase $onto
+
+git rebase -i --keep-empty -r $onto
+
