@@ -1,0 +1,36 @@
+#!/bin/bash
+
+set -euo pipefail
+
+cmd_name=$(basename "$0")
+notes_ref=refs/notes/specificity
+
+function usage() {
+  cat - >&2 <<End
+Usage: $cmd_name <tag> [<commit>]
+
+Examples:
+
+  $cmd_name specific @
+  $cmd_name common acfd9a6
+
+End
+  exit 1
+}
+
+if [ -z "${1:-}" ]; then
+  usage
+fi
+
+tag=$1
+commit=${2:@}
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+if [[ "$tag" != "common" && "$tag" != "specific" ]]; then
+  echo "Tag must be 'common' or 'specific'"
+  exit 1
+fi
+
+git notes --ref=$notes_ref add -f -m "$tag" "$commit"
+echo "Marked $commit as [$tag]"
