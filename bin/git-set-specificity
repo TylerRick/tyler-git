@@ -23,14 +23,19 @@ if [ -z "${1:-}" ]; then
 fi
 
 tag=$1
-commit=${2:@}
+commit=${2:-@}
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
-if [[ "$tag" != "common" && "$tag" != "specific" ]]; then
-  echo "Tag must be 'common' or 'specific'"
-  exit 1
-fi
+# Normalize the tag
+case "${tag,,}" in
+  c*) tag="common" ;;
+  s*) tag="specific" ;;
+  *)
+    echo "Unrecognized tag abbreviation: '$tag'. Use 'common' or 'specific' (or any abbreviation starting with 'c' or 's')."
+    exit 1
+    ;;
+esac
 
 git notes --ref=$notes_ref add -f -m "$tag" "$commit"
 echo "Marked $commit as [$tag]"
