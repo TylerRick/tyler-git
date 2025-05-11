@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# git-get-file-specificity
+# Given a file path, echo one of: common, specific, mixed (or nothing).
+# Searches .git/file_specificity/{common,specific,mixed}
+
+file="$1"
+base=".git/file_specificity"
+
+# helper: read patterns, ignore blank/comments
+_read_patterns() {
+  sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$1"
+}
+
+# check common & specific
+for type in common specific; do
+  while IFS= read -r pat; do
+    # directory prefix?
+    if [[ "$pat" == */ ]]; then
+      [[ "$file" == "${pat}"* ]] && echo "$type" && exit 0
+    else
+      # glob match
+      if [[ "$file" == $pat ]]; then
+        echo "$type"
+        exit 0
+      fi
+    fi
+  done < <(_read_patterns "$base/$type")
+done
+
+# check mixed (pattern + optional regex)
+while IFS= read -r line; do
+  # split on whitespace
+  pat=${line%%[[:space:]]*}
+  rest=${line#"$pat"}
+  regex=$(echo "$rest" | awk '{print $1}')
+  # skip if this line was just the path
+  [[ -z "$pat" ]] && continue
+  # match path same as above
+  ok=false
+  if [[ "$pat" == */ ]]; then
+    [[ "$file" == "${pat}"* ]] && ok=true
+  else
+    [[ "$file" == $pat ]] && ok=true
+  fi
+  if $ok; then
+    if [[ -n "$regex" ]]; then
+      # strip leading/trailing slashes for grep -E
+      rex=$(echo "$regex" | sed 's,^/,,;s,/$,,')
+      if echo "$file" | grep -Ei "$rex" >/dev/null; then
+        echo mixed
+        exit 0
+      fi
+    else
+      echo mixed
+      exit 0
+    fi
+  fi
+done < <(_read_patterns "$base/mixed")
+
+# nothing recorded
+exit 0
