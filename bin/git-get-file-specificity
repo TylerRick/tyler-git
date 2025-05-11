@@ -6,19 +6,19 @@
 file="$1"
 base=".git/file_specificity"
 
-# helper: read patterns, ignore blank/comments
+# Read a patterns file, strip comments/blanks
 _read_patterns() {
   sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$1"
 }
 
-# check common & specific
+# 1) Check common & specific
 for type in common specific; do
   while IFS= read -r pat; do
-    # directory prefix?
     if [[ "$pat" == */ ]]; then
+      # directory prefix
       [[ "$file" == "${pat}"* ]] && echo "$type" && exit 0
     else
-      # glob match
+      # exact or glob
       if [[ "$file" == $pat ]]; then
         echo "$type"
         exit 0
@@ -27,35 +27,50 @@ for type in common specific; do
   done < <(_read_patterns "$base/$type")
 done
 
-# check mixed (pattern + optional regex)
+# 2) Check mixed: lines of "path [<whitespace> /regex/flags]"
 while IFS= read -r line; do
-  # split on whitespace
-  pat=${line%%[[:space:]]*}
-  rest=${line#"$pat"}
-  regex=$(echo "$rest" | awk '{print $1}')
-  # skip if this line was just the path
-  [[ -z "$pat" ]] && continue
-  # match path same as above
-  ok=false
-  if [[ "$pat" == */ ]]; then
-    [[ "$file" == "${pat}"* ]] && ok=true
+  # strip out comments & blanks (already done upstream)
+  # split into path and optional rawregex
+  path=${line%%[[:space:]]*}
+  rest=${line#"$path"}
+  rawregex=$(echo "$rest" | awk '{print $1}')
+  [[ -z "$path" ]] && continue
+
+  # does the path prefix or exact match?
+  match=false
+  if [[ "$path" == */ ]]; then
+    [[ "$file" == "${path}"* ]] && match=true
   else
-    [[ "$file" == $pat ]] && ok=true
+    [[ "$file" == $path ]] && match=true
   fi
-  if $ok; then
-    if [[ -n "$regex" ]]; then
-      # strip leading/trailing slashes for grep -E
-      rex=$(echo "$regex" | sed 's,^/,,;s,/$,,')
-      if echo "$file" | grep -Ei "$rex" >/dev/null; then
-        echo mixed
-        exit 0
-      fi
-    else
-      echo mixed
-      exit 0
-    fi
+
+  if ! $match; then
+    continue
+  fi
+
+  # if there's no regex, it's mixed
+  if [[ -z "$rawregex" ]]; then
+    echo mixed
+    exit 0
+  fi
+
+  # parse /pattern/flags
+  # remove leading slash, then split at last slash
+  inner=${rawregex#"/"}     # drop leading /
+  patt=${inner%/*}          # up to last slash
+  flags=${inner##*/}        # after last slash
+
+  # build grep options
+  grep_opts="-E"
+  [[ $flags == *i* ]] && grep_opts="$grep_opts -i"
+
+  # test the file *path* against the pattern
+  if echo "$file" | grep $grep_opts -q -- "$patt"; then
+    echo mixed
+    exit 0
   fi
 done < <(_read_patterns "$base/mixed")
 
-# nothing recorded
+# no recorded classification
 exit 0
+
