@@ -12,37 +12,51 @@ to_patterns() {
   sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$1"
 }
 
-# iterate through types in unified loop
+matches=()
+
+# unified loop over types
 for type in common specific mixed; do
   patfile="$base/$type"
   [[ -f "$patfile" ]] || continue
-  echo "[DEBUG] checking against '$type' patterns..."
+  echo "[DEBUG] checking against '$type' patterns..." >&2
 
-  while IFS= read -r pat; do
-    # strip any inline comments/trailing whitespace
-    clean=$(echo "$pat" | sed -e 's/[[:space:]]*$//' )
-    [[ -z "$clean" ]] && continue
+  while IFS= read -r line; do
+    # strip inline comments and whitespace
+    pat=$(echo "$line" | sed -e 's/#.*//' -e 's/[[:space:]]*$//')
+    [[ -z "$pat" ]] && continue
+    echo "[DEBUG] pattern: '$pat'" >&2
 
-    echo "[DEBUG] pattern: '$clean'"
-
-    if [[ "$clean" == */ ]]; then
+    if [[ "$pat" == */ ]]; then
       # directory prefix match
-      echo "[DEBUG] checking prefix match: '$file' == '${clean}'*"
-      if [[ "$file" == ${clean}* ]]; then
-        echo "$type"
-        exit 0
+      echo "[DEBUG] checking prefix: '$file' starts with '$pat'" >&2
+      if [[ "$file" == ${pat}* ]]; then
+        matches+=("$type")
+        break
       fi
     else
       # glob match
-      echo "[DEBUG] checking glob match: '$file' == $clean"
-      if [[ "$file" == $clean ]]; then
-        echo "$type"
-        exit 0
+      echo "[DEBUG] checking glob: '$file' == '$pat'" >&2
+      if [[ "$file" == $pat ]]; then
+        matches+=("$type")
+        break
       fi
     fi
   done < <(to_patterns "$patfile")
 done
 
-# nothing recorded
-exit 0
+# decide based on matches array length
+case ${#matches[@]} in
+  0)
+    # nothing recorded
+    exit 0
+    ;;
+  1)
+    echo "${matches[0]}"
+    exit 0
+    ;;
+  *)
+    echo "ERROR: '$file' matches multiple specificity lists: ${matches[*]}" >&2
+    exit 1
+    ;;
+esac
 
