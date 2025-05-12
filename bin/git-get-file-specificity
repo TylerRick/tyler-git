@@ -1,59 +1,48 @@
 #!/usr/bin/env bash
-# git-get-file-specificity <file>
-#   outputs: common, specific, mixed, or nothing
+# git-get-file-specificity
+# Given a file path, echo one of: common, specific, mixed (or nothing).
+# Searches .git/file_specificity/{common,specific,mixed}
+# Debug output enabled by default (comment out or wrap in "if [ -n \"$DEBUG\" ]" to disable later)
 
 file="$1"
-dir=".git/file_specificity"
+base=".git/file_specificity"
 
-_read_patterns() {
-  # Strip comments, trim whitespace, skip blank lines
+# helper: read patterns, strip comments and blank lines
+to_patterns() {
   sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$1"
 }
 
-debug() {
-  echo "[DEBUG] $*" >&2
-}
+# iterate through types in unified loop
+for type in common specific mixed; do
+  patfile="$base/$type"
+  [[ -f "$patfile" ]] || continue
+  echo "[DEBUG] checking against '$type' patterns..."
 
-# try common & specific first
-for type in common specific; do
-  pathfile="$dir/$type"
-  debug "Loading $pathfile"
-  _read_patterns "$pathfile" | while IFS= read -r pat; do
-    debug "  $type pattern: '$pat'"
-    if [[ "$pat" == */ ]]; then
+  while IFS= read -r pat; do
+    # strip any inline comments/trailing whitespace
+    clean=$(echo "$pat" | sed -e 's/[[:space:]]*$//' )
+    [[ -z "$clean" ]] && continue
+
+    echo "[DEBUG] pattern: '$clean'"
+
+    if [[ "$clean" == */ ]]; then
       # directory prefix match
-      if [[ "$file" == "${pat}"* ]]; then
+      echo "[DEBUG] checking prefix match: '$file' == '${clean}'*"
+      if [[ "$file" == ${clean}* ]]; then
         echo "$type"
         exit 0
       fi
     else
-      # exact glob match
-      if [[ "$file" == $pat ]]; then
+      # glob match
+      echo "[DEBUG] checking glob match: '$file' == $clean"
+      if [[ "$file" == $clean ]]; then
         echo "$type"
         exit 0
       fi
     fi
-  done
+  done < <(to_patterns "$patfile")
 done
 
-# now mixed (same format: path + optional comment stripped)
-pathfile="$dir/mixed"
-debug "Loading $pathfile"
-_read_patterns "$pathfile" | while IFS= read -r pat; do
-  debug "  mixed pattern: '$pat'"
-  if [[ "$pat" == */ ]]; then
-    if [[ "$file" == "${pat}"* ]]; then
-      echo mixed
-      exit 0
-    fi
-  else
-    if [[ "$file" == $pat ]]; then
-      echo mixed
-      exit 0
-    fi
-  fi
-done
-
-# nothing matched
+# nothing recorded
 exit 0
 
