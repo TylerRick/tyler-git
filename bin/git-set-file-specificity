@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+# git-set-file-specificity
+# Usage: git-set-file-specificity <file> <specificity>
+# Adds or moves <file> into .git/file_specificity/<specificity>
+# Valid specificity: common, specific, mixed
+
+set -euo pipefail
+file="$1"
+specificity="$2"
+base=".git/file_specificity"
+
+# validate specificity
+if ! [[ "$specificity" =~ ^(common|specific|mixed|)$ ]]; then
+  echo "Usage: $0 <path> <common|specific|mixed|>" >&2
+  exit 2
+fi
+
+# check existing specificity
+if existing=$(git-get-file-specificity --verify "$file" 2>/dev/null); then
+  # exit code 0: existing may be empty or a single value
+  if [[ -z "$existing" ]]; then
+    # not recorded: just append
+    echo "$file" >> "$base/$specificity"
+    exit 0
+  fi
+  # existing defined
+  if [[ "$existing" == "$specificity" ]]; then
+    # already correct
+    exit 0
+  fi
+  # override confirmation
+  read -p "'$file' currently recorded as '$existing'; change to '$specificity'? [y/N] " ans
+  if [[ ! "$ans" =~ ^[Yy] ]]; then
+    echo "Aborted."
+    exit 0
+  fi
+else
+  # exit !=0: multiple or error
+  echo "Cannot set specificity: '$file' matches multiple lists. Resolve manually." >&2
+  exit 1
+fi
+
+# remove from other lists
+for t in common specific mixed; do
+  [[ "$t" == "$specificity" ]] && continue
+  sed -i -e "/^$(printf '%s' "$file" | sed 's/[\/&]/\\&/g')\$/d" "$base/$t"
+done
+# append to specificity
+echo "$file" >> "$base/$specificity"
