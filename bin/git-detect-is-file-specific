@@ -1,42 +1,79 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# If it exits with 0 then it found a "specific" keyword.
-# If it exits with 1 then it found no "specific" keyword, and the file is therefore likely "common".
-#
-# Usage: git-detect-is-file-specific <file> && echo 'is specific'
+# git-detect-is-file-specific: exit 0 if the file contains any "specific" patterns
+# Usage: git-detect-is-file-specific [-q|--quiet] <file>
+# Options:
+#   -q, --quiet    suppress grep output; only exit code indicates match
 
-# We need to use GNU grep so we can use -P. On macOS, this will be ggrep if you `brew install grep`.
-if [ $(uname) = "Darwin" ]; then
-	ggrep="ggrep"
+# Determine grep command (GNU grep required for -P)
+if [ "$(uname)" = "Darwin" ]; then
+  ggrep="ggrep"
 else
-	ggrep="grep"
+  ggrep="grep"
 fi
 
+# Parse options
+quiet=0
+while [[ ${1-} ]]; do
+  case "$1" in
+    -q|--quiet)
+      quiet=1
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -* )
+      echo "Unknown option: $1" >&2
+      exit 2
+      ;;
+    * )
+      break
+      ;;
+  esac
+done
+
+# Expect exactly one positional argument: the file to check
+if [ $# -ne 1 ]; then
+  echo "Usage: $0 [-q|--quiet] <file>" >&2
+  exit 2
+fi
 file=$1
 
-patterns=(
-  "-P -i Post(?!gres|mark)"
-  "-i media\\b"
-  "-i org\\b"
-  "-i organization"
-  "-i upload\\b"
-  "-i advent"
-  "-i impact"
-)
+# Path to patterns file
+patterns_file=".git/file_specificity/specific_patterns"
+if [ ! -f "$patterns_file" ]; then
+  echo "Patterns file not found: $patterns_file" >&2
+  exit 2
+fi
 
 not_found=1
+set +e  # allow individual greps to fail
 
-# allow grep to "fail"
-set +e
-for pat in "${patterns[@]}"; do
-  # note: use grep here, not egrep
-  $ggrep $pat "$file"
+# Read each non-empty, non-comment line as a pattern entry
+grep_opts+=( )
+while IFS= read -r entry || [ -n "$entry" ]; do
+  # skip blank lines and comments
+  [[ -z "$entry" || "$entry" =~ ^# ]] && continue
+
+  # split entry into an array of args
+  read -r -a args <<< "$entry"
+
+  # run grep with optional quiet redirection
+  if (( quiet )); then
+    $ggrep "${args[@]}" "$file" >/dev/null
+  else
+    $ggrep "${args[@]}" "$file"
+  fi
+
   if (( $? == 0 )); then
     not_found=0
   fi
-done
-# restore strict mode
-set -e
 
+done < "$patterns_file"
+
+set -e
 exit $not_found
+
