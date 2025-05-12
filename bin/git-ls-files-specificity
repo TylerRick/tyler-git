@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+# ------------------------------------------
+# git-ls-files-specificity
+# Lists *all* files in a commit tree with specificity
+# ------------------------------------------
+
+# define ls_files_cmd: list all files (name-only) with fake status M
+# We add a custom --name-status version (default if not --name-only): we wrap name-only lines as "M<TAB>path"
+function ls_files_cmd() {
+  if [[ "${1:-}" == --name-only ]]; then
+    shift
+    name_only=true
+  else
+    name_only=false
+  fi
+  commit=${1:-}
+  echo >&2 commit=$commit
+  if [ -n "$commit" ]; then
+    git ls-tree --full-tree -r --name-only "$commit"
+  else
+    git ls-files --full-name
+  fi |
+  if [ $name_only = true ]; then
+    cat -
+  else
+    awk '{print "M\t" $0}'
+  fi
+}
+commit=
+
+source "$(dirname $0)"/lib/git-ls-files-specificity.sh

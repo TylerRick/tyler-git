@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+# ------------------------------------------
+# git-diff-tree-specificity
+# Lists *changed* files in a commit with specificity
+# ------------------------------------------
+
+function ls_files_cmd() {
+  # output:
+  # for ACM: "status<TAB>path"
+  # for R:   "status<TAB>path<TAB>oldpath?"
+  if [[ "${1:-}" == --name-only ]]; then
+    name_opt="--name-only"
+    shift
+  else
+    name_opt="--name-status"
+  fi
+  git diff-tree --no-commit-id -r --diff-filter=ACMR $name_opt "$1" | \
+    awk '{ if ($1 ~ /^R/) print $1"\t"$2"\t"$3; else print $1"\t"$2 }'
+}
+commit=HEAD
+
+source "$(dirname $0)"/lib/git-ls-files-specificity.sh
