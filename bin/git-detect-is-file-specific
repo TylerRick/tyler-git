@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# If it exits with 0 then it found a "specific" keyword.
+# If it exits with 1 then it found no "specific" keyword, and the file is therefore likely "common".
+#
+# Usage: git-detect-is-file-specific <file> && echo 'is specific'
+
+# We need to use GNU grep so we can use -P. On macOS, this will be ggrep if you `brew install grep`.
+if [ $(uname) = "Darwin" ]; then
+	ggrep="ggrep"
+else
+	ggrep="grep"
+fi
+
+file=$1
+
+patterns=(
+  "-P -i Post(?!gres|mark)"
+  "-i media\\b"
+  "-i org\\b"
+  "-i organization"
+  "-i upload\\b"
+  "-i advent"
+  "-i impact"
+)
+
+not_found=1
+
+# allow grep to "fail"
+set +e
+for pat in "${patterns[@]}"; do
+  # note: use grep here, not egrep
+  $ggrep $pat "$file"
+  if (( $? == 0 )); then
+    not_found=0
+  fi
+done
+# restore strict mode
+set -e
+
+exit $not_found
