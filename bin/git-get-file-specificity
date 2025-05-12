@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 # git-get-file-specificity (fast & correct)
-# Usage: git-get-file-specificity <path>
+# Usage: git-get-file-specificity [--verify] <path>
 # Returns: common | specific | mixed  (or nothing if not listed)
 # If listed in >1 list, prints error to stderr and exits 1.
 
 set -euo pipefail
 
+verify=false
+if [[ "${1:-}" == --verify ]]; then
+  verify=true
+  shift
+fi
 file="$1"
 base=".git/file_specificity"
 
-# Read each list once, stripping comments/blank lines, keep as newline-delimited string.
-declare -A lists  # lists[type] -> "pat1\npat2\n..."
+# Read each list once, stripping comments/blank-lines
+# Store as newline-delimited string in associative array
+declare -A lists
 for type in common specific mixed; do
   patfile="$base/$type"
   [[ -f "$patfile" ]] || continue
@@ -19,42 +25,42 @@ for type in common specific mixed; do
 done
 
 matches=()
-
 for type in common specific mixed; do
   list="${lists[$type]:-}"
   [[ -z "$list" ]] && continue
-  [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] checking $type (${#list[@]}) patterns" >&2
+  [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] checking $type patterns" >&2
   while IFS= read -r pat; do
     [[ -z "$pat" ]] && continue
     if [[ "$pat" == */ ]]; then
-      # directory prefix match
       prefix="${pat%/}"
-      # escape literal [ and ] in prefix
-      esc_prefix="${prefix//\[/\\[}"
-      esc_prefix="${esc_prefix//\]/\\]}"
-      [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type prefix? '$file' starts with '$prefix/'" >&2
-      if [[ "$file" == ${esc_prefix}/* ]]; then
+			# escape literal [ and ] so it isn't interpreted as glob pattern
+      esc="${prefix//\[/\\[}"
+      esc="${esc//\]/\\]}"
+      [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type prefix? '$file' starts '$prefix/'" >&2
+      if [[ "$file" == ${esc}/* ]]; then
         matches+=("$type")
         break
       fi
     else
-      # glob or literal match
-      # escape literal [ and ] in pattern
-      esc_pat="${pat//\[/\\[}"
-      esc_pat="${esc_pat//\]/\\]}"
+      esc="${pat//\[/\\[}"
+      esc="${esc//\]/\\]}"
       [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type glob? '$file' == '$pat'" >&2
-      if [[ "$file" == $esc_pat ]]; then
+      if [[ "$file" == $esc ]]; then
         matches+=("$type")
         break
-      fi
+       fi
     fi
   done <<< "$list"
 done
 
 case ${#matches[@]} in
   0)
-    echo "ERROR: '$file': no specificity recorded yet" >&2
-    exit 1
+    if $verify; then
+      echo "ERROR: '$file': no specificity recorded yet" >&2
+      exit 1
+    else
+      exit 0
+    fi
     ;;
   1)
     echo "${matches[0]}"
@@ -64,3 +70,4 @@ case ${#matches[@]} in
     exit 1
     ;;
 esac
+
