@@ -2,7 +2,7 @@
 
 # This does the following:
 # - replaces merge commits with placeholder "copy" of the merge commit to preserve its place and its metadata in the history
-# - preserves original committer metadata (using )
+# - preserves original committer metadata (using git-commit-amend-copy-committer)
 
 # Remember to override GIT_SEQUENCE_EDITOR if you need to edit your to-do list. Otherwise it will run this again, and you'll end up with duplicate lines added.
 #   GIT_SEQUENCE_EDITOR='vim' git rebase --edit-todo
