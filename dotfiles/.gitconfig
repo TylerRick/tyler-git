@@ -111,10 +111,20 @@
   # Log
 
   # TODO finish rename from short to oneline to be more in line with built-in pretty formats?
-  log-oneline         = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s'
-  log-oneline-graph   = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' --graph
-  ls                  = log-oneline-graph
-  log-oneline-no-walk = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' --no-walk
+  # %d = ref names, like the --decorate option of git-log(1)
+  # %N = commit notes. Unfortunately, it _always_ includes a trailin newline.
+  # This should match the format of show-oneline
+  log-oneline-no-color      = log --color --pretty=format:'%h %ai %an%d %s'
+  log-oneline               = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s'
+  log-oneline-notes         = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N'
+  # Removes trailing newline from %N
+  #log-oneline = "!f() { git log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N<<ENDNOTE>>%Creset' \"$@\" | sed -E ':a;N;$!ba;s/\\n?<<ENDNOTE>>//g' | less -R; }; f"
+
+  log-oneline-graph         = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' --graph
+  log-oneline-notes-graph   = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N' --graph
+  ls                        = log-oneline-graph
+  lsn                       = log-oneline-notes-graph
+  log-oneline-no-walk       = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' --no-walk
 
   # If it isn't detecting/following renames using --follow then use this wrapper script
   log-follow-oneline         = log-follow --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s'
@@ -143,11 +153,20 @@
   #─────────────────────────────────────────────────────────────────────────────────────────────────
  
   # Like log-oneline except only shows 1 commit.
-  show-oneline = show --no-patch --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s'
+  show-oneline = show --no-patch --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N '
 
   # Shows type of change (A/M/D/R), shows match % for Renames, and lists full paths for renames
   show-name-status-raw = show --name-status --oneline
   show-name-status = show --name-status --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s'
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # tree - list contents of directories in a tree-like format.
+
+  # git ls-files == git ls-tree --full-tree --name-only -r HEAD
+
+  # This includes many ignored files, such as build/
+  tree = ! tree --dirsfirst --gitignore
+  tree = ! git ls-files | tree --fromfile --dirsfirst
 
   #─────────────────────────────────────────────────────────────────────────────────────────────────
   # Commit
@@ -213,7 +232,8 @@
   #─────────────────────────────────────────────────────────────────────────────────────────────────
   # Finding/naming commits or branches
 
-  branches-containing = branch -r --contains
+  # Option -r causes the remote-tracking branches to be listed, and option -a shows both local and remote branches.
+  branches-containing = branch --contains
 
   # Find the common ancestor for a list of commits
   # (Not quite the same as merge-base, as man git-merge-base will tell you.)
@@ -475,7 +495,9 @@
   # (Recommended for everyone)
   # (https://andrewlock.net/working-with-stacked-branches-in-git-is-easier-with-update-refs/)
   # git config --global --add --bool rebase.updateRefs true
-	updateRefs = true
+  #updateRefs = true
+  # disable for now, while doing major rewriting of main
+  #updateRefs = false
 
   # (More advanced)
   # git config --global rebase.autoSquash true
@@ -526,8 +548,13 @@
 [notes]
   # Carry over notes on rewrites
   # Git has the inconvenient default that notes are not carried over when a commit is rewritten. So if you for example rebase a series of commits, the notes will not carry over to the new commits.
-  # The variable notes.rewrite.<command> is by default set to true, so one might assume that notes are carried over. But the problem is that the variable notes.rewriteRef, which determines which notes will be carried over, has no deafult vaule. To set this value to match all notes, execute the following:
-  # git config --global notes.rewriteRef "refs/notes/*"
+  # The variable notes.rewrite.<command> is by default set to true, so one
+  # might assume that notes are carried over. But the problem is that the
+  # variable notes.rewriteRef, which determines which notes will be carried over,
+  # has no deafult vaule.
+  # Note: This is used/respected independently of rebase.updateRefs.
+  # To set this value to match all notes, execute the following:
+  #   git config --global notes.rewriteRef "refs/notes/*"
   rewriteRef = refs/notes/*
 [flags]
   autopush = true
@@ -575,5 +602,5 @@
 #	maintainedHooks = all
 #	updateCheckEnabled = true
 [sequence]
-  # editor = /home/tyler/installed/tyler-git/bin/git-rebase-seq_flatten_merges_with_empty_commits
-	editor = /home/tyler/installed/tyler-git/bin/git-rebase-seq_flatten_merges_with_empty_commits
+  #editor = /home/tyler/installed/tyler-git/bin/git-rebase-seq_flatten_merges_with_empty_commits
+  #editor = /home/tyler/installed/tyler-git/bin/git-rebase-seq
