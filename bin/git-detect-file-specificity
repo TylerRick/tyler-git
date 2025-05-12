@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# git-detect-file-specificity
+# Usage: git-detect-file-specificity <path>
+file="$1"
+recorded=$(git-get-file-specificity "$file")
+if git-detect-file-is-specific "$file"; then
+  detected=true
+else
+  detected=false
+fi
+
+_red() { printf "\e[31m%s\e[0m\n" "$*"; }
+
+confirm_loop() {
+  prompt="$1"; shift
+  while true; do
+    read -p "$prompt [s/m/c/v/n]? " ans
+    case "$ans" in
+      [sS]) echo specific; return ;;
+      [mM]) echo mixed;    return ;;
+      [cC]) echo common;   return ;;
+      [vV]) ${VISUAL:-${EDITOR:-vi}} "$file" ;;
+      [nN]) echo none;     return ;;
+      *) echo "Please enter s/m/c/v/n." ;;
+    esac
+  done
+}
+
+if [[ -z "$recorded" && "$detected" == true ]]; then
+  echo "Detected this file as SPECIFIC but not recorded."
+  choice=$(confirm_loop "Mark as specific?")
+  if [[ "$choice" != none ]]; then
+    git-set-file-specificity "$choice" "$file"
+    echo "Recorded $file as $choice."
+  fi
+  exit 0
+fi
+
+if [[ -n "$recorded" && "$detected" == true ]]; then
+  echo "Recorded as $recorded; detection agrees (specific)."
+  exit 0
+fi
+
+# any discrepancy
+if [[ "$recorded" == common && "$detected" == true ]] \
+ || ([[ "$recorded" =~ ^(specific|mixed)$ ]] && [[ "$detected" == false ]]); then
+  _red "DISCREPANCY: recorded=$recorded, detected_is_specific=$detected"
+  choice=$(confirm_loop "Override classification for this file?")
+  if [[ "$choice" != none ]]; then
+    git-set-file-specificity "$choice" "$file"
+    echo "Updated $file → $choice."
+  fi
+  exit 0
+fi
+
+# if recorded==mixed && detected==false, or recorded==common&&detected==false, or other non-interesting:
+echo "Recorded as $recorded; detection says specific=$detected. No action."
