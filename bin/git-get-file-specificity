@@ -4,39 +4,63 @@
 # Returns: common | specific | mixed  (or nothing if not listed)
 # If listed in >1 list, prints error to stderr and exits 1.
 
-set -eo pipefail
+set -euo pipefail
 
 file="$1"
 base=".git/file_specificity"
-#DEBUG=1
 
-# Read each list once, stripping comments/blank lines, keep as newline‑delimited string.
+# Read each list once, stripping comments/blank lines, keep as newline-delimited string.
 declare -A lists  # lists[type] -> "pat1\npat2\n..."
 for type in common specific mixed; do
   patfile="$base/$type"
   [[ -f "$patfile" ]] || continue
   lists[$type]=$(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^[[:space:]]*$/d' "$patfile")
-  [[ -n "$DEBUG" ]] && echo "[DEBUG] cached ${type}: $(echo "${lists[$type]}" | wc -l) patterns" >&2
+  [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] cached $type: $(echo "${lists[$type]}" | wc -l) patterns" >&2
 done
 
 matches=()
 
 for type in common specific mixed; do
-  [[ -z "${lists[$type]:-}" ]] && continue
+  list="${lists[$type]:-}"
+  [[ -z "$list" ]] && continue
+  [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] checking $type (${#list[@]}) patterns" >&2
   while IFS= read -r pat; do
     [[ -z "$pat" ]] && continue
     if [[ "$pat" == */ ]]; then
-      [[ -n "$DEBUG" ]] && echo "[DEBUG] $type prefix? '$file' starts '${pat}'" >&2
-      [[ "$file" == ${pat}* ]] && { matches+=("$type"); break; }
+      # directory prefix match
+      prefix="${pat%/}"
+      # escape literal [ and ] in prefix
+      esc_prefix="${prefix//\[/\\[}"
+      esc_prefix="${esc_prefix//\]/\\]}"
+      [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type prefix? '$file' starts with '$prefix/'" >&2
+      if [[ "$file" == ${esc_prefix}/* ]]; then
+        matches+=("$type")
+        break
+      fi
     else
-      [[ -n "$DEBUG" ]] && echo "[DEBUG] $type glob? '$file' == '$pat'" >&2
-      [[ "$file" == $pat ]] && { matches+=("$type"); break; }
+      # glob or literal match
+      # escape literal [ and ] in pattern
+      esc_pat="${pat//\[/\\[}"
+      esc_pat="${esc_pat//\]/\\]}"
+      [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type glob? '$file' == '$pat'" >&2
+      if [[ "$file" == $esc_pat ]]; then
+        matches+=("$type")
+        break
+      fi
     fi
-  done <<< "${lists[$type]}"
+  done <<< "$list"
 done
 
 case ${#matches[@]} in
-  0) exit 0 ;;
-  1) echo "${matches[0]}" ;;
-  *) echo "ERROR: '$file' matches multiple lists: ${matches[*]}" >&2; exit 1 ;;
+  0)
+    echo "ERROR: '$file': no specificity recorded yet" >&2
+    exit 1
+    ;;
+  1)
+    echo "${matches[0]}"
+    ;;
+  *)
+    echo "ERROR: '$file' matches multiple lists: ${matches[*]}" >&2
+    exit 1
+    ;;
 esac
