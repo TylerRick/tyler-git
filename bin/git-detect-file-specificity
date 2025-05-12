@@ -11,7 +11,7 @@ if ! [ -f "$file" ]; then
 fi
 
 recorded=$(git-get-file-specificity "$file")
-if .local/bin/git-detect-is-file-specific "$file" >/dev/null; then
+if git-detect-is-file-specific "$file" >/dev/null; then
   detected_specific=true
 else
   detected_specific=false
@@ -37,7 +37,7 @@ confirm_loop() {
 if [[ -z "$recorded" && "$detected_specific" == true ]]; then
   echo "$file: detected_specific=$detected_specific but no specificity recorded yet."
   choice=$(confirm_loop "Mark as specific?")
-  if [[ "$choice" != none ]]; then
+  if [[ "$choice" != "" ]]; then
     git-set-file-specificity "$file" "$choice"
     echo "Recorded $file as $choice."
   fi
@@ -50,7 +50,7 @@ if [[ "$recorded" == common && "$detected_specific" == true ]] \
  || ([[ "$recorded" =~ ^(specific|mixed)$ ]] && [[ "$detected_specific" == false ]]); then
   _red "$file: Discrepancy! recorded=$recorded, but detected_specific=$detected_specific" >&2 
   choice=$(confirm_loop "Override classification for this file? (You may need to update your detection script if it failed to detect a specific/mixed file.)")
-  if [[ "$choice" != none ]]; then
+  if [[ "$choice" != "" ]]; then
     git-set-file-specificity "$file" "$choice"
     echo "Updated $file → $choice."
   fi
