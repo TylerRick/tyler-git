@@ -1,53 +1,52 @@
 #!/usr/bin/env bash
 # git-get-file-specificity
-# Given a file path, echo one of: common, specific, mixed (or nothing).
-# Searches .git/file_specificity/{common,specific,mixed}
-# Debug output enabled by default (comment out or wrap in "if [ -n \"$DEBUG\" ]" to disable later)
+# Efficient version: loads patterns into arrays once, uses bash builtins for matching.
+# Debug output to stderr; disable by unsetting DEBUG.
 
 file="$1"
 base=".git/file_specificity"
+DEBUG=1
 
-# helper: read patterns, strip comments and blank lines
-to_patterns() {
-  sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$1"
-}
-
-matches=()
-
-# unified loop over types
+# load patterns into associative array of arrays
+declare -A pats
 for type in common specific mixed; do
   patfile="$base/$type"
-  [[ -f "$patfile" ]] || continue
-  echo "[DEBUG] checking against '$type' patterns..." >&2
+  [[ ! -f "$patfile" ]] && continue
+  # read, strip comments & blanks
+  mapfile -t arr < <(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^[[:space:]]*$/d' "$patfile")
+  pats[$type]="${arr[*]}"
+done
 
-  while IFS= read -r line; do
-    # strip inline comments and whitespace
-    pat=$(echo "$line" | sed -e 's/#.*//' -e 's/[[:space:]]*$//')
+matches=()
+for type in common specific mixed; do
+  # retrieve patterns
+  IFS=$'\n' read -r -d '' -a patterns < <(printf "%s\0" "${pats[$type]}")
+  echo "$type: ${patterns[0]}"
+  [[ ${#patterns[@]} -eq 0 ]] && continue
+  [[ -n "$DEBUG" ]] && echo "[DEBUG] checking $type (${#patterns[@]} patterns)" >&2
+
+  for pat in "${patterns[@]}"; do
     [[ -z "$pat" ]] && continue
-    echo "[DEBUG] pattern: '$pat'" >&2
-
     if [[ "$pat" == */ ]]; then
-      # directory prefix match
-      echo "[DEBUG] checking prefix: '$file' starts with '$pat'" >&2
+      [[ -n "$DEBUG" ]] && echo "[DEBUG] prefix: '$file' starts with '$pat'" >&2
       if [[ "$file" == ${pat}* ]]; then
         matches+=("$type")
         break
       fi
     else
-      # glob match
-      echo "[DEBUG] checking glob: '$file' == '$pat'" >&2
+      [[ -n "$DEBUG" ]] && echo "[DEBUG] glob: '$file' == '$pat'" >&2
       if [[ "$file" == $pat ]]; then
         matches+=("$type")
         break
       fi
     fi
-  done < <(to_patterns "$patfile")
+  done
 done
 
-# decide based on matches array length
+echo ${matches[@]}
+# output decision
 case ${#matches[@]} in
   0)
-    # nothing recorded
     exit 0
     ;;
   1)
@@ -55,7 +54,7 @@ case ${#matches[@]} in
     exit 0
     ;;
   *)
-    echo "ERROR: '$file' matches multiple specificity lists: ${matches[*]}" >&2
+    echo "ERROR: '$file' matches multiple lists: ${matches[*]}" >&2
     exit 1
     ;;
 esac
