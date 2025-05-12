@@ -13,6 +13,8 @@ Examples:
 
   $cmd_name specific @
   $cmd_name common acfd9a6
+  $cmd_name s
+  $cmd_name c
 
 End
   exit 1
@@ -21,6 +23,12 @@ End
 if [ -z "${1:-}" ]; then
   usage
 fi
+
+case "${1:-}" in
+  -h|--help)
+    usage
+    ;;
+esac
 
 tag=$1
 commit=${2:-@}
@@ -38,4 +46,5 @@ case "${tag,,}" in
 esac
 
 git notes --ref=$notes_ref add -f -m "$tag" "$commit"
-echo "Marked $commit as [$tag]"
+echo "Marked $commit as $tag"
+git show-oneline $commit

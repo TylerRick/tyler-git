@@ -35,5 +35,7 @@ export GIT_SEQUENCE_EDITOR="$0-editor_wrapper"
 
 #git-commit-fixup-rebase $onto
 
-git rebase -i --keep-empty -r $onto
+# options=--rebase-merges
+options=
+git rebase -i --keep-empty $options $onto
 

@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
-# git-detect-file-specificity
+
 # Usage: git-detect-file-specificity <path>
+
+# Unlike git-get-file-specificity, which _only_ reads what has previously been recorded, this
+# actually tries to do some detection, and checks whether what has been recorded matches.
+
 file="$1"
+if ! [ -f "$file" ]; then
+  echo >&2 "$file: Does not exist"
+fi
+
 recorded=$(git-get-file-specificity "$file")
 if .local/bin/git-detect-is-file-specific "$file" >/dev/null; then
   detected_specific=true
@@ -27,32 +35,28 @@ confirm_loop() {
 }
 
 if [[ -z "$recorded" && "$detected_specific" == true ]]; then
-  echo "detected_specific this file as SPECIFIC but not recorded."
+  echo "$file: detected_specific=$detected_specific but no specificity recorded yet."
   choice=$(confirm_loop "Mark as specific?")
   if [[ "$choice" != none ]]; then
-    git-set-file-specificity "$choice" "$file"
+    git-set-file-specificity "$file" "$choice"
     echo "Recorded $file as $choice."
   fi
   exit 0
 fi
 
-if [[ "$recorded" =~ ^(specific|mixed)$ ]] && [[ "$detected_specific" == true ]]; then
-  echo "Recorded as $recorded; detection agrees (specific)."
-  exit 0
-fi
-
-# any discrepancy
+# any discrepancy?
 # If classified as specific/mixed, then detection script should have detected a "specific" keyword.
 if [[ "$recorded" == common && "$detected_specific" == true ]] \
  || ([[ "$recorded" =~ ^(specific|mixed)$ ]] && [[ "$detected_specific" == false ]]); then
-  _red "DISCREPANCY: recorded=$recorded, detected_specific=$detected_specific"
+  _red "$file: Discrepancy! recorded=$recorded, but detected_specific=$detected_specific" >&2 
   choice=$(confirm_loop "Override classification for this file? (You may need to update your detection script if it failed to detect a specific/mixed file.)")
   if [[ "$choice" != none ]]; then
-    git-set-file-specificity "$choice" "$file"
+    git-set-file-specificity "$file" "$choice"
     echo "Updated $file → $choice."
   fi
   exit 0
 fi
 
 # no discrepancy; detected already agrees with recorded
-echo "Recorded as $recorded; detect-file-is-specific returned $detected_specific. No action."
+echo "$file: Recorded as $recorded; detected_specific=$detected_specific => agreement"
+exit 0

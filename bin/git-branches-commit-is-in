@@ -1,3 +1,4 @@
 #!/bin/sh
+# Moved to git alias as branches-containing
 
 git branch --contains "$@"

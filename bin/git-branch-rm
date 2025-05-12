@@ -39,6 +39,13 @@ positional_args=""
 while (( "$#" )); do
   case "$1" in
 
+    -a|--all)
+      delete_local=1
+      delete_tracking=1
+      delete_remote=1
+      shift
+      ;;
+
     -l|--local)
       delete_local=1
       shift
@@ -103,7 +110,7 @@ while read -r input; do
   if [ -n "$delete_remote" ]; then
     if git remote-is-usable $remote; then
       echo "Deleting branch '$branch' from remote '$remote' …"
-      git push $remote -d $branch
+      git push --no-verify $remote -d $branch
     else 
       echo "Skipping unusable remote"
     fi
