@@ -16,35 +16,45 @@ if ! [[ "$specificity" =~ ^(common|specific|mixed|)$ ]]; then
   exit 2
 fi
 
-# check existing specificity
-if existing=$(git-get-file-specificity --verify "$file" 2>/dev/null); then
-  # exit code 0: existing may be empty or a single value
-  if [[ -z "$existing" ]]; then
-    # not recorded: just append
-    echo "$file" >> "$base/$specificity"
-    exit 0
-  fi
-  # existing defined
-  if [[ "$existing" == "$specificity" ]]; then
-    # already correct
-    exit 0
-  fi
-  # override confirmation
-  read -p "'$file' currently recorded as '$existing'; change to '$specificity'? [y/N] " ans
-  if [[ ! "$ans" =~ ^[Yy] ]]; then
-    echo "Aborted."
-    exit 0
-  fi
-else
-  # exit !=0: multiple or error
-  echo "Cannot set specificity: '$file' matches multiple lists. Resolve manually." >&2
-  exit 1
+# check recorded specificity
+recorded=$(git-get-file-specificity "$file" || true)
+# recorded may be empty or a single value or multiple values (it will have shown a warning on stderr, but still returned the list on stdout)
+if [[ -z "$recorded" ]]; then
+  # not recorded: just append
+  echo "$file" >> "$base/$specificity"
+  exit 0
+fi
+# recorded defined
+if [[ "$recorded" == "$specificity" ]]; then
+  # already correct
+  exit 0
+fi
+
+# override confirmation
+read -p "'$file' currently recorded as '$recorded'; change to '$specificity'? [y/N] " ans
+if [[ ! "$ans" =~ ^[Yy] ]]; then
+  echo "Aborted."
+  exit 0
 fi
 
 # remove from other lists
 for t in common specific mixed; do
-  [[ "$t" == "$specificity" ]] && continue
-  sed -i -e "/^$(printf '%s' "$file" | sed 's/[\/&]/\\&/g')\$/d" "$base/$t"
+  # TODO: fix so it correctly checks against $recorded even if multiple values, which may mean changing $recorded to an array
+  if $t in $recorded; then
+    if [[ "$t" == "$specificity" ]]; then
+      # New value already recorded
+      continue
+    else
+      # We need to remove this recorded value from the appropriate list since it is different than
+      # the requested new specificity value
+      # TODO: double-check sed pattern. Are you sure that's right? Shouldn't 
+      sed -i -e "/^$(printf '%s' "$file" | sed 's/[\/&]/\\&/g')\$/d" "$base/$t"
+      # TODO: double-check that it was removed. Maybe call git-get-file-specificity $file again here and
+      # make sure it no longer includes $t .
+  else # This value is not recorded in the specificity config files
+    if [[ "$t" == "$specificity" ]]; then
+      # append to specificity file
+      echo "$file" >> "$base/$specificity"
+    fi
+  fi
 done
-# append to specificity
-echo "$file" >> "$base/$specificity"
