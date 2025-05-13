@@ -3,11 +3,11 @@
 set -euo pipefail
 
 # Which commit are we splitting? Default to HEAD.
-commit=${1:-HEAD}
-commit_ref=$(git rev-parse --verify $commit)
-head_ref=$(  git rev-parse --verify HEAD)
-if [[ $head_ref != $commit_ref  ]]; then
-  echo >&2 "Error. Can't split unless the commit you want to edit ($commit) is the same as HEAD ($head_ref)"
+commit_input=${1:-HEAD}
+commit=$(git rev-parse --verify $commit_input)
+head_rev=$(  git rev-parse --verify HEAD)
+if [[ $head_rev != $commit  ]]; then
+  echo >&2 "Error. Can't split unless HEAD ($head_rev) is pointing to the commit you want to edit ($commit_input)"
   exit 1
 fi
 
@@ -17,27 +17,57 @@ git reset --soft "${commit}^"
 # 2) Unstage everything
 git reset HEAD .
 
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+# to do: add trap that resets if we hit an error:
+# - resets back to commit we were on
+# - moves .git/info/exclude back
+# and/or:
+# - write out our state and to-do to a file like rebase-i does, so that if we get interrupted, we
+# can continue and it will know where we left off
+#   - among the state to write must be the commit_input, since that is lost as soon as we reset
+#   $commit^
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
 # 3) Stage and commit the common subset
 #    (files classified as “common” in this commit)
+git-diff-tree-specificity --quiet --name-only "$commit" common
 mapfile -t common_files < <(
-  git-diff-tree-specificity \
-    --name-only             \
-    "$commit" common
+  git-diff-tree-specificity --quiet --name-only "$commit" common
 )
+
+# Unfortunately, this only stops it from using the global ~/.gitignore file, not the per-repo
+# .git/info/exclude file. To ignore that, we'd have to either use git add -f (but then we don't get
+# useful error that we _want_ to see if local .gitignore happens to be ignoring it), or temporarily
+# move it out of the way.
+ignore_local_excludes="-c core.excludesFile=/dev/null"
+function disable_local_exclude_file() {
+  if [ -f .git/info/exclude ]; then
+    if [ -f .git/info/exclude.backup ]; then
+      echo >&2 "Can't back up .git/info/exclude — .git/info/exclude.backup already exists!"
+      exit 1
+    fi
+    mv --no-clobber .git/info/exclude .git/info/exclude.backup
+  fi
+}
+function undo_disable_local_exclude_file() {
+  mv --no-clobber .git/info/exclude.backup .git/info/exclude || true
+}
+disable_local_exclude_file
 
 if (( ${#common_files[@]} )); then
   printf 'Staging common files:\n'
   printf '  %s\n' "${common_files[@]}"
-  git add -- "${common_files[@]}"
+  git $ignore_local_excludes add -- "${common_files[@]}"
 else
   echo "No common files to stage."
 fi
 
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
 # 4) Identify mixed files for manual review
+
 mapfile -t mixed_files < <(
-  git-diff-tree-specificity \
-    --name-only             \
-    "$commit" mixed
+  git-diff-tree-specificity --quiet --name-only "$commit" mixed
 )
 
 if (( ${#mixed_files[@]} )); then
@@ -55,7 +85,8 @@ if (( ${#mixed_files[@]} )); then
       read -rp "  [a]dd hunks or [e]dit '$file'? " resp
       case "$resp" in
         a|A)
-          git add -p "$file"
+          git add --intent-to-add "$file"
+          git $ignore_local_excludes add -p "$file"
           break
           ;;
         e|E)
@@ -87,3 +118,6 @@ git commit -c "$commit"
 echo
 echo "✓ Split $commit into these commits:"
 git log-oneline -2
+
+# Clean up
+undo_disable_local_exclude_file
