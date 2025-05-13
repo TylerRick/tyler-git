@@ -5,6 +5,9 @@
 # Lists *changed* files in a commit with specificity
 # ------------------------------------------
 
+# Limitations:
+# - doesn't detect any changes when you are currently on the root commit
+
 function ls_files_cmd() {
   # output:
   # for ACM: "status<TAB>path"
