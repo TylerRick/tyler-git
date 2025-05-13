@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Which commit are we splitting? Default to HEAD.
+commit=$(git rev-parse --verify HEAD)
+
+# 1) Roll back to before this commit, but keep all changes staged
+git reset --soft "${commit}^"
+
+# 2) Unstage everything
+git reset HEAD .
+
+# 3) Stage and commit the common subset
+#    (files classified as “common” in this commit)
+mapfile -t common_files < <(
+  git-diff-tree-specificity \
+    --name-only             \
+    "$commit" common
+)
+
+if (( ${#common_files[@]} )); then
+  printf 'Staging common files:\n'
+  printf '  %s\n' "${common_files[@]}"
+  git add -- "${common_files[@]}"
+else
+  echo "No common files to stage."
+fi
+
+# 4) Identify mixed files for manual review
+mapfile -t mixed_files < <(
+  git-diff-tree-specificity \
+    --name-only             \
+    "$commit" mixed
+)
+
+if (( ${#mixed_files[@]} )); then
+  echo
+  echo "Please review & stage parts of these mixed files:"
+  printf '  %s\n' "${mixed_files[@]}"
+  echo
+
+  for file in "${mixed_files[@]}"; do
+    # show what our detector thinks is specific
+    git-detect-file-specificity "$commit" "$file"
+
+    # loop until user stages hunks
+    while true; do
+      read -rp "  [a]dd hunks or [e]dit '$file'? " resp
+      case "$resp" in
+        a|A)
+          git add -p "$file"
+          break
+          ;;
+        e|E)
+          ${VISUAL:-${EDITOR:-vi}} "$file"
+          ;;
+        *)
+          echo "    Enter 'a' to interactively add hunks, or 'e' to edit the file."
+          ;;
+      esac
+    done
+  done
+else
+  echo "No mixed files to review."
+fi
+
+# 5) Commit the common changes
+echo
+git status
+read -rp "Press Enter to commit the common changes… " _
+git commit -c "$commit"
+
+# 6) Stage & commit the remaining (specific) changes
+git add -A
+echo
+git status
+read -rp "Press Enter to commit the specific changes… " _
+git commit -c "$commit"
+
+echo
+echo "✓ Split $commit into these commits:"
+git log-oneline -2
