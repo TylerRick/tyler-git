@@ -15,7 +15,6 @@ function ls_files_cmd() {
     name_only=false
   fi
   commit=${1:-}
-  echo >&2 commit=$commit
   if [ -n "$commit" ]; then
     git ls-tree --full-tree -r --name-only "$commit"
   else
