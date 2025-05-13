@@ -76,7 +76,7 @@ fi
 # Print results
 if ! $name_only; then
   # header: commit hash and message
-  if [[ $quiet = false ]]; then
+  if [[ $quiet = false ]] && [ -n "$commit" ]; then
     echo "$(git rev-parse --short "$commit") $(git log --format=%s -n1 "$commit")"
   fi
   for e in "${entries[@]}"; do
