@@ -37,8 +37,11 @@ source "$(dirname $0)"/lib/colors.sh
 
 recorded=$(git-get-file-specificity "$file")
 
-#  >/dev/null
-if git-detect-is-file-specific "$file_contents"; then
+set +e
+specific_matches=$(git-detect-is-file-specific "$file_contents")
+exit_code=$?
+set -e
+if (( $exit_code == 0 )); then
   detected_specific=true
 else
   detected_specific=false
@@ -70,15 +73,18 @@ if [[ -z "$recorded" && "$detected_specific" == true ]]; then
   exit 0
 fi
 
-if [[ "$recorded" == common && "$detected_specific" == true ]] \
- || ([[ "$recorded" =~ ^(specific|mixed)$ ]] && [[ "$detected_specific" == false ]]); then
-  _red "${file}: Discrepancy!${reset} recorded=${bold}${recorded}${reset}, but detected_specific=${bold}${detected_specific}${reset}" >&2 
+discrepancy_msg="recorded=${bold}${recorded}${reset}, but detected_specific=${bold}${detected_specific}${reset}"
+if [[ "$recorded" == common && "$detected_specific" == true ]]; then
+  echo "$specific_matches"
+  _red "${file}: Discrepancy! ${reset}${discrepancy_msg}" >&2 
   choice=$(confirm_loop "override classification for this file? (you may need to update your detection script if it failed to detect a specific/mixed file.)")
   if [[ -n "$choice" ]]; then
     git-set-file-specificity "$file" "$choice"
     _green "updated ${file} → ${bold}${choice}${reset}."
   fi
   exit 0
+elif [[ "$recorded" =~ ^(specific|mixed)$ ]] && [[ "$detected_specific" == false ]]; then
+  _yellow "${file}: No specific keywords found${reset}: ${discrepancy_msg}" >&2 
 fi
 
 # no discrepancy; detected already agrees with recorded

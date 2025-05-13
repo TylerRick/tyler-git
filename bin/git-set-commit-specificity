@@ -31,7 +31,7 @@ case "${1:-}" in
 esac
 
 specificity=$1
-commit=${2:-@}
+commit=${2:-HEAD}
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -48,7 +48,9 @@ case "${specificity,,}" in
     ;;
 esac
 
+recorded=$(git-get-commit-specificity $commit)
+
 git notes --ref=$notes_ref add -f -m "$specificity" "$commit" 2>/dev/null
-_cyan "Marked ${bold}$commit${reset}${cyan} as ${bold}$specificity${reset}"
+_cyan "Marked ${bold}$commit${reset}${cyan} as ${bold}$specificity${reset} (was: $recorded)"
 
 echo "  $(git show-oneline $commit)${reset}"
