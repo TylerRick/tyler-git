@@ -6,6 +6,7 @@
 # Unlike git-get-file-specificity, which _only_ reads what has previously been recorded, this
 # actually tries to do some detection, and checks whether what has been recorded matches.
 
+
 set -euo pipefail
 
 # commit optional
@@ -41,46 +42,56 @@ else
 fi
 [ -f "${tmpfile:-}" ] && rm -f "$tmpfile"
 
-_red() { printf "\e[31m%s\e[0m\n" "$*"; }
+# Color definitions
+reset="\e[0m"
+red="\e[31m"
+green="\e[32m"
+yellow="\e[33m"
+cyan="\e[36m"
+bold="\e[1m"
+
+_red()    { printf "${red}%s${reset}\n" "$*"; }
+_green()  { printf "${green}%s${reset}\n" "$*"; }
+_yellow() { printf "${yellow}%s${reset}\n" "$*"; }
+_cyan()   { printf "${cyan}%s${reset}\n" "$*"; }
 
 confirm_loop() {
-  prompt="$1"; shift
+  local prompt="$1"; shift
   while true; do
-    read -p "$prompt [s]specific/[m]ixed/[c]ommon [v]iew/[n]no? " ans
+    read -p "$(printf "${bold}%s${reset} [${cyan}s${reset}]pecific/[${cyan}m${reset}]ixed/[${cyan}c${reset}]ommon [${cyan}v${reset}]iew/[${cyan}n${reset}]o? " "$prompt")" ans
     case "$ans" in
       [sS]) echo specific; return ;;
       [mM]) echo mixed;    return ;;
       [cC]) echo common;   return ;;
       [vV]) ${VISUAL:-${EDITOR:-vi}} "$file" ;;
       [nN])                return ;;
-      *) echo "Please enter a valid option." ;;
+      *) _yellow "Please enter a valid option." ;;
     esac
   done
 }
 
 if [[ -z "$recorded" && "$detected_specific" == true ]]; then
-  echo "$file: detected_specific=$detected_specific but no specificity recorded yet."
-  choice=$(confirm_loop "Mark as specific?")
-  if [[ "$choice" != "" ]]; then
+  echo -e "${cyan}${file}:${reset} detected_specific=${bold}${detected_specific}${reset} but no specificity recorded yet."
+  choice=$(confirm_loop "mark as specific?")
+  if [[ -n "$choice" ]]; then
     git-set-file-specificity "$file" "$choice"
-    echo "Recorded $file as $choice."
+    _green "recorded ${file} as ${bold}${choice}${reset}."
   fi
   exit 0
 fi
 
-# any discrepancy?
-# If classified as specific/mixed, then detection script should have detected a "specific" keyword.
 if [[ "$recorded" == common && "$detected_specific" == true ]] \
  || ([[ "$recorded" =~ ^(specific|mixed)$ ]] && [[ "$detected_specific" == false ]]); then
-  _red "$file: Discrepancy! recorded=$recorded, but detected_specific=$detected_specific" >&2 
-  choice=$(confirm_loop "Override classification for this file? (You may need to update your detection script if it failed to detect a specific/mixed file.)")
-  if [[ "$choice" != "" ]]; then
+  _red "${file}: Discrepancy! recorded=${bold}${recorded}${reset}, but detected_specific=${bold}${detected_specific}${reset}" >&2 
+  choice=$(confirm_loop "override classification for this file? (you may need to update your detection script if it failed to detect a specific/mixed file.)")
+  if [[ -n "$choice" ]]; then
     git-set-file-specificity "$file" "$choice"
-    echo "Updated $file → $choice."
+    _green "updated ${file} → ${bold}${choice}${reset}."
   fi
   exit 0
 fi
 
 # no discrepancy; detected already agrees with recorded
-echo "$file: Recorded as $recorded; detected_specific=$detected_specific => agreement"
+echo -e "${cyan}${file}:${reset} ${green}Agreement${reset}: recorded as ${bold}${recorded}${reset}; detected_specific=${bold}${detected_specific}${reset}"
 exit 0
+
