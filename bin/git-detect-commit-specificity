@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+# Usage: git-detect-commit-specificity [commit]
+
+set -euo pipefail
+
+split=false
+detect=true
+act=true
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)      echo "Usage: $(basename "$0") [--no-act] [<commit>]" >&2; exit 0 ;;  
+    --no-detect | -D) detect=false; shift ;;  
+    --no-act | -n)    act=false; shift ;;  
+    --split)          split=true; shift ;;  
+    -*)               echo "Unknown option $1" >&2; exit 1 ;;  
+    *) break ;;  
+  esac
+done
+
+commit=${1:-HEAD}
+
+# 1) For each path in the commit, detect & record; then report the specificity for each file
+if [[ "$detect" = true ]]; then
+  git-diff-tree-specificity --detect $commit
+fi
+
+# 2) classify commit
+mapfile -t specs < <(git-diff-tree-specificity --quiet "$commit" | awk '{print $NF}' | sort -u)
+echo "Files have these specificity values: ${specs[@]}"
+if [[ ${#specs[@]} -eq 1 ]]; then
+  specificity=${specs[0]}
+else
+  specificity=mixed
+fi
+echo "Commit $commit overall specificity: $specificity"
+
+# 3) record & split if needed
+if [[ "$act" = true ]]; then
+  git-set-commit-specificity "$specificity" "$commit"
+  if [[ "$specificity" == mixed && $split = true ]]; then
+    git-split-commit-by-specificity
+  fi
+fi
