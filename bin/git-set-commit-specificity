@@ -7,7 +7,7 @@ notes_ref=refs/notes/specificity
 
 function usage() {
   cat - >&2 <<End
-Usage: $cmd_name <tag> [<commit>]
+Usage: $cmd_name <specificity> [<commit>]
 
 Examples:
 
@@ -30,22 +30,25 @@ case "${1:-}" in
     ;;
 esac
 
-tag=$1
+specificity=$1
 commit=${2:-@}
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
-# Normalize the tag
-case "${tag,,}" in
-  c*) tag="common" ;;
-  s*) tag="specific" ;;
-  m*) tag="mixed" ;;
+source "$(dirname $0)"/lib/colors.sh
+
+# Normalize the specificity
+case "${specificity,,}" in
+  c*) specificity="common" ;;
+  s*) specificity="specific" ;;
+  m*) specificity="mixed" ;;
   *)
-    echo "Unrecognized tag abbreviation: '$tag'. Use 'common', 'specific', or 'mixed' (or any abbreviation starting with 'c' or 's')."
+    echo "Unrecognized specificity abbreviation: '$specificity'. Use 'common', 'specific', or 'mixed' (or any abbreviation starting with 'c' or 's')."
     exit 1
     ;;
 esac
 
-git notes --ref=$notes_ref add -f -m "$tag" "$commit"
-echo "Marked $commit as $tag"
-git show-oneline $commit
+git notes --ref=$notes_ref add -f -m "$specificity" "$commit" 2>/dev/null
+_cyan "Marked ${bold}$commit${reset}${cyan} as ${bold}$specificity${reset}"
+
+echo "  $(git show-oneline $commit)${reset}"

@@ -49,11 +49,11 @@ confirm_loop() {
   local prompt="$1"; shift
   while true; do
     read -p "$(printf "${bold}%s${reset} [${cyan}s${reset}]pecific/[${cyan}m${reset}]ixed/[${cyan}c${reset}]ommon [${cyan}v${reset}]iew/[${cyan}n${reset}]o? " "$prompt")" ans
-    case "$ans" in
+    case "${ans:-n}" in
       [sS]) echo specific; return ;;
       [mM]) echo mixed;    return ;;
       [cC]) echo common;   return ;;
-      [vV]) ${VISUAL:-${EDITOR:-vi}} "$file" ;;
+      [vV]) ${VISUAL:-${EDITOR:-vi}} "$file" </dev/tty >/dev/tty 2>/dev/tty ;;
       [nN])                return ;;
       *) _yellow "Please enter a valid option." ;;
     esac
@@ -72,7 +72,7 @@ fi
 
 if [[ "$recorded" == common && "$detected_specific" == true ]] \
  || ([[ "$recorded" =~ ^(specific|mixed)$ ]] && [[ "$detected_specific" == false ]]); then
-  _red "${file}: Discrepancy! recorded=${bold}${recorded}${reset}, but detected_specific=${bold}${detected_specific}${reset}" >&2 
+  _red "${file}: Discrepancy!${reset} recorded=${bold}${recorded}${reset}, but detected_specific=${bold}${detected_specific}${reset}" >&2 
   choice=$(confirm_loop "override classification for this file? (you may need to update your detection script if it failed to detect a specific/mixed file.)")
   if [[ -n "$choice" ]]; then
     git-set-file-specificity "$file" "$choice"
@@ -82,6 +82,6 @@ if [[ "$recorded" == common && "$detected_specific" == true ]] \
 fi
 
 # no discrepancy; detected already agrees with recorded
-echo -e "${cyan}${file}:${reset} ${green}Agreement${reset}: recorded as ${bold}${recorded}${reset}; detected_specific=${bold}${detected_specific}${reset}"
+echo -e "${cyan}${file}:${reset} ${green}Agreement${reset}: recorded=${bold}${recorded}${reset}; detected_specific=${bold}${detected_specific}${reset}"
 exit 0
 

@@ -3,7 +3,13 @@
 set -euo pipefail
 
 # Which commit are we splitting? Default to HEAD.
-commit=$(git rev-parse --verify HEAD)
+commit=${1:-HEAD}
+commit_ref=$(git rev-parse --verify $commit)
+head_ref=$(  git rev-parse --verify HEAD)
+if [[ $head_ref != $commit_ref  ]]; then
+  echo >&2 "Error. Can't split unless the commit you want to edit ($commit) is the same as HEAD ($head_ref)"
+  exit 1
+fi
 
 # 1) Roll back to before this commit, but keep all changes staged
 git reset --soft "${commit}^"
