@@ -9,14 +9,16 @@
 set -euo pipefail
 
 # Parse common options: --name-only, --detect, [<commit>], [<specificity>]
+quiet=false
 name_only=false
 detect=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --quiet | -q) quiet=true; shift ;;  
     --name-only) name_only=true; shift ;;  
     --detect)    detect=true;    shift ;;  
     --help)      echo "Usage: $(basename "$0") [--name-only] [--detect] [<commit>] [<specificity>]" >&2; exit 0 ;;  
-    --*)         echo "Unknown option $1" >&2; exit 1 ;;  
+    -*)         echo "Unknown option $1" >&2; exit 1 ;;  
     *) break ;;  
   esac
 done
@@ -60,15 +62,23 @@ while IFS=$'\t' read -r status path old; do
   else
     entries+=("$path|")
   fi
-  # Show some progress since this is really slow
-  echo -n '.'
+  # Show some progress since this is really slow, unless --quiet (since it is likely being consumed
+  # by script)
+  if [[ $quiet = false ]]; then
+    echo -n '.'
+  fi
 done < <(ls_files_cmd $commit)
-echo
+
+if [[ $quiet = false ]]; then
+  echo
+fi
 
 # Print results
 if ! $name_only; then
   # header: commit hash and message
-  echo "$(git rev-parse --short "$commit") $(git log --format=%s -n1 "$commit")"
+  if [[ $quiet = false ]]; then
+    echo "$(git rev-parse --short "$commit") $(git log --format=%s -n1 "$commit")"
+  fi
   for e in "${entries[@]}"; do
     IFS='|' read -r disp spec <<< "$e"
     printf "%-${maxlen}s  %s\n" "$disp" "$spec"

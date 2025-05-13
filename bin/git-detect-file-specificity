@@ -6,7 +6,6 @@
 # Unlike git-get-file-specificity, which _only_ reads what has previously been recorded, this
 # actually tries to do some detection, and checks whether what has been recorded matches.
 
-
 set -euo pipefail
 
 # commit optional
