@@ -28,18 +28,18 @@ else
   if ! [ -f "$file" ]; then
     echo >&2 "$file: Does not exist"
   fi
-  tmpfile=/dev/null
   file_contents=$file
 fi
 
 recorded=$(git-get-file-specificity "$file")
 
-if git-detect-is-file-specific "$file_contents" >/dev/null; then
+#  >/dev/null
+if git-detect-is-file-specific "$file_contents"; then
   detected_specific=true
 else
   detected_specific=false
 fi
-rm -f "$tmpfile"
+[ -f "${tmpfile:-}" ] && rm -f "$tmpfile"
 
 _red() { printf "\e[31m%s\e[0m\n" "$*"; }
 
