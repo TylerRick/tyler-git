@@ -31,6 +31,10 @@ else
   file_contents=$file
 fi
 
+source "$(dirname $0)"/lib/colors.sh
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
 recorded=$(git-get-file-specificity "$file")
 
 #  >/dev/null
@@ -40,19 +44,6 @@ else
   detected_specific=false
 fi
 [ -f "${tmpfile:-}" ] && rm -f "$tmpfile"
-
-# Color definitions
-reset="\e[0m"
-red="\e[31m"
-green="\e[32m"
-yellow="\e[33m"
-cyan="\e[36m"
-bold="\e[1m"
-
-_red()    { printf "${red}%s${reset}\n" "$*"; }
-_green()  { printf "${green}%s${reset}\n" "$*"; }
-_yellow() { printf "${yellow}%s${reset}\n" "$*"; }
-_cyan()   { printf "${cyan}%s${reset}\n" "$*"; }
 
 confirm_loop() {
   local prompt="$1"; shift
