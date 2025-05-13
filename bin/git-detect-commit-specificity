@@ -20,6 +20,10 @@ done
 
 commit=${1:-HEAD}
 
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+source "$(dirname $0)"/lib/colors.sh
+
 # 1) For each path in the commit, detect & record; then report the specificity for each file
 if [[ "$detect" = true ]]; then
   git-diff-tree-specificity --detect $commit
@@ -33,12 +37,20 @@ if [[ ${#specs[@]} -eq 1 ]]; then
 else
   specificity=mixed
 fi
-echo "Commit $commit overall specificity: $specificity"
+_cyan "=> Commit $commit overall specificity: ${bold}$specificity${reset}"
 
 # 3) record & split if needed
 if [[ "$act" = true ]]; then
   git-set-commit-specificity "$specificity" "$commit"
   if [[ "$specificity" == mixed && $split = true ]]; then
-    git-split-commit-by-specificity
+    set -x
+    head_ref=$(  git rev-parse HEAD)
+    commit_ref=$(git rev-parse $commit)
+    if [[ $head_ref = $commit_ref  ]]; then
+      git-split-commit-by-specificity
+    else
+      echo >&2 "Error. Can't split unless the commit you want to edit ($commit) is the same as HEAD ($head_ref)"
+      exit 1
+    fi
   fi
 fi
