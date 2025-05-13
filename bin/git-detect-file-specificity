@@ -1,21 +1,45 @@
 #!/usr/bin/env bash
 
-# Usage: git-detect-file-specificity <path>
-
+# Usage: git-detect-file-specificity [<commit>] <file>
+# Detects if a file is specific via git-detect-file-is-specific.
+#
 # Unlike git-get-file-specificity, which _only_ reads what has previously been recorded, this
 # actually tries to do some detection, and checks whether what has been recorded matches.
 
-file="$1"
-if ! [ -f "$file" ]; then
-  echo >&2 "$file: Does not exist"
+set -euo pipefail
+
+# commit optional
+if [[ $# -eq 2 ]]; then
+  commit=$1; file=$2
+elif [[ $# -eq 1 ]]; then
+  commit=""; file=$1
+else
+  echo "Usage: $(basename "$0") [<commit>] <file>" >&2
+  exit 2
+fi
+
+if [[ -n "$commit" ]]; then
+  # Look at file contents as of that commit
+  tmpfile=$(mktemp)
+  git show "$commit:$file" > $tmpfile
+  file_contents=$tmpfile
+else
+  # Look in working tree
+  if ! [ -f "$file" ]; then
+    echo >&2 "$file: Does not exist"
+  fi
+  tmpfile=/dev/null
+  file_contents=$file
 fi
 
 recorded=$(git-get-file-specificity "$file")
-if git-detect-is-file-specific "$file" >/dev/null; then
+
+if git-detect-is-file-specific "$file_contents" >/dev/null; then
   detected_specific=true
 else
   detected_specific=false
 fi
+rm -f "$tmpfile"
 
 _red() { printf "\e[31m%s\e[0m\n" "$*"; }
 
