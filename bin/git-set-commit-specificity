@@ -39,8 +39,9 @@ commit=${2:-@}
 case "${tag,,}" in
   c*) tag="common" ;;
   s*) tag="specific" ;;
+  m*) tag="mixed" ;;
   *)
-    echo "Unrecognized tag abbreviation: '$tag'. Use 'common' or 'specific' (or any abbreviation starting with 'c' or 's')."
+    echo "Unrecognized tag abbreviation: '$tag'. Use 'common', 'specific', or 'mixed' (or any abbreviation starting with 'c' or 's')."
     exit 1
     ;;
 esac
