@@ -41,38 +41,8 @@
 #---------------------------------------------------------------------------------------------------
 # Dependencies/lib
 
-pushd "$(git rev-parse --show-cdup)" > /dev/null
+cd "$(git rev-parse --show-cdup)"
 git_dir=$(git rev-parse --git-dir)
-
-. "$(git --exec-path)/git-sh-setup"
-
-get_committer_ident_from_commit () {
-  script='
-  /^committer /{
-    s/'\''/'\''\\'\'\''/g
-    h
-    s/^committer \([^<]*\) <[^>]*> .*$/\1/
-    s/'\''/'\''\'\'\''/g
-    s/.*/GIT_COMMITTER_NAME='\''&'\''/p
-
-    g
-    s/^committer [^<]* <\([^>]*\)> .*$/\1/
-    s/'\''/'\''\'\'\''/g
-    s/.*/GIT_COMMITTER_EMAIL='\''&'\''/p
-
-    g
-    s/^committer [^<]* <[^>]*> \(.*\)$/\1/
-    s/'\''/'\''\'\'\''/g
-    s/.*/GIT_COMMITTER_DATE='\''&'\''/p
-
-    q
-  }
-  '
-  encoding=$(git config i18n.commitencoding || echo UTF-8)
-  #git show -s --pretty=raw --encoding="$encoding" "$1" >&2
-  git show -s --pretty=raw --encoding="$encoding" "$1" -- |
-  LANG=C LC_ALL=C sed -ne "$script"
-}
 
 #---------------------------------------------------------------------------------------------------
 # Options
@@ -83,10 +53,6 @@ preserved_GIT_AUTHOR_DATE="$GIT_AUTHOR_DATE"
 preserved_GIT_COMMITTER_NAME="$GIT_COMMITTER_NAME"
 preserved_GIT_COMMITTER_EMAIL="$GIT_COMMITTER_EMAIL"
 preserved_GIT_COMMITTER_DATE="$GIT_COMMITTER_DATE"
-
-#GIT_COMMITTER_NAME="$(git show -s --format='%cn'  $rev)" \
-#GIT_COMMITTER_EMAIL="$(git show -s --format='%ce'  $rev)" \
-#GIT_COMMITTER_DATE="$(git show -s --format='%cI'  $rev)" \
 
 positional_args=""
 pass_through_opts=""
@@ -106,16 +72,12 @@ while (( "$#" )); do
 done
 eval set -- "$positional_args"
 
-rev=${1:-HEAD}
+commit=${1:-HEAD}
 
 #---------------------------------------------------------------------------------------------------
 # Record current (pre-change) commit data
 
-eval "$(get_author_ident_from_commit    $rev)"
-eval "$(get_committer_ident_from_commit $rev)"
-
-GIT_AUTHOR_DATE="$(git show -s --format='%aI' $rev)"
-GIT_COMMITTER_DATE="$(git show -s --format='%cI' $rev)"
+eval "$(git-commit-metadata-vars $commit)"
 
 if test "$show_info_only" = "1" ; then
   echo GIT_AUTHOR_NAME=$GIT_AUTHOR_NAME
@@ -153,7 +115,7 @@ test ! -z "$git_date" && GIT_COMMITTER_DATE="$git_date"
 #echo GIT_COMMITTER_DATE=$GIT_COMMITTER_DATE
 
 # TODO: file_list=`git list files from commit`
-git cat-file commit "$rev" | sed "1,/^$/d" > $git_dir/git-commit-modify-message
+git cat-file commit "$commit" | sed "1,/^$/d" > $git_dir/git-commit-modify-message
 #cat .git/git-commit-modify-message
 
 #---------------------------------------------------------------------------------------------------
@@ -187,8 +149,6 @@ git commit $file_list --quiet --no-verify --allow-empty -F $git_dir/git-commit-m
 # Clean up
 
 rm $git_dir/git-commit-modify-message
-
-popd > /dev/null
 
 if test $failed = t ; then
   echo "Detected failure!"

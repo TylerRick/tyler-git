@@ -2,20 +2,23 @@
 
 # usage: $0 <orig-sha>
 
-# Amends the tip commit, copying the committer (TODO: and other)
-# metadata from $rev.
+# Amends the tip commit, copying the committer and author
+# metadata from $commit.
 # This can be used during a rebase, for example, since a rebase will
 # by default set the committer name and date to you and now. It provides
 # --committer-date-is-author-date but no way to keep committer date how it was in the original
 # commit. See git-rebase-set-commit-date-to-author-date for my solution which calls this after each
 # pick command during a rebase.
 
+# To do:
+# - Add --no-author to let you copy only committer (skip author) or require --reset-author to be
+# passed if you want it passed to git commit.
+
 # See also: git-commit-cp, git-commit-modify
 
 #====================================================================================================
-rev=$1
+commit=$1
 
-GIT_COMMITTER_NAME="$(git show -s --format='%cn'  $rev)" \
-GIT_COMMITTER_EMAIL="$(git show -s --format='%ce'  $rev)" \
-GIT_COMMITTER_DATE="$(git show -s --format='%cI'  $rev)" \
-git commit --allow-empty --amend --no-edit --no-verify
+eval "$(git-commit-metadata-vars $commit)"
+
+git commit --allow-empty --amend --no-edit --no-verify --reset-author

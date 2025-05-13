@@ -8,12 +8,8 @@
 # See also: git-commit-amend-copy-committer
 
 #====================================================================================================
-rev=$1
+commit=$1
 
-# TODO: should we use this instead?:
-# eval "$(git-commit-modify --show-info-only $rev)"
+eval "$(git-commit-metadata-vars $commit)"
 
-GIT_COMMITTER_NAME="$(git show -s --format='%cn'  $rev)" \
-GIT_COMMITTER_EMAIL="$(git show -s --format='%ce'  $rev)" \
-GIT_COMMITTER_DATE="$(git show -s --format='%cI'  $rev)" \
 git commit --allow-empty -C "$@"
