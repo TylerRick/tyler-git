@@ -42,15 +42,11 @@ _cyan "=> Commit $commit overall specificity: ${bold}$specificity${reset}"
 # 3) record & split if needed
 if [[ "$act" = true ]]; then
   git-set-commit-specificity "$specificity" "$commit"
-  if [[ "$specificity" == mixed && $split = true ]]; then
-    set -x
-    head_ref=$(  git rev-parse HEAD)
-    commit_ref=$(git rev-parse $commit)
-    if [[ $head_ref = $commit_ref  ]]; then
+  if [[ $split = true ]]; then
+    if [[ "$specificity" == mixed ]]; then
       git-split-commit-by-specificity
     else
-      echo >&2 "Error. Can't split unless the commit you want to edit ($commit) is the same as HEAD ($head_ref)"
-      exit 1
+      echo "No split needed"
     fi
   fi
 fi

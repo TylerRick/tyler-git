@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-# Parse common options: --name-only, --detect, [<commit>], [<specificity>]
+# Parse options
 quiet=false
 name_only=false
 detect=false
