@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# Lists all commits with notes in refs/notes/specificity
+
+# TODO: instead (or possibly as an option), use git log / rev-list instead, so that we also see
+# which commits are _missing_ a specificity
+
+git notes --ref=refs/notes/specificity list | while read -r note_id commit; do
+  tag=$(git notes --ref=refs/notes/specificity show "$commit" || true)
+  echo "$commit $tag"
+done
