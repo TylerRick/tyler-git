@@ -34,13 +34,12 @@ fi
 if $detect; then
   # ls_files_cmd --name-only $commit
   while IFS=$'\t' read -r path; do
-    set -x # Show next command only
+    #set -x # Show next command only
     git-detect-file-specificity ${commit} "$path" < /dev/tty
-    { set +x; } 2>/dev/null
+    #{ set +x; } 2>/dev/null
   done < <(ls_files_cmd --name-only $commit)
   echo 'Done with detect'
 fi
-exit
 
 # Collect entries and measure display width
 declare -a entries
