@@ -8,9 +8,14 @@
 
 set -euo pipefail
 
+source "$(dirname $0)"/lib/specificity.sh
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
 # Parse options
 quiet=false
 name_only=false
+color_name=true
 detect=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -53,14 +58,18 @@ while IFS=$'\t' read -r status path old; do
   else
     disp="$status  $path"
   fi
-  spec=$(git-get-file-specificity "$path" 2>/dev/null || true)
-  [[ -n "$specificity_filter" && "$spec" != "$specificity_filter" ]] && continue
-  if ! $name_only; then
+  specificity=$(git-get-file-specificity "$path" 2>/dev/null || true)
+  [[ -n "$specificity_filter" && "$specificity" != "$specificity_filter" ]] && continue
+
+  if $name_only; then
+    entries+=("$path|")
+  else
+    if $color_name; then
+      disp=$(colorize_specificity $specificity "$disp")
+    fi
     len=${#disp}
     (( len > maxlen )) && maxlen=$len
-    entries+=("$disp|$spec")
-  else
-    entries+=("$path|")
+    entries+=("$disp|$specificity")
   fi
   # Show some progress since this is really slow, unless --quiet (since it is likely being consumed
   # by script)
@@ -74,18 +83,18 @@ if [[ $quiet = false ]]; then
 fi
 
 # Print results
-if ! $name_only; then
+if $name_only; then
+  for e in "${entries[@]}"; do
+    IFS='|' read -r path _ <<< "$e"
+    echo "$path"
+  done
+else
   # header: commit hash and message
   if [[ $quiet = false ]] && [ -n "$commit" ]; then
     echo "$(git rev-parse --short "$commit") $(git log --format=%s -n1 "$commit")"
   fi
   for e in "${entries[@]}"; do
-    IFS='|' read -r disp spec <<< "$e"
-    printf "%-${maxlen}s  %s\n" "$disp" "$spec"
-  done
-else
-  for e in "${entries[@]}"; do
-    IFS='|' read -r path _ <<< "$e"
-    echo "$path"
+    IFS='|' read -r disp specificity <<< "$e"
+    printf "%-${maxlen}s  %s\n" "$disp" "$(colorize_specificity $specificity $specificity)"
   done
 fi

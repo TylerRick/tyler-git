@@ -9,6 +9,7 @@
 # - doesn't detect any changes when you are currently on the root commit
 
 function ls_files_cmd() {
+  commit=$1
   # output:
   # for ACM: "status<TAB>path"
   # for R:   "status<TAB>path<TAB>oldpath?"
@@ -18,7 +19,9 @@ function ls_files_cmd() {
   else
     name_opt="--name-status"
   fi
-  git diff-tree --no-commit-id -r --diff-filter=ACMR $name_opt "$1" | \
+  root_opt=$(git-is-root-commit $commit && echo "--root" || true)
+  echo git diff-tree --no-commit-id -r $name_opt $root_opt "$commit" >&2
+  git diff-tree --no-commit-id -r $name_opt $root_opt "$commit" | \
     awk '{ if ($1 ~ /^R/) print $1"\t"$2"\t"$3; else print $1"\t"$2 }'
 }
 commit=HEAD
