@@ -142,6 +142,8 @@ export -f git-ls-in-commit
 #alias    gs='git diff --check --staged; git status'
 alias    gs='git status | grep -v typechange'
 
+alias gss='git status --short'
+
 alias grp='  git rev-parse'
 alias grpH=' git rev-parse HEAD'
 alias grpOH='git rev-parse ORIG_HEAD'
