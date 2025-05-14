@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+cd $(git rev-parse --git-dir)/..
 
 # Which commit are we splitting? Default to HEAD.
 commit_input=${1:-HEAD}
@@ -10,6 +11,17 @@ if [[ $head_rev != $commit  ]]; then
   echo >&2 "Error. Can't split unless HEAD ($head_rev) is pointing to the commit you want to edit ($commit_input)"
   exit 1
 fi
+
+state_dir=.git/split-commit
+if [ -e $state_dir ]; then
+  echo >&2 "$state_dir already exists!"
+  exit 1
+fi
+
+mkdir -p $state_dir
+echo $commit > $state_dir/commit
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
 
 # 1) Roll back to before this commit, but keep all changes staged
 git reset --soft "${commit}^"
@@ -31,7 +43,6 @@ git reset HEAD .
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 # 3) Stage and commit the common subset
 #    (files classified as “common” in this commit)
-git-diff-tree-specificity --quiet --name-only "$commit" common
 mapfile -t common_files < <(
   git-diff-tree-specificity --quiet --name-only "$commit" common
 )
@@ -41,17 +52,18 @@ mapfile -t common_files < <(
 # useful error that we _want_ to see if local .gitignore happens to be ignoring it), or temporarily
 # move it out of the way.
 ignore_local_excludes="-c core.excludesFile=/dev/null"
+local_exclude_backup_file=.git/info/exclude.backup.git-split-commit-by-specificity
 function disable_local_exclude_file() {
   if [ -f .git/info/exclude ]; then
-    if [ -f .git/info/exclude.backup ]; then
-      echo >&2 "Can't back up .git/info/exclude — .git/info/exclude.backup already exists!"
+    if [ -f $local_exclude_backup_file ]; then
+      echo >&2 "Can't back up .git/info/exclude — $local_exclude_backup_file already exists!"
       exit 1
     fi
-    mv --no-clobber .git/info/exclude .git/info/exclude.backup
+    mv --no-clobber .git/info/exclude $local_exclude_backup_file 
   fi
 }
 function undo_disable_local_exclude_file() {
-  mv --no-clobber .git/info/exclude.backup .git/info/exclude || true
+  mv --no-clobber $local_exclude_backup_file .git/info/exclude || true
 }
 disable_local_exclude_file
 
@@ -80,11 +92,15 @@ if (( ${#mixed_files[@]} )); then
     # show what our detector thinks is specific
     git-detect-file-specificity "$commit" "$file"
 
-    # loop until user stages hunks
+    # loop until user stages file
     while true; do
-      read -rp "  [a]dd hunks or [e]dit '$file'? " resp
+      read -rp "  [a]dd entire file, [p] add -p, or [e]dit '$file'? " resp
       case "$resp" in
         a|A)
+          git add "$file"
+          break
+          ;;
+        p|P)
           git add --intent-to-add "$file"
           git $ignore_local_excludes add -p "$file"
           break
@@ -93,7 +109,7 @@ if (( ${#mixed_files[@]} )); then
           ${VISUAL:-${EDITOR:-vi}} "$file"
           ;;
         *)
-          echo "    Enter 'a' to interactively add hunks, or 'e' to edit the file."
+          echo "    Invalid option!"
           ;;
       esac
     done
@@ -108,6 +124,8 @@ git status
 read -rp "Press Enter to commit the common changes… " _
 git commit -c "$commit"
 
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
 # 6) Stage & commit the remaining (specific) changes
 git add -A
 echo
@@ -115,9 +133,12 @@ git status
 read -rp "Press Enter to commit the specific changes… " _
 git commit -c "$commit"
 
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
 echo
 echo "✓ Split $commit into these commits:"
 git log-oneline -2
 
 # Clean up
 undo_disable_local_exclude_file
+rm -rf $state_dir
