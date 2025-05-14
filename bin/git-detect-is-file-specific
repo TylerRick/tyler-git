@@ -1,10 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# git-detect-is-file-specific: exit 0 if the file contains any "specific" patterns
-# Usage: git-detect-is-file-specific [-q|--quiet] <file>
-# Options:
-#   -q, --quiet    suppress grep output; only exit code indicates match
+usage() {
+  cat - <<End >&2
+Usage: $(basename $0) [-q|--quiet] <file>
+
+Options:
+  -q, --quiet    suppress grep output; only exit code indicates match
+Exit codes:
+  exits with 0 if the file contains any "specific" patterns
+  exits with 1 if no "specific" patterns can be found and it should be considered "common" 
+  exits with 2 if patterns file could not be found
+
+This is a lower-level tool, not expected to be used directly by user. User is expected to use
+git-detect-file-specificity instead.
+
+Note: This only looks at the file's current contents (in your worktree). If you want to check how it
+appeared as of a certain commit, see how git-detect-file-specificity does that by outputting git
+show to a temp file. 
+End
+  exit
+}
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
 
 # Determine grep command (GNU grep required for -P)
 if [ "$(uname)" = "Darwin" ]; then
@@ -14,22 +32,27 @@ else
 fi
 
 # Parse options
-quiet=0
-while [[ ${1-} ]]; do
+quiet=
+while (( "$#" > 0 )); do
   case "$1" in
     -q|--quiet)
-      quiet=1
+      quiet=true
       shift
       ;;
+    -h|--help)
+      usage
+      ;;
     --)
+      # Done parsing options
       shift
       break
       ;;
     -* )
       echo "Unknown option: $1" >&2
-      exit 2
+      exit 64 # EX_USAGE
       ;;
     * )
+      # Done parsing options
       break
       ;;
   esac
@@ -37,8 +60,7 @@ done
 
 # Expect exactly one positional argument: the file to check
 if [ $# -ne 1 ]; then
-  echo "Usage: $0 [-q|--quiet] <file>" >&2
-  exit 2
+  usage
 fi
 file=$1
 
@@ -49,7 +71,7 @@ if [ ! -f "$patterns_file" ]; then
   exit 2
 fi
 
-not_found=1
+matched_specific=
 set +e  # allow individual greps to fail
 
 # Read each non-empty, non-comment line as a pattern entry
@@ -62,18 +84,26 @@ while IFS= read -r entry || [ -n "$entry" ]; do
   read -r -a args <<< "$entry"
 
   # run grep with optional quiet redirection
-  if (( quiet )); then
+  if $quiet; then
     $ggrep "${args[@]}" "$file" >/dev/null
   else
     $ggrep "${args[@]}" "$file"
   fi
+  exit_code=$?
 
-  if (( $? == 0 )); then
-    not_found=0
+  if (( $exit_code == 0 )); then
+    matched_specific=true
+  elif (( $exit_code == 1 )); then
+    : # Do nothing! "not found" is the default outcome unless we set matched_specific=true
+  else
+    # Abort if, for example, the file could not be found or read
+    exit $exit_code
   fi
-
 done < "$patterns_file"
 
 set -e
-exit $not_found
-
+if $matched_specific; then
+  exit 0 # found
+else
+  exit 1 # not found
+fi
