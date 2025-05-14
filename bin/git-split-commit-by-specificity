@@ -126,10 +126,14 @@ git commit -c "$commit"
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
-# 6) Stage & commit the remaining (specific) changes
-git add -A
+# Restore the original commit’s tree into the working copy only.
+# Index remains at the new common commit (so diff HEAD→WT = specific hunks).
+git restore --source="$commit" --worktree .
+git add --update
 echo
 git status
+
+# Commit the remaining (specific) changes
 read -rp "Press Enter to commit the specific changes… " _
 git commit -c "$commit"
 
