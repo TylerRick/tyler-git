@@ -13,6 +13,9 @@
 set -euo pipefail
 cd "$(git rev-parse --git-dir)/.."
 
+source "$(dirname $0)"/lib/colors.sh
+source "$(dirname $0)"/lib/specificity.sh
+
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 # Parse args & state
 #───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -27,14 +30,14 @@ fi
 
 if $continued; then
   if [[ ! -d $state_dir ]]; then
-    echo "⚠️  No split in progress. Nothing to continue." >&2
+    echo >&2 "⚠️  No split in progress. Nothing to continue."
     exit 1
   fi
   commit=$(< "$state_dir/commit")
 else
   # Starting a new split
   if [[ -e $state_dir ]]; then
-    echo "⚠️  A split is already in progress. Use --continue to resume." >&2
+    echo >&2 "⚠️  A split is already in progress. Run $(basename "$0") --continue to resume."
     exit 1
   fi
   mkdir -p "$state_dir"
@@ -87,8 +90,9 @@ git_add() {
 #───────────────────────────────────────────────────────────────────────────────────────────────────
 
 confirm_commit_loop() {
+  specificity=$1
   while true; do
-    echo "Ready to commit the staged changes? " _
+    echo "Ready to commit the staged $(colorize_specificity $specificity) changes? " _
     git status --short
 
     read -rp "  [d]iff staged changes, [C]ommit? " resp
@@ -140,11 +144,11 @@ fi
 step=2.stage_common
 if ! is_done $step; then
   echo
-  echo "→ Staging common files…"
-  mapfile -t common_files < <(get_files_with_specificity common)
-  if (( ${#common_files[@]} )); then
-    printf "  %s\n" "${common_files[@]}"
-    git_add -- "${common_files[@]}"
+  mapfile -t files < <(get_files_with_specificity common)
+  echo "→ Staging ${#files[@]} $(colorize_specificity common) files…"
+  if (( ${#files[@]} )); then
+    printf "  %s\n" "${files[@]}"
+    git_add -- "${files[@]}"
   else
     echo "  (none)"
   fi
@@ -161,8 +165,8 @@ fi
 step=3.stage_common_portion_of_mixed
 if ! is_done $step; then
   echo
-  echo "→ Manually review and stage the parts of these ${#files[@]} mixed files that are common…"
   mapfile -t files < <(get_files_with_specificity mixed)
+  echo "→ Manually review these ${#files[@]} $(colorize_specificity mixed) files: stage the $(colorize_specificity common) hunks or edit to make it common…"
   if (( ${#files[@]} )); then
     for file in "${files[@]}"; do
       # Show lines/hits that our detector thinks is specific
@@ -206,7 +210,7 @@ step=4.commit_common
 if ! is_done $step; then
   echo
 
-  confirm_commit_loop
+  confirm_commit_loop common
 
   mark_done $step
 else
@@ -219,7 +223,7 @@ fi
 step=5.restore_tree_with_specific
 if ! is_done $step; then
   echo
-  echo "→ 5. Restoring original tree ($commit) into work tree…"
+  echo "→ 5. Restoring original tree ($commit) into work tree, which should contain the $(colorize_specificity specific) changes…"
 
   # The remaining changes from the original commit that _weren't_ included in the common commit
   # should be all the specific changes. (original_commit - common_changes = specific_changes)
@@ -238,7 +242,7 @@ fi
 step=6.stage_specific
 if ! is_done $step ; then
   echo
-  echo "→ 6. Staging specific files…"
+  echo "→ 6. Staging $(colorize_specificity specific) changes…"
 
   git add --update
 
@@ -254,7 +258,7 @@ step=7.commit_specific
 if ! is_done $step; then
   echo
 
-  confirm_commit_loop
+  confirm_commit_loop specific
 
   mark_done $step
 else
