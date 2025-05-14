@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+if [ "$(git rev-list --parents -n 1 "$1" | wc -w)" -eq 1 ]; then
+  # Is a root commit: only 1 parent listed
+  exit 0
+else
+  # Not a root commit: > 1 parent listed
+  exit 1
+fi
