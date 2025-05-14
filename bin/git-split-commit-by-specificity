@@ -1,148 +1,165 @@
 #!/usr/bin/env bash
-
+#
+# Split your current HEAD commit into COMMON then SPECIFIC parts,
+# with “resume” support via .git/split-commit.
+#
+# Usage:
+#   git-split-commit-by-specificity [<commit>]      # start a new split on <commit> (defaults HEAD)
+#   git-split-commit-by-specificity --continue      # resume an in-progress split
+#
 set -euo pipefail
-cd $(git rev-parse --git-dir)/..
+cd "$(git rev-parse --git-dir)/.."
 
-# Which commit are we splitting? Default to HEAD.
-commit_input=${1:-HEAD}
-commit=$(git rev-parse --verify $commit_input)
-head_rev=$(  git rev-parse --verify HEAD)
-if [[ $head_rev != $commit  ]]; then
-  echo >&2 "Error. Can't split unless HEAD ($head_rev) is pointing to the commit you want to edit ($commit_input)"
-  exit 1
+# ────────────────────────────────────────────────────────────────────────────────
+# 1. parse args & state
+# ────────────────────────────────────────────────────────────────────────────────
+state_dir=".git/split-commit"
+cont=false
+
+if [[ "${1:-}" == "--continue" ]]; then
+  cont=true
+  shift
 fi
 
-state_dir=.git/split-commit
-if [ -e $state_dir ]; then
-  echo >&2 "$state_dir already exists!"
-  exit 1
-fi
-
-mkdir -p $state_dir
-echo $commit > $state_dir/commit
-
-#═══════════════════════════════════════════════════════════════════════════════════════════════════
-
-# 1) Roll back to before this commit, but keep all changes staged
-git reset --soft "${commit}^"
-
-# 2) Unstage everything
-git reset HEAD .
-
-#═══════════════════════════════════════════════════════════════════════════════════════════════════
-
-# to do: add trap that resets if we hit an error:
-# - resets back to commit we were on
-# - moves .git/info/exclude back
-# and/or:
-# - write out our state and to-do to a file like rebase-i does, so that if we get interrupted, we
-# can continue and it will know where we left off
-#   - among the state to write must be the commit_input, since that is lost as soon as we reset
-#   $commit^
-
-#═══════════════════════════════════════════════════════════════════════════════════════════════════
-# 3) Stage and commit the common subset
-#    (files classified as “common” in this commit)
-mapfile -t common_files < <(
-  git-diff-tree-specificity --quiet --name-only "$commit" common
-)
-
-# Unfortunately, this only stops it from using the global ~/.gitignore file, not the per-repo
-# .git/info/exclude file. To ignore that, we'd have to either use git add -f (but then we don't get
-# useful error that we _want_ to see if local .gitignore happens to be ignoring it), or temporarily
-# move it out of the way.
-ignore_local_excludes="-c core.excludesFile=/dev/null"
-local_exclude_backup_file=.git/info/exclude.backup.git-split-commit-by-specificity
-function disable_local_exclude_file() {
-  if [ -f .git/info/exclude ]; then
-    if [ -f $local_exclude_backup_file ]; then
-      echo >&2 "Can't back up .git/info/exclude — $local_exclude_backup_file already exists!"
-      exit 1
-    fi
-    mv --no-clobber .git/info/exclude $local_exclude_backup_file 
+if $cont; then
+  if [[ ! -d $state_dir ]]; then
+    echo "⚠️  No split in progress. Nothing to continue." >&2
+    exit 1
   fi
-}
-function undo_disable_local_exclude_file() {
-  mv --no-clobber $local_exclude_backup_file .git/info/exclude || true
-}
-disable_local_exclude_file
-
-if (( ${#common_files[@]} )); then
-  printf 'Staging common files:\n'
-  printf '  %s\n' "${common_files[@]}"
-  git $ignore_local_excludes add -- "${common_files[@]}"
+  commit_input=$(< "$state_dir/commit")
 else
-  echo "No common files to stage."
+  # starting fresh
+  commit_input=${1:-HEAD}
+  if [[ -e $state_dir ]]; then
+    echo "⚠️  A split is already in progress. Use --continue to resume." >&2
+    exit 1
+  fi
+  mkdir -p "$state_dir"
+  echo "$commit_input" > "$state_dir/commit"
 fi
 
-#═══════════════════════════════════════════════════════════════════════════════════════════════════
-# 4) Identify mixed files for manual review
+# resolve the commit
+commit=$(git rev-parse --verify "$commit_input")
 
-mapfile -t mixed_files < <(
-  git-diff-tree-specificity --quiet --name-only "$commit" mixed
-)
+# if not resuming, ensure HEAD is pointing at it
+if ! $cont; then
+  head_rev=$(git rev-parse --verify HEAD)
+  if [[ $head_rev != $commit ]]; then
+    echo "Error: HEAD ($head_rev) must equal target commit ($commit) to start a split." >&2
+    exit 1
+  fi
+fi
 
-if (( ${#mixed_files[@]} )); then
+# helper for marking steps done
+mark_done() { touch "$state_dir/$1"; }
+is_done()  { [[ -f "$state_dir/$1" ]]; }
+
+# ────────────────────────────────────────────────────────────────────────────────
+# 2. RESET & UNSTAGE  (once)
+# ────────────────────────────────────────────────────────────────────────────────
+if ! is_done reset; then
+  echo "→ Resetting to parent of $commit (keeping worktree)…"
+  git reset --soft "${commit}^"
+  git reset HEAD .
+  mark_done reset
+else
+  echo "↪️  reset already done, skipping"
+fi
+
+# ────────────────────────────────────────────────────────────────────────────────
+# 3. STAGE + COMMIT COMMON  (once)
+# ────────────────────────────────────────────────────────────────────────────────
+if ! is_done commit_common; then
   echo
-  echo "Please review & stage parts of these mixed files:"
-  printf '  %s\n' "${mixed_files[@]}"
+  echo "→ Staging COMMON files…"
+  mapfile -t common_files < <(
+    git-ls-files-by-specificity --name-only "$commit" common
+  )
+  if (( ${#common_files[@]} )); then
+    printf "  %s\n" "${common_files[@]}"
+    git add -- "${common_files[@]}"
+  else
+    echo "  (none)"
+  fi
+
   echo
+  git status --short
+  read -rp "Press ENTER to commit COMMON changes (reuse original message)… " _
+  git commit -c "$commit"
+  mark_done commit_common
+else
+  echo "↪️  COMMON commit already done, skipping"
+fi
 
-  for file in "${mixed_files[@]}"; do
-    # show what our detector thinks is specific
-    git-detect-file-specificity "$commit" "$file"
+# ────────────────────────────────────────────────────────────────────────────────
+# 4. RESTORE ORIGINAL TREE INTO WORKTREE  (once)
+# ────────────────────────────────────────────────────────────────────────────────
+if ! is_done restore_tree; then
+  echo
+  echo "→ Restoring original tree ($commit) into working copy…"
+  git restore --source="$commit" --worktree .
+  mark_done restore_tree
+else
+  echo "↪️  restore already done, skipping"
+fi
 
-    # loop until user stages file
-    while true; do
-      read -rp "  [a]dd entire file, [p] add -p, or [e]dit '$file'? " resp
-      case "$resp" in
-        a|A)
-          git add "$file"
-          break
-          ;;
-        p|P)
-          git add --intent-to-add "$file"
-          git $ignore_local_excludes add -p "$file"
-          break
-          ;;
-        e|E)
-          ${VISUAL:-${EDITOR:-vi}} "$file"
-          ;;
-        *)
-          echo "    Invalid option!"
-          ;;
-      esac
+# ────────────────────────────────────────────────────────────────────────────────
+# 5. REVIEW + STAGE SPECIFIC  (once)
+# ────────────────────────────────────────────────────────────────────────────────
+if ! is_done stage_specific; then
+  echo
+  echo "→ Staging SPECIFIC changes (tracked diffs only)…"
+  # first show mixed guidance
+  mapfile -t mixed_files < <(
+    git-ls-files-by-specificity --name-only "$commit" mixed
+  )
+  if (( ${#mixed_files[@]} )); then
+    echo "Mixed-files hints:"
+    for f in "${mixed_files[@]}"; do
+      git-detect-file-specificity "$commit" "$f"
     done
-  done
+    echo
+    echo "Now interactively stage mixed-file hunks:"
+    for f in "${mixed_files[@]}"; do
+      while true; do
+        read -rp " [a]dd hunks or [e]dit '$f'? " resp
+        case "$resp" in
+          a|A) git add -p "$f"; break ;;
+          e|E) ${VISUAL:-${EDITOR:-vi}} "$f" ;;
+          *) echo "   Enter a (add) or e (edit)." ;;
+        esac
+      done
+    done
+  fi
+
+  # now stage the rest of the tracked diffs:
+  git add -u
+  mark_done stage_specific
 else
-  echo "No mixed files to review."
+  echo "↪️  SPECIFIC staging already done, skipping"
 fi
 
-# 5) Commit the common changes
+# ────────────────────────────────────────────────────────────────────────────────
+# 6. COMMIT SPECIFIC  (once)
+# ────────────────────────────────────────────────────────────────────────────────
+if ! is_done commit_specific; then
+  echo
+  git status --short
+  read -rp "Press ENTER to commit SPECIFIC changes… " _
+  git commit -c "$commit"
+  mark_done commit_specific
+else
+  echo "↪️  SPECIFIC commit already done, skipping"
+fi
+
+# ────────────────────────────────────────────────────────────────────────────────
+# 7. CLEANUP
+# ────────────────────────────────────────────────────────────────────────────────
 echo
-git status
-read -rp "Press Enter to commit the common changes… " _
-git commit -c "$commit"
+echo "✔ Done splitting $commit into two commits."
+git log --oneline -2
 
-#═══════════════════════════════════════════════════════════════════════════════════════════════════
-
-# Restore the original commit’s tree into the working copy only.
-# Index remains at the new common commit (so diff HEAD→WT = specific hunks).
-git restore --source="$commit" --worktree .
-git add --update
-echo
-git status
-
-# Commit the remaining (specific) changes
-read -rp "Press Enter to commit the specific changes… " _
-git commit -c "$commit"
-
-#═══════════════════════════════════════════════════════════════════════════════════════════════════
-
-echo
-echo "✓ Split $commit into these commits:"
-git log-oneline -2
-
-# Clean up
-undo_disable_local_exclude_file
-rm -rf $state_dir
+# remove state only if we did both commits
+if is_done commit_specific; then
+  rm -rf "$state_dir"
+fi
