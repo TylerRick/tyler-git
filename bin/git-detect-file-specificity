@@ -8,6 +8,9 @@
 
 set -euo pipefail
 
+source "$(dirname $0)"/lib/colors.sh
+source "$(dirname $0)"/lib/specificity.sh
+
 # commit optional
 if [[ $# -eq 2 ]]; then
   commit=$1; file=$2
@@ -43,8 +46,10 @@ exit_code=$?
 set -e
 if (( $exit_code == 0 )); then
   detected_specific=true
+  colorized_detected=$(colorize_specificity specific)/$(colorize_specificity mixed)
 else
   detected_specific=false
+  colorized_detected=$(colorize_specificity common)
 fi
 [ -f "${tmpfile:-}" ] && rm -f "$tmpfile"
 
@@ -64,16 +69,17 @@ confirm_loop() {
 }
 
 if [[ -z "$recorded" && "$detected_specific" == true ]]; then
-  echo -e "${cyan}${file}:${reset} detected_specific=${bold}${detected_specific}${reset} but no specificity recorded yet."
+  echo -e "${cyan}${file}:${reset} detected=${bold}$colorized_detected${reset} but no specificity recorded yet."
   choice=$(confirm_loop "mark as specific?")
   if [[ -n "$choice" ]]; then
-    git-set-file-specificity "$file" "$choice"
-    _green "recorded ${file} as ${bold}${choice}${reset}."
+    specificity=$choice
+    git-set-file-specificity "$file" "$specificity"
+    _green "recorded ${file} as ${bold}$(colorize_specificity $specificity)${reset}."
   fi
   exit 0
 fi
 
-discrepancy_msg="recorded=${bold}${recorded}${reset}, but detected_specific=${bold}${detected_specific}${reset}"
+discrepancy_msg="recorded=${bold}$(colorize_specificity $recorded)${reset}, but detected_specific=${bold}$colorized_detected${reset}"
 if [[ "$recorded" == common && "$detected_specific" == true ]]; then
   echo "$specific_matches"
   _red "${file}: Discrepancy! ${reset}${discrepancy_msg}" >&2 
@@ -86,5 +92,5 @@ elif [[ "$recorded" =~ ^(specific|mixed)$ ]] && [[ "$detected_specific" == false
   _yellow "${file}: No specific keywords found${reset}: ${discrepancy_msg}" >&2 
 else
   # no discrepancy; detected already agrees with recorded
-  echo -e "${cyan}${file}:${reset} ${green}Agreement${reset}: recorded=${bold}${recorded}${reset}; detected_specific=${bold}${detected_specific}${reset}"
+  echo -e "${cyan}${file}:${reset} ${green}Agreement${reset}: recorded=${bold}$(colorize_specificity $recorded)${reset}; detected=${bold}$colorized_detected${reset}"
 fi

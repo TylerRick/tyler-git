@@ -61,7 +61,9 @@ if [[ $act = true ]]; then
   git-set-commit-specificity "$specificity" "$commit"
   if [[ $split = true ]]; then
     if [[ "$specificity" == mixed ]]; then
+      set -x
       git-split-commit-by-specificity
+      { set +x; } 2>/dev/null
     else
       echo "No split needed"
     fi
