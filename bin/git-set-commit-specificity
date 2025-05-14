@@ -2,6 +2,11 @@
 
 set -euo pipefail
 
+source "$(dirname $0)"/lib/colors.sh
+source "$(dirname $0)"/lib/specificity.sh
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
 cmd_name=$(basename "$0")
 notes_ref=refs/notes/specificity
 
@@ -35,18 +40,7 @@ commit=${2:-HEAD}
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
-source "$(dirname $0)"/lib/colors.sh
-
-# Normalize the specificity
-case "${specificity,,}" in
-  c*) specificity="common" ;;
-  s*) specificity="specific" ;;
-  m*) specificity="mixed" ;;
-  *)
-    echo "Unrecognized specificity abbreviation: '$specificity'. Use 'common', 'specific', or 'mixed' (or any abbreviation starting with 'c' or 's')."
-    exit 1
-    ;;
-esac
+specificity=$(normalize_specificity "$specificity")
 
 recorded=$(git-get-commit-specificity $commit)
 

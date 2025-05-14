@@ -82,12 +82,9 @@ if [[ "$recorded" == common && "$detected_specific" == true ]]; then
     git-set-file-specificity "$file" "$choice"
     _green "updated ${file} → ${bold}${choice}${reset}."
   fi
-  exit 0
 elif [[ "$recorded" =~ ^(specific|mixed)$ ]] && [[ "$detected_specific" == false ]]; then
   _yellow "${file}: No specific keywords found${reset}: ${discrepancy_msg}" >&2 
+else
+  # no discrepancy; detected already agrees with recorded
+  echo -e "${cyan}${file}:${reset} ${green}Agreement${reset}: recorded=${bold}${recorded}${reset}; detected_specific=${bold}${detected_specific}${reset}"
 fi
-
-# no discrepancy; detected already agrees with recorded
-echo -e "${cyan}${file}:${reset} ${green}Agreement${reset}: recorded=${bold}${recorded}${reset}; detected_specific=${bold}${detected_specific}${reset}"
-exit 0
-
