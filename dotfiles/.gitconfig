@@ -423,7 +423,7 @@
   #─────────────────────────────────────────────────────────────────────────────────────────────────
   # git config --global alias.my_alias command adds aliases to the bottom here:
 
-  rebase-keep-committer = rebase -i --exec 'git-commit-amend-copy-committer $(git-rebase-i-get-orig-commit)'
+  rebase-keep-committer = rebase -i --exec 'git-commit-amend-copy-committer'
 
 [branch]
   # git config --global branch.autoSetupMerge true
