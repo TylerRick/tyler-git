@@ -22,3 +22,7 @@ commit=$1
 eval "$(git-commit-metadata-vars $commit)"
 
 git commit --allow-empty --amend --no-edit --no-verify --reset-author
+
+git notes copy "$commit" HEAD
+
+git log -1 @
