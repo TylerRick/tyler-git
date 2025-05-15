@@ -8,7 +8,7 @@ source "$(dirname $0)"/lib/specificity.sh
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
 cmd_name=$(basename "$0")
-notes_ref=refs/notes/specificity
+notes_ref=specificity
 
 function usage() {
   cat - >&2 <<End
