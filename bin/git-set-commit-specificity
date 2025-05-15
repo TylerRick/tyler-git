@@ -12,12 +12,12 @@ notes_ref=refs/notes/specificity
 
 function usage() {
   cat - >&2 <<End
-Usage: $cmd_name <specificity> [<commit>]
+Usage: $cmd_name [<commit>] <specificity>
 
 Examples:
 
-  $cmd_name specific @
-  $cmd_name common acfd9a6
+  $cmd_name @ specific
+  $cmd_name acfd9a6 common
   $cmd_name s
   $cmd_name c
 
@@ -25,18 +25,22 @@ End
   exit 1
 }
 
-if [ -z "${1:-}" ]; then
-  usage
-fi
-
 case "${1:-}" in
   -h|--help)
     usage
     ;;
 esac
 
-specificity=$1
-commit=${2:-HEAD}
+# commit is optional
+if (( "$#" == 2 )); then
+  commit=$1
+  specificity=$2
+elif (( "$#" == 1 )); then
+  commit=@
+  specificity=$1
+else
+  usage
+fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
