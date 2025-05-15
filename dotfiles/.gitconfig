@@ -211,6 +211,8 @@
   rbi = rebase -i
   rba = rebase --abort
 
+  rb-edit-todo = ! GIT_SEQUENCE_EDITOR='vim' git rebase --edit-todo
+
   # Since interactive rebases are safer and more powerful than regular rebases and autoSetupRebase
   # only helps set it up to use regular rebase.
   # I can't seem to override `pull` like I could with `commit`. Why not?

@@ -34,6 +34,7 @@ if $continued; then
     exit 1
   fi
   commit=$(< "$state_dir/commit")
+  _cyan "Continuing to split commit $commit …"
 else
   # Starting a new split
   if [[ -e $state_dir ]]; then
@@ -92,7 +93,7 @@ git_add() {
 confirm_commit_loop() {
   specificity=$1
   while true; do
-    echo "Ready to commit the staged $(colorize_specificity $specificity) changes? " _
+    echo "Ready to commit the staged $(colorize_specificity $specificity) changes? "
     git status --short
 
     read -rp "  diff [s]taged changes, [C]ommit? " resp
@@ -121,8 +122,8 @@ confirm_commit_loop() {
 
 #───────────────────────────────────────────────────────────────────────────────────────────────────
 
-# helper for marking steps done
-mark_done() { touch "$state_dir/$1"; }
+# Helper for marking steps done
+mark_done() { echo "done" > "$state_dir/$1"; }
 is_done()  { [[ -f "$state_dir/$1" ]]; }
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
@@ -135,7 +136,7 @@ if ! is_done $step; then
   git reset HEAD .
   mark_done $step
 else
-  echo "↪️  $step already done: skipping"
+  echo "↪️  $step: already done"
 fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
@@ -154,7 +155,7 @@ if ! is_done $step; then
   fi
   mark_done $step
 else
-  echo "↪️  $step already done: skipping"
+  echo "↪️  $step: already done"
 fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
@@ -174,7 +175,7 @@ if ! is_done $step; then
       # for this file, it doesn't make sense to _ask_ them here whether they want to it, so we can
       # skip it and move on to the next unstaged file.
       if [[ $(git-staged-status "$file") =~ (fully|partly)\ staged ]]; then
-        echo "${cyan}${file}:${reset} already $(git-staged-status "$file"): skipping"
+        echo "${cyan}${file}:${reset} already $(git-staged-status "$file")"
         continue
       fi
 
@@ -251,7 +252,7 @@ if ! is_done $step; then
   fi
   mark_done $step
 else
-  echo "↪️  $step already done: skipping"
+  echo "↪️  $step: already done"
 fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
@@ -263,45 +264,31 @@ if ! is_done $step; then
 
   confirm_commit_loop common
   git-set-commit-specificity @ common
-  git-verify-commit-common-only @
 
   mark_done $step
+
+  git-verify-commit-common-only @ || read -p "Press Enter to continue" _
 else
-  echo "↪️  $step already done: skipping"
+  echo "↪️  $step: already done"
 fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
-# Restore original tree into worktree
+# Restore original commit tree into worktree and index (stage changes)
 #───────────────────────────────────────────────────────────────────────────────────────────────────
-step=5.restore_tree_with_specific
-if ! is_done $step; then
+step=6.stage_specific_from_original_commit
+if ! is_done $step ; then
   echo
-  echo "→ 5. Restoring original tree ($commit) into work tree, which should contain the $(colorize_specificity specific) changes…"
+  echo "→ 5. Restoring original tree ($commit), which should contain the $(colorize_specificity specific) changes, into work tree and index…"
 
   # The remaining changes from the original commit that _weren't_ included in the common commit
   # should be all the specific changes. (original_commit - common_changes = specific_changes)
   # So, restore the original commit’s tree into the work tree. The index remains at the new common
   # commit (so diff HEAD→WT = specific hunks).
-  git restore --source=$commit --worktree .
+  git restore --source=$commit --staged --worktree .
 
   mark_done $step
 else
-  echo "↪️  $step already done: skipping"
-fi
-
-#═══════════════════════════════════════════════════════════════════════════════════════════════════
-# Stage specific
-#───────────────────────────────────────────────────────────────────────────────────────────────────
-step=6.stage_specific
-if ! is_done $step ; then
-  echo
-  echo "→ 6. Staging $(colorize_specificity specific) changes…"
-
-  git add --update
-
-  mark_done $step
-else
-  echo "↪️  $step already done: skipping"
+  echo "↪️  $step: already done"
 fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
@@ -316,7 +303,7 @@ if ! is_done $step; then
 
   mark_done $step
 else
-  echo "↪️  $step already done: skipping"
+  echo "↪️  $step: already done"
 fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
@@ -324,7 +311,10 @@ fi
 #───────────────────────────────────────────────────────────────────────────────────────────────────
 echo
 echo "✔ Done splitting $commit into two commits."
-git log-oneline -2
+
+# git log-oneline-notes -2
+format='%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N'
+git -c notes.displayRef=refs/notes/specificity log --pretty=format:"$format" -2
 
 undo_disable_local_exclude_file
 
