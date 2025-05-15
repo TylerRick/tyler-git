@@ -13,6 +13,9 @@ fi
 
 commit="$1"
 
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+echo "📝 Showing notes for $commit :"
+
 # Find all refs under refs/notes/*
 notes_refs=$(git for-each-ref --format='%(refname)' refs/notes/)
 
@@ -23,7 +26,7 @@ fi
 
 for ref in $notes_refs; do
   if git notes --ref="$ref" show "$commit" > /dev/null 2>&1; then
-    echo "📝 Note found in $ref:"
+    echo "  📝 Note found in $ref:"
     git notes --ref="$ref" show "$commit" | sed "s/^/    /"
   fi
 done

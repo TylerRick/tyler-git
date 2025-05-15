@@ -1,28 +1,68 @@
 #!/bin/sh
 
-# usage: $0 <orig-sha>
+#════════════════════════════════════════════════════════════════════════════════════════════════════
 
-# Amends the tip commit, copying the committer and author
-# metadata from $commit.
-# This can be used during a rebase, for example, since a rebase will
-# by default set the committer name and date to you and now. It provides
-# --committer-date-is-author-date but no way to keep committer date how it was in the original
-# commit. See git-rebase-set-commit-date-to-author-date for my solution which calls this after each
-# pick command during a rebase.
+usage() {
+  cat - <<End >&2
+Usage: $(basename "$0") <orig-commit>
 
-# To do:
-# - Add --no-author to let you copy only committer (skip author) or require --reset-author to be
-# passed if you want it passed to git commit.
+Amends the tip commit, copying from orig-commit:
+- the committer (name, email, and date)
+- the author (name, email, and date)
+- the notes that were attached to orig-commit 
 
-# See also: git-commit-cp, git-commit-modify
+Use case:
 
-#====================================================================================================
+This can be used during a rebase, for example, since a rebase will by default set the committer name
+to you and the committer date to now. It provides --committer-date-is-author-date if you want to
+reset commiter date to copy the author date, but it provides no way to _keep_ committer date how it
+was in the original commit.
+
+Example:
+  git rebase -i --exec git-commit-amend-copy-committer onto-commit
+
+When this is used as an exec command during a rebase -i, and we amend a commit,
+we throw off git's own internal rewritten commit mapping that it would use for
+notes.rewriteRefs. That is why we have to do an explicity 'notes copy' directly from this script.
+
+To do:
+- Add --no-author to let you opt out and copy only committer — or require opt-in via --reset-author
+
+See also: git-commit-cp, git-commit-modify
+
+End
+  exit
+}
+
 commit=$1
+
+if [ -z "$commit" ]; then
+  usage
+fi
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+#old_commit=$(git rev-parse HEAD)
+
+echo
+echo "Prior to amending: original commit $commit:"
+git-notes-show-all "$commit"
 
 eval "$(git-commit-metadata-vars $commit)"
 
+echo
+echo "⚙️  Amending HEAD..."
+# We can't rely on git's native notes.rewriteRef feature 
+#export GIT_NOTES_REWRITE_REF=refs/notes/*
 git commit --allow-empty --amend --no-edit --no-verify --reset-author
+new_commit=$(git rev-parse HEAD)
 
-git notes copy "$commit" HEAD
+echo
+#echo "📤 Copying notes to new commit: $new_commit"
+git-notes-copy-all "$commit" "$new_commit"
+# can't use glob * here
+#git notes --ref 'refs/notes/*' copy "$commit" HEAD
 
-git log -1 @
+#echo 'Confirming from inside git-commit-amend-copy-committer:'
+#git notes --ref specificity show @
+echo
+git-notes-show-all @

@@ -12,7 +12,10 @@ End
 fi
 
 old_commit="$1"
-new_commit="$2"
+new_commit=$(git rev-parse --short $2)
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+echo "📤 Copying notes from $old_commit → $new_commit …"
 
 # Find all refs under refs/notes/*
 notes_refs=$(git for-each-ref --format='%(refname)' refs/notes/)
@@ -25,9 +28,9 @@ fi
 for ref in $notes_refs; do
   if git notes --ref="$ref" show "$old_commit" > /dev/null 2>&1; then
     git notes --ref="$ref" copy "$old_commit" "$new_commit"
-    echo "✅ Copied note from $ref: $old_commit → $new_commit"
+    #echo "  ✅ Copied note from $ref: $old_commit → $new_commit"
   else
-    echo "ℹ️  No note on $old_commit in $ref — skipping."
+    : #echo "  ℹ️  No note on $old_commit in $ref — skipping."
   fi
 done
 
