@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage: $(basename "$0") <old-commit> <new-commit>
+
+Updates the new commit ID in git's rewritten-list for a commit that you just modified with an exec command.
+
+This is only intended to be used from within an exec line of a git rebase -i script!
+
+Problem statement: If you amend a commit from an exec command, git's internal rewritten-commit
+tracking feature will not know about this rewrite and will not track it. This prevents tools such as
+notes.rewriteRef from working. In such cases, you must manually call git-rebase-i-update-orig-commit
+to record the newly rewritten commit and associate it with its original commit id.
+
+Example:
+  git rebase -i --exec 'git commit -amend; new_commit=
+    copy-something-from-orig-commit \$(git-rebase-i-get-orig-commit)' onto-commit
+
+Context:
+
+  During an interactive rebase, git keeps an internal mapping from pre-rewritten commit id to
+  post-rewritten commit. It stores this in .git/rebase-merge/rewritten-list like this:
+
+  <old-commit-id> <new-commit-id>
+
+  At the end of a rebase, git will run \`git notes copy --for-rewrite=rebase\` to rewrite any note
+  refs based on the rewritten-list mapping that it has kept.
+End
+  exit
+}
+
+if [ -z "${2-}" ]; then
+  usage
+fi
+
+old_commit=$(git rev-parse --verify "$1"^{commit})
+new_commit=$(git rev-parse --verify "$2"^{commit})
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+rewritten_file=".git/rebase-merge/rewritten-list"
+
+if [ ! -d .git/rebase-merge ]; then
+  echo >&2 "❌ Not inside an interactive rebase with merge backend."
+  exit 1
+fi
+if [ ! -f "$rewritten_file" ]; then
+  echo >&2 "❌ Couldn't find $rewritten_file"
+  exit 1
+fi
+
+if ! grep "^$old_commit .*" $rewritten_file; then
+  echo >&2 "❌ Could not find $old_commit in $rewritten_file!"
+  exit 1
+fi
+
+#echo 'Before:'; cat $rewritten_file
+sed -i "s/^$old_commit .*/$old_commit $new_commit/" $rewritten_file
+#echo 'After:'; cat $rewritten_file
