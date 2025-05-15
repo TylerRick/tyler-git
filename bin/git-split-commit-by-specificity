@@ -169,12 +169,25 @@ if ! is_done $step; then
   echo "→ Manually review these ${#files[@]} $(colorize_specificity mixed) files: stage the $(colorize_specificity common) hunks or edit to make it common…"
   if (( ${#files[@]} )); then
     for file in "${files[@]}"; do
-      # Show lines/hits that our detector thinks is specific
-      git-detect-file-specificity $commit "$file"
+      # Show lines/hits that our detector thinks is specific to give the user hints about what
+      # option to choose.
+      # Don't pass $commit because, if they've already made edits to this file to _remove_ those
+      # matches, and then they re-run this script with --continue, it would continue to show those
+      # matches as present even though they may not be present in what's already staged.
+      # Alternatively, we could check if file has already been staged (even partially staged), in
+      # which case we shouldn't even need to ask them here whether they want to stage/add the file
+      # and could skip asking for this file!
+      git-detect-file-specificity --show-matches always "$file"
 
-      # loop until user stages file
+      # Loop until user stages the file or explicitly says to do [n]othing with it.
       while true; do
-        read -rp "  [a]dd entire file, [p] add -p, or [e]dit '$file'? " resp
+        echo "${cyan}${file}:${reset} $(git-staged-status "$file")"
+
+        # Idea: [s]ubstitute matches with placeholder, but .git/file_specificity/specific_patterns
+        # isn't in the right format for sed, and we wouldn't want to substitute for all matches
+        # anyway; we'd probably want more of an interactive stepping through each match, ask what to
+        # do with it, but that's a lot more work, so for now, just make them edit manually.
+        read -rp "  [a]dd entire file, [p] add -p, [d]iff staged changes, [l]og, [e]dit '$file', [n]o action? " resp
         case "${resp,,}" in
           a)
             git_add "$file"
@@ -185,8 +198,21 @@ if ! is_done $step; then
             git_add -p "$file"
             break
             ;;
+          d)
+            echo; echo
+            git diff --find-renames --find-copies --staged "$file" </dev/tty >/dev/tty 2>/dev/tty
+            echo; echo
+            ;;
+          l)
+            echo; echo
+            git log -n 1 --patch $commit "$file" </dev/tty >/dev/tty 2>/dev/tty
+            echo; echo
+            ;;
           e)
             edit_file "$file"
+            ;;
+          n)
+            break;
             ;;
           *)
             echo "    Invalid option!"
@@ -211,6 +237,7 @@ if ! is_done $step; then
   echo
 
   confirm_commit_loop common
+  git-verify-commit-common-only @
 
   mark_done $step
 else

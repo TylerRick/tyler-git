@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  echo "Usage: $(basename "$0") <commit>" >&2
+  exit
+}
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+commit="${1-}"
+
+if ! [ "$commit" ]; then
+  usage
+  exit 64 # EX_USAGE
+fi
+
+# Look at contents of that commit (message + patch)
+tmpfile=$(mktemp)
+git show "$commit" > $tmpfile
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+set +e
+git-detect-is-file-specific "$tmpfile"
+exit_code=$?
+set -e
+#rm -f "$tmpfile"
+
+if (( $exit_code == 0 )); then
+  echo "Error: Expected to be common only!"
+  exit 1
+else
+  # echo "Is common only"
+  exit 0
+fi

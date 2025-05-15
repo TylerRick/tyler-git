@@ -13,12 +13,12 @@ normalize_specificity() {
 }
 
 colorize_specificity() {
-  specificity=$1; shift
+  specificity=${1:-unknown}; shift
   message=${*:-$specificity}
   case "$specificity" in
     common) _green "$message" ;;
     mixed) _yellow "$message" ;;
     specific) _red "$message" ;;
-    *) ;;
+    *) echo "$message" ;;
   esac
 }
