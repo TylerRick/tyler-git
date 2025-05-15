@@ -33,14 +33,20 @@ fi
 
 # Parse options
 quiet=
+verbose=
+positional_args=
 while (( "$#" > 0 )); do
   case "$1" in
+    -h|--help)
+      usage
+      ;;
     -q|--quiet)
       quiet=true
       shift
       ;;
-    -h|--help)
-      usage
+    -v|--verbose)
+      verbose=true
+      shift
       ;;
     --)
       # Done parsing options
@@ -51,14 +57,15 @@ while (( "$#" > 0 )); do
       echo "Unknown option: $1" >&2
       exit 64 # EX_USAGE
       ;;
-    * )
-      # Done parsing options
-      break
+    *) # preserve positional arguments
+      positional_args="$positional_args $1"
+      shift
       ;;
   esac
 done
+eval set -- "$positional_args"
 
-# Expect exactly one positional argument: the file to check
+# Expect exactly 1 positional argument: the file to check
 if [ $# -ne 1 ]; then
   usage
 fi
@@ -84,12 +91,13 @@ while IFS= read -r entry || [ -n "$entry" ]; do
   read -r -a args <<< "$entry"
 
   # run grep with optional quiet redirection
-  if $quiet; then
+  if [ "$quiet" ]; then
     $ggrep "${args[@]}" "$file" >/dev/null
   else
+    [ "$verbose" ] && set -x
     $ggrep "${args[@]}" "$file"
   fi
-  exit_code=$?
+  { exit_code=$?; set +x; } 2>/dev/null
 
   if (( $exit_code == 0 )); then
     matched_specific=true
@@ -102,7 +110,7 @@ while IFS= read -r entry || [ -n "$entry" ]; do
 done < "$patterns_file"
 
 set -e
-if $matched_specific; then
+if [ "$matched_specific" ]; then
   exit 0 # found
 else
   exit 1 # not found

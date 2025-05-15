@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+file="${1-}"
+
+if ! [ "$file" ]; then
+  echo "Usage: git-staged-status <file>"
+  exit 64 # EX_USAGE
+fi
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+# Check if file is tracked by git
+if ! git ls-files --error-unmatch "$file" >/dev/null 2>&1; then
+  echo "error: file not tracked by git"
+  exit 1
+fi
+
+# Get diffs
+unstaged=$(git diff -- "$file")
+staged=$(git diff --cached -- "$file")
+
+if [[ -n "$staged" && -n "$unstaged" ]]; then
+  echo "partially staged"
+elif [[ -n "$staged" && -z "$unstaged" ]]; then
+  echo "fully staged"
+elif [[ -z "$staged" && -n "$unstaged" ]]; then
+  echo "not staged"
+else
+  echo "no changes"
+fi

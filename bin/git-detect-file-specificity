@@ -11,14 +11,72 @@ set -euo pipefail
 source "$(dirname $0)"/lib/colors.sh
 source "$(dirname $0)"/lib/specificity.sh
 
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  echo "Usage: $(basename "$0") [<commit>] <file>" >&2
+  exit
+}
+
+# Parse options
+show_matches=if_disagreement
+positional_args=
+while (( "$#" > 0 )); do
+  case "$1" in
+    -h|--help)
+      usage
+      ;;
+
+    -q|--quiet)
+      quiet=true
+      show_matches=never
+      shift
+      ;;
+
+    -m|--show-matches)
+      if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+        show_matches=$2
+        case "$show_matches" in
+          never) ;;
+          if_disagreement) ;;
+          always) ;;
+          *)
+            echo "Error: Argument for $1 is invalid" >&2
+            exit 64 # EX_USAGE
+            ;;
+        esac
+        shift
+      else
+        echo "Error: Argument for $1 is missing" >&2
+        exit 64 # EX_USAGE
+      fi
+      shift
+      ;;
+
+    --)
+      # Done parsing options
+      shift
+      break
+      ;;
+    -* )
+      echo "Unknown option: $1" >&2
+      exit 64 # EX_USAGE
+      ;;
+    *) # preserve positional arguments
+      positional_args="$positional_args $1"
+      shift
+      ;;
+  esac
+done
+eval set -- "$positional_args"
+
 # commit optional
 if [[ $# -eq 2 ]]; then
   commit=$1; file=$2
 elif [[ $# -eq 1 ]]; then
   commit=""; file=$1
 else
-  echo "Usage: $(basename "$0") [<commit>] <file>" >&2
-  exit 2
+  usage
 fi
 
 if [[ -n "$commit" ]]; then
@@ -42,16 +100,26 @@ recorded=$(git-get-file-specificity "$file")
 
 set +e
 specific_matches=$(git-detect-is-file-specific "$file_contents")
+#echo "<$specific_matches>"
 exit_code=$?
 set -e
 if (( $exit_code == 0 )); then
   detected_specific=true
   colorized_detected=$(colorize_specificity specific)/$(colorize_specificity mixed)
-else
+elif (( $exit_code == 1 )); then
   detected_specific=false
   colorized_detected=$(colorize_specificity common)
+else
+  exit $exit_code
 fi
 [ -f "${tmpfile:-}" ] && rm -f "$tmpfile"
+
+print_matches() {
+  echo "Found $(echo "$specific_matches" | sed '/^\s*$/d' | wc -l) matches:"
+  if [ -n "$specific_matches" ]; then
+    echo "$specific_matches"
+  fi
+}
 
 confirm_loop() {
   local prompt="$1"; shift
@@ -79,9 +147,11 @@ if [[ -z "$recorded" && "$detected_specific" == true ]]; then
   exit 0
 fi
 
-discrepancy_msg="recorded=${bold}$(colorize_specificity $recorded)${reset}, but detected_specific=${bold}$colorized_detected${reset}"
+discrepancy_msg="recorded=${bold}$(colorize_specificity $recorded)${reset}, but detected=${bold}$colorized_detected${reset}"
 if [[ "$recorded" == common && "$detected_specific" == true ]]; then
-  echo "$specific_matches"
+  if [[ $show_matches == if_disagreement || $show_matches == always ]]; then
+    echo "$specific_matches"
+  fi
   _red "${file}: Discrepancy! ${reset}${discrepancy_msg}" >&2 
   choice=$(confirm_loop "override classification for this file? (you may need to update your detection script if it failed to detect a specific/mixed file.)")
   if [[ -n "$choice" ]]; then
@@ -92,5 +162,8 @@ elif [[ "$recorded" =~ ^(specific|mixed)$ ]] && [[ "$detected_specific" == false
   _yellow "${file}: No specific keywords found${reset}: ${discrepancy_msg}" >&2 
 else
   # no discrepancy; detected already agrees with recorded
+  if [[ $show_matches == always ]]; then
+    print_matches
+  fi
   echo -e "${cyan}${file}:${reset} ${green}Agreement${reset}: recorded=${bold}$(colorize_specificity $recorded)${reset}; detected=${bold}$colorized_detected${reset}"
 fi
