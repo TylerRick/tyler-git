@@ -17,6 +17,8 @@ Usage: $cmd_name [<commit>] <specificity>
 Examples:
 
   $cmd_name @ specific
+  # Clear recorded value
+  $cmd_name @ ''
   $cmd_name acfd9a6 common
   $cmd_name s
   $cmd_name c

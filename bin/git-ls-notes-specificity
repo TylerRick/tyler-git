@@ -1,0 +1,62 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# Lists all commits with notes in refs/notes/specificity
+
+# Options:
+# --rm-unless-ancestor-of <ref1,ref2,...>  : Removes note if commit is not ancestor of any listed ref
+# --symbolic                               : Adds symbolic name (e.g., branch/tag) as 3rd column
+
+rm_unless_ancestor_of=()
+show_symbolic=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    # Optional: checks whether each commit is an ancestor of the specified branch/commits
+    # (comma-separated list) and removes the note if it is not.
+    --rm-unless-ancestor-of)
+      IFS=',' read -r -a rm_unless_ancestor_of <<< "$2"
+      shift 2
+      ;;
+    --symbolic)
+      show_symbolic=true
+      shift
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
+remove_note_unless_ancestor_of() {
+  commit=$1
+  if [[ "${#rm_unless_ancestor_of[@]}" -gt 0 ]]; then
+    is_ancestor=false
+    for ref in "${rm_unless_ancestor_of[@]}"; do
+      if git merge-base --is-ancestor "$commit" "$ref" 2>/dev/null; then
+        is_ancestor=true
+        break
+      fi
+    done
+
+    if ! $is_ancestor; then
+      echo "Removing note from $commit (not ancestor of any allowed refs: ${rm_unless_ancestor_of[*]})"
+      git notes --ref=refs/notes/specificity remove "$commit"
+      return 1
+    fi
+  fi
+}
+
+git notes --ref=refs/notes/specificity list | while read -r note_id commit; do
+  tag=$(git notes --ref=refs/notes/specificity show "$commit" || true)
+
+  if $show_symbolic; then
+    symbolic_rev=" $(git name-rev-prefer-branch "$commit" 2>/dev/null || true)"
+  fi
+
+  remove_note_unless_ancestor_of $commit || continue
+
+  echo "$commit $tag${symbolic_rev-}"
+done
