@@ -9,7 +9,10 @@
 # Usage:
 #   git-split-commit-by-specificity
 #   git-split-commit-by-specificity --continue      # resume an in-progress split
-#
+
+# To do:
+# - add a trap that detects error and tells user to run --continue to re-try
+
 set -euo pipefail
 cd "$(git rev-parse --git-dir)/.."
 
@@ -46,6 +49,8 @@ else
   commit=$(git rev-parse --verify HEAD)
   echo $commit > "$state_dir/commit"
 fi
+
+commit_short=$(git rev-parse --short --verify "$commit"^{commit})
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 # Helpers
@@ -113,11 +118,20 @@ confirm_commit_loop() {
     esac
   done
 
-  git commit -c $commit
+  if git diff --cached --quiet; then
+    echo >&2 "Nothing staged to commit! Skipping the $(colorize_specificity $specificity) commit."
+  else
+    git commit -c $commit
 
-  # We want the new commits to still show up with the same committer as the original commit. But by
-  # default it would have recorded me as the committer.
-  git-commit-amend-copy-committer $commit
+    new_commit=$(git rev-parse HEAD)
+    echo $new_commit >> $state_dir/new_commits
+
+    # We want the new commits to still show up with the same committer as the original commit. But by
+    # default it would have recorded me as the committer.
+    git-commit-amend-copy-committer $commit
+
+    git-set-commit-specificity @ $specificity
+  fi
 }
 
 #───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -263,7 +277,6 @@ if ! is_done $step; then
   echo
 
   confirm_commit_loop common
-  git-set-commit-specificity @ common
 
   mark_done $step
 
@@ -299,7 +312,6 @@ if ! is_done $step; then
   echo
 
   confirm_commit_loop specific
-  git-set-commit-specificity @ specific
 
   mark_done $step
 else
@@ -310,12 +322,13 @@ fi
 # Clean up
 #───────────────────────────────────────────────────────────────────────────────────────────────────
 echo
-echo "✔ Done splitting $commit into two commits:"
+new_commits_count=$(wc -l < $state_dir/new_commits)
+echo "✔ Done splitting commit $commit_short: Replaced with these ${new_commits_count} commits:"
 
-# git log-oneline-notes -2
 export GIT_NOTES_DISPLAY_REF=refs/notes/specificity
-format='%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N'
-git log -2 --pretty=format:"$format"
+git log-oneline-notes -n ${new_commits_count}
+#format='%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N'
+#git log -2 --pretty=format:"$format"
 
 undo_disable_local_exclude_file
 
