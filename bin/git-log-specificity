@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# Lists all commits (log) but also shows refs/notes/specificity
+# Lists all commits (log) but also shows specificity
 
 # TODO: add this as alternative to git-ls-notes-specificity
 # uses git log / rev-list instead, so that we also see
