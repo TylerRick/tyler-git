@@ -41,6 +41,8 @@ mapfile -t specs < <(git-diff-tree-specificity --quiet "$commit" | awk '{print $
 echo
 echo "Files have these specificity values: ${specs[@]}"
 count=${#specs[@]}
+
+detected_specificity=
 if (( count == 0 )); then
   _red "Could not detect any common or specific files. (Is this an empty commit?)"
   if [[ $act == true ]]; then
