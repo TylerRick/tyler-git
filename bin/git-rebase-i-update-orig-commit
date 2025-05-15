@@ -49,9 +49,10 @@ if [ ! -d .git/rebase-merge ]; then
   echo >&2 "❌ Not inside an interactive rebase with merge backend."
   exit 1
 fi
+
 if [ ! -f "$rewritten_file" ]; then
-  echo >&2 "❌ Couldn't find $rewritten_file"
-  exit 1
+  echo "$old_commit $new_commit" >> $rewritten_file
+  exit 0
 fi
 
 if ! grep "^$old_commit .*" $rewritten_file; then
@@ -59,6 +60,4 @@ if ! grep "^$old_commit .*" $rewritten_file; then
   exit 1
 fi
 
-#echo 'Before:'; cat $rewritten_file
 sed -i "s/^$old_commit .*/$old_commit $new_commit/" $rewritten_file
-#echo 'After:'; cat $rewritten_file

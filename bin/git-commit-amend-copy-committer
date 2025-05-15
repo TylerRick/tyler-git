@@ -51,7 +51,7 @@ eval "$(git-commit-metadata-vars $commit)"
 # echo "⚙️  Amending HEAD ($(git name-rev-prefer-branch @)) …"
 git commit --allow-empty --amend --no-edit --no-verify --reset-author
 
-if [ -f ".git/rebase-merge/rewritten-list" ]; then
+if [ -d ".git/rebase-merge" ]; then
   new_commit=$(git rev-parse HEAD)
   git-rebase-i-update-orig-commit $commit $new_commit
 fi
