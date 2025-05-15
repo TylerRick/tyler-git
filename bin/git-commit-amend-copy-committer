@@ -22,25 +22,42 @@ was in the original commit.
 Example:
   git rebase -i --exec 'git-commit-amend-copy-committer \$(git-rebase-i-get-orig-commit)'
 
-If it detects that this command is run from the context of an interactive rebase, then this command
-will also update .git/rebase-merge/rewritten-list with the rewritten commit id. This is useful when
-you have enabled notes.rewriteRef via this config (recommended):
+When used as part of rebase
 
-  git config --global notes.rewriteRef "refs/notes/*"
+  If it detects that this command is run from the context of a rebase (when using merge backend,
+  which is the default for interactive rebase), then if no commit is given, this will assume you are
+  using it like this:
+
+    git rebase -i --exec 'git-commit-amend-copy-committer'
+
+  and that you are wanting to keep the committer the same in the rewritten commit as it was in the
+  original commit. It will therefore use git-rebase-i-get-orig-commit as the default orig-commit.
+
+  When it is finished with the amend, it will also update .git/rebase-merge/rewritten-list with the
+  rewritten commit id so that the rebase command can correctly map original commits to new commits.
+  This is useful when you have enabled notes.rewriteRef via this config (recommended):
+
+    git config --global notes.rewriteRef "refs/notes/*"
+
+  and you want commits that were attached to the old commits to be copied over to the rewritten commits.
 
 To do:
 - Add --no-author to let you opt out and copy only committer — or require opt-in via --reset-author
 
 See also: git-commit-cp, git-commit-modify
 End
-  exit
+  exit 64 # EX_USAGE
 }
 
-if [ -z "${1-}" ]; then
-  usage
+if [ -d .git/rebase-merge ]; then
+  commit_input=$(git-rebase-i-get-orig-commit)
+else
+  commit_input=${1-}
 fi
 
-commit_input=$1
+if [ -z "$commit_input" ]; then
+  usage
+fi
 
 commit=$(git rev-parse --verify "$commit_input"^{commit})
 
