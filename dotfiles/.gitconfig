@@ -423,6 +423,8 @@
   #─────────────────────────────────────────────────────────────────────────────────────────────────
   # git config --global alias.my_alias command adds aliases to the bottom here:
 
+  rebase-keep-committer = rebase -i --exec 'git-commit-amend-copy-committer $(git-rebase-i-get-orig-commit)'
+
 [branch]
   # git config --global branch.autoSetupMerge true
   #autoSetupMerge = true
@@ -571,11 +573,6 @@
 [init]
 	defaultBranch = main
 #	templateDir = /home/tyler/.githooks/templates
-
-[alias]
-  # https://github.com/gabyx/githooks
-	fn = !bash -c 'fn \"$@\"' x
-	hooks = !\"/home/tyler/.githooks/bin/githooks-cli\"
 
 # https://github.com/so-fancy/diff-so-fancy?tab=readme-ov-file#improved-colors-for-the-highlighted-bits
 # These colors don't all place nicely with current terminal colors. In particular, the "new" color
