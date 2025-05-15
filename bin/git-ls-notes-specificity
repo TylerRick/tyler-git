@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# Lists all commits with notes in specificity
+# Lists all commits with notes in refs/notes/specificity
 
 # Options:
 # --rm-unless-ancestor-of <ref1,ref2,...>  : Removes note if commit is not ancestor of any listed ref
@@ -43,14 +43,14 @@ remove_note_unless_ancestor_of() {
 
     if ! $is_ancestor; then
       echo "Removing note from $commit (not ancestor of any allowed refs: ${rm_unless_ancestor_of[*]})"
-      git notes --ref=specificity remove "$commit"
+      git notes --ref=refs/notes/specificity remove "$commit"
       return 1
     fi
   fi
 }
 
-git notes --ref=specificity list | while read -r note_id commit; do
-  tag=$(git notes --ref=specificity show "$commit" || true)
+git notes --ref=refs/notes/specificity list | while read -r note_id commit; do
+  tag=$(git notes --ref=refs/notes/specificity show "$commit" || true)
 
   if $show_symbolic; then
     symbolic_rev=" $(git name-rev-prefer-branch "$commit" 2>/dev/null || true)"
