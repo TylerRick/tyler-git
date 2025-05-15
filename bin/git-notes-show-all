@@ -1,0 +1,29 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if [ "$#" -ne 1 ]; then
+  cat - <<End >&2
+Usage: $(basename "$0") <commit>
+
+Shows all notes from commit for all refs under refs/notes/*
+End
+  exit
+fi
+
+commit="$1"
+
+# Find all refs under refs/notes/*
+notes_refs=$(git for-each-ref --format='%(refname)' refs/notes/)
+
+if [ -z "$notes_refs" ]; then
+  echo "No notes refs found under refs/notes/*"
+  exit 0
+fi
+
+for ref in $notes_refs; do
+  if git notes --ref="$ref" show "$commit" > /dev/null 2>&1; then
+    echo "📝 Note found in $ref:"
+    git notes --ref="$ref" show "$commit" | sed "s/^/    /"
+  fi
+done
