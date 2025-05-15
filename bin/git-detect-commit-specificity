@@ -7,82 +7,156 @@ set -euo pipefail
 source "$(dirname $0)"/lib/colors.sh
 source "$(dirname $0)"/lib/specificity.sh
 
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage: $(basename "$0") [options] [<commit>]
+
+Tries to detect/classify the specificity of the given commit based on the specificity of the files
+contained in its tree.  It then records this specificity (unless --no-record).
+
+More generally, this command "processes" a commit as part of an overall "split out a common repo"
+workflow. It is recommended to use --trust-recorded --split for this workflow.
+
+Options:
+  --if-needed, --trust-recorded
+    If we've already recorded the specificity for this commit, then we trust that it is correct and
+    can skip doing the usual detection and recording steps. Equivalent to passing --no-file-detect
+    --no-record in that case. It will still do --split if provided.
+
+    Since the automatic detection is prone to false positives and negatives, this option is
+    recommended if ever you're running this again for a commit where you know you've already
+    classified it correctly.
+
+  --no-file-detect
+    Skip running git-diff-tree-specificity --detect at the beginning. This could be useful if you're
+    sure you've already correctly detected the specificity of the files contained in this commit's
+    tree.
+
+  --no-record, -n
+    Enables a read-only mode, where it will report the specificity that it inferred for this commit
+    but not record it. 
+
+  --force, -f
+    Without this, it will refuse to update recorded specificity to the specificity it
+    detected/inferred based on file detection _if_ the new classification is mixed and we've
+    previously recorded that it is common or specific. Instead it will warn something like this:
+
+      => Would have set to mixed but was already set to specific. Skipping.
+
+  --split
+
+    If this commit was classified as "mixed", and it is the current HEAD, then attempt to split it
+    into a separate common and specific commit using git-split-commit-by-specificity.
+End
+  exit
+}
+
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
-split=false
-detect=true
-act=true
+should_file_detect=true
+should_detect=true
+should_record=true
 force=false
+if_needed=false
+should_split=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --help | -h)      echo "Usage: $(basename "$0") [--no-act] [<commit>]" >&2; exit 0 ;;  
-    --no-detect | -D) detect=false; shift ;;  
-    --no-act | -n)    act=false; shift ;;  
+    --help | -h)      use ;;  
+    --if-needed|--trust-recorded) if_needed=true; shift ;;  
+    --no-file-detect) should_file_detect=false; shift ;;  
+    --no-record | -n) should_record=false; shift ;;  
     --force | -f)     force=true; shift ;;  
-    --split)          split=true; shift ;;  
+    --split)          should_split=true; shift ;;  
     -*)               echo "Unknown option $1" >&2; exit 1 ;;  
     *) break ;;  
   esac
 done
 
 commit=${1:-HEAD}
+commit_short=$(git rev-parse --short --verify "$commit"^{commit})
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
-# 1) For each path in the commit, detect & record; then report the specificity for each file
-if [[ "$detect" = true ]]; then
+
+recorded=$(git-get-commit-specificity $commit)
+if [ -n "$recorded" ] && $if_needed; then
+  needed=false
+  echo "$commit_short: Using previously recorded specificity $(colorize_specificity $recorded)"
+  should_file_detect=false
+  should_detect=false
+  should_record=false
+else
+  needed=true
+fi
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+# For each file in the commit, detect & record; then report the specificity for each file
+if $should_file_detect; then
   git-diff-tree-specificity --detect $commit
 fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
-# 2) classify commit
-mapfile -t specs < <(git-diff-tree-specificity --quiet "$commit" | awk '{print $NF}' | sort -u)
-echo
-echo "Files have these specificity values: ${specs[@]}"
-count=${#specs[@]}
+# Classify commit by specificity and record that specificity
 
-detected_specificity=
-if (( count == 0 )); then
-  _red "Could not detect any common or specific files. (Is this an empty commit?)"
-  if [[ $act == true ]]; then
-    #git log --color --stat --graph -3
-    git log-oneline -30
-    read -rp "${cyan}Manually classify commit: [c]ommon, [m]mixed, or [s]pecific?${reset} " response
-    specificity=$(normalize_specificity "$response")
-    user_specificity=$specificity
+if $should_detect; then
+  mapfile -t specs < <(git-diff-tree-specificity --quiet "$commit" | awk '{print $NF}' | sort -u)
+  echo
+  echo "Files have these specificity values: ${specs[@]}"
+  count=${#specs[@]}
+
+  detected_specificity=
+  if (( count == 0 )); then
+    _red "Could not detect any common or specific files. (Is this an empty commit?)"
+    if $should_record; then
+      #git log --color --stat --graph -3
+      git log-oneline -30
+      read -rp "${cyan}Manually classify commit: [c]ommon, [m]mixed, or [s]pecific?${reset} " response
+      specificity=$(normalize_specificity "$response")
+      user_specificity=$specificity
+      should_record=true
+    else
+      exit
+    fi
+  elif (( count == 1 )); then
+    specificity=${specs[0]}
+    # Strip color
+    specificity=$(echo -e "$specificity" | sed -E 's/\x1B\[[0-9;]*[mK]//g')
+    detected_specificity=$specificity
   else
-    exit
+    specificity=mixed
+    detected_specificity=$specificity
   fi
-elif (( count == 1 )); then
-  specificity=${specs[0]}
-  # Strip color
-  specificity=$(echo -e "$specificity" | sed -E 's/\x1B\[[0-9;]*[mK]//g')
-  detected_specificity=$specificity
-else
-  specificity=mixed
-  detected_specificity=$specificity
+  echo "=> ${cyan}$commit_short: Detected specificity ${bold}${reset}$(colorize_specificity $specificity)${reset}"
 fi
-echo "=> ${cyan}Commit $commit overall specificity: ${bold}${reset}$(colorize_specificity $specificity)${reset}"
 
-#═══════════════════════════════════════════════════════════════════════════════════════════════════
-# 3) record & split if needed
-if [[ $act == true ]]; then
-  recorded=$(git-get-commit-specificity $commit)
+if $should_record; then
   if [[ $detected_specificity == "mixed" ]] && [[ $recorded =~ ^(common|specific)$ ]] && ! $force; then
     # By default don't set to mixed if already set to specific or common
-    echo "=> Would have set to $(colorize_specificity $specificity) but was already set to $(colorize_specificity $recorded). Skipping."
+    echo "=> Would have set to $(colorize_specificity $specificity) but was already set to $(colorize_specificity $recorded). Skipping. (Use --force if you want to update anyway.)"
     # If, however, they manually _entered_ the specificity, or they used --force, then we'll set it
     # to the detected value.
   else
     git-set-commit-specificity "$commit" "$specificity"
   fi
+fi
 
-  if [[ $split == true ]]; then
-    if [[ "$specificity" == mixed ]]; then
-      set -x
-      git-split-commit-by-specificity
-      { set +x; } 2>/dev/null
-    else
-      echo "No split needed"
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+# Split if needed
+
+recorded=$(git-get-commit-specificity $commit)
+
+if $should_split; then
+  if [[ "$recorded" == mixed ]]; then
+    if [[ $(git rev-parse --verify "$commit"^{commit}) != $(git rev-parse HEAD) ]]; then
+      echo >&2 "⚠️  --split option may only be used when operating on HEAD"
+      exit 1
     fi
+    set -x
+    git-split-commit-by-specificity
+    { set +x; } 2>/dev/null
+  else
+    echo "No split needed"
   fi
 fi
