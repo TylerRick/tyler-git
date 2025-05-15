@@ -313,7 +313,7 @@ echo
 echo "✔ Done splitting $commit into two commits:"
 
 # git log-oneline-notes -2
-export GIT_NOTES_DISPLAY_REF=specificity
+export GIT_NOTES_DISPLAY_REF=refs/notes/specificity
 format='%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N'
 git log -2 --pretty=format:"$format"
 
