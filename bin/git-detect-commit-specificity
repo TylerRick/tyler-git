@@ -41,7 +41,7 @@ count=${#specs[@]}
 echo count=$count
 if (( count == 0 )); then
   _red "Could not detect any common or specific files. (Is this an empty commit?)"
-  if [[ $act = true ]]; then
+  if [[ $act == true ]]; then
     #git log --color --stat --graph -3
     git log-oneline -30
     read -rp "${cyan}Manually classify commit: [c]ommon, [m]mixed, or [s]pecific?${reset} " response
@@ -57,9 +57,9 @@ fi
 _cyan "=> Commit $commit overall specificity: ${bold}$specificity${reset}"
 
 # 3) record & split if needed
-if [[ $act = true ]]; then
-  git-set-commit-specificity "$specificity" "$commit"
-  if [[ $split = true ]]; then
+if [[ $act == true ]]; then
+  git-set-commit-specificity "$commit" "$specificity"
+  if [[ $split == true ]]; then
     if [[ "$specificity" == mixed ]]; then
       set -x
       git-split-commit-by-specificity

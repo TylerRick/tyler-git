@@ -7,6 +7,7 @@ Usage: $(basename $0) [-q|--quiet] <file>
 
 Options:
   -q, --quiet    suppress grep output; only exit code indicates match
+
 Exit codes:
   exits with 0 if the file contains any "specific" patterns
   exits with 1 if no "specific" patterns can be found and it should be considered "common" 

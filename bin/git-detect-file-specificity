@@ -1,11 +1,5 @@
 #!/usr/bin/env bash
 
-# Usage: git-detect-file-specificity [<commit>] <file>
-# Detects if a file is specific via git-detect-file-is-specific.
-#
-# Unlike git-get-file-specificity, which _only_ reads what has previously been recorded, this
-# actually tries to do some detection, and checks whether what has been recorded matches.
-
 set -euo pipefail
 
 source "$(dirname $0)"/lib/colors.sh
@@ -14,7 +8,22 @@ source "$(dirname $0)"/lib/specificity.sh
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
 usage() {
-  echo "Usage: $(basename "$0") [<commit>] <file>" >&2
+  cat - <<End >&2
+Usage: $(basename "$0") [<commit>] <file>
+
+Detects if a file is specific via git-detect-file-is-specific.
+
+Unlike git-get-file-specificity, which _only_ reads what has previously been recorded, this
+actually tries to do some detection, and checks whether what has been recorded matches.
+
+Options:
+  -q, --quiet
+  -m, --show-matches (never|if_disagreement|always)
+  -f, --file <file_contents>
+    Use <file_contents> as the file contents to check instead of using the current contents of the
+    main arg <file>.
+     
+End
   exit
 }
 
@@ -53,6 +62,17 @@ while (( "$#" > 0 )); do
       shift
       ;;
 
+    -f|--file)
+      if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+        file_contents=$2
+        shift
+      else
+        echo "Error: Argument for $1 is missing" >&2
+        exit 64 # EX_USAGE
+      fi
+      shift
+      ;;
+
     --)
       # Done parsing options
       shift
@@ -70,16 +90,23 @@ while (( "$#" > 0 )); do
 done
 eval set -- "$positional_args"
 
-# commit optional
-if [[ $# -eq 2 ]]; then
-  commit=$1; file=$2
-elif [[ $# -eq 1 ]]; then
-  commit=""; file=$1
+# commit is optional
+if (( "$#" == 2 )); then
+  commit=$1
+  file=$2
+elif (( "$#" == 1 )); then
+  # TODO: add --staged option to use index
+  commit="" # blank means to use worktree
+  file=$1
 else
   usage
 fi
 
 if [[ -n "$commit" ]]; then
+  if [ -n "${file_contents-}" ]; then
+    echo "Incompatible options: Can't pass both a commit and --file" >&2
+    exit 64 # EX_USAGE
+  fi
   # Look at file contents as of that commit
   tmpfile=$(mktemp)
   git show "$commit:$file" > $tmpfile
@@ -89,10 +116,10 @@ else
   if ! [ -f "$file" ]; then
     echo >&2 "$file: Does not exist"
   fi
-  file_contents=$file
+  if [ -z "${file_contents-}" ]; then
+    file_contents=$file
+  fi
 fi
-
-source "$(dirname $0)"/lib/colors.sh
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -159,7 +186,7 @@ if [[ "$recorded" == common && "$detected_specific" == true ]]; then
     _green "updated ${file} → ${bold}${choice}${reset}."
   fi
 elif [[ "$recorded" =~ ^(specific|mixed)$ ]] && [[ "$detected_specific" == false ]]; then
-  _yellow "${file}: No specific keywords found${reset}: ${discrepancy_msg}" >&2 
+  _green "${file}: No specific keywords found${reset}: ${discrepancy_msg}" >&2 
 else
   # no discrepancy; detected already agrees with recorded
   if [[ $show_matches == always ]]; then
