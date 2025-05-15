@@ -521,6 +521,7 @@
   instructionFormat = "[%an @ %ar] %s" # [Name at 3 months ago]
   instructionFormat = "%s [%an]" # add the commit author to the end of each line
   instructionFormat = "[%as %an]%d %s" # %as is short ISO date, %d lists branch/tags
+	backend = merge
 [mergetool "p4merge"]
   #cmd = ~/bin/p4merge \
   cmd = $HOME/installed/shell/bin/p4merge \
@@ -605,4 +606,4 @@
 #	updateCheckEnabled = true
 [sequence]
   #editor = /home/tyler/installed/tyler-git/bin/git-rebase-seq_flatten_merges_with_empty_commits
-  editor = /home/tyler/installed/tyler-git/bin/git-rebase-seq
+  #editor = /home/tyler/installed/tyler-git/bin/git-rebase-seq
