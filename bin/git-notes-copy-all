@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -euo pipefail
+
+if [ "$#" -ne 2 ]; then
+  cat - <<End >&2
+Usage: $(basename "$0") <old-commit> <new-commit>
+
+Copies all notes from old-commit to new-commit for all refs under refs/notes/*
+End
+  exit
+fi
+
+old_commit="$1"
+new_commit="$2"
+
+# Find all refs under refs/notes/*
+notes_refs=$(git for-each-ref --format='%(refname)' refs/notes/)
+
+if [ -z "$notes_refs" ]; then
+  echo "No notes refs found under refs/notes/*"
+  exit 0
+fi
+
+for ref in $notes_refs; do
+  if git notes --ref="$ref" show "$old_commit" > /dev/null 2>&1; then
+    git notes --ref="$ref" copy "$old_commit" "$new_commit"
+    echo "✅ Copied note from $ref: $old_commit → $new_commit"
+  else
+    echo "ℹ️  No note on $old_commit in $ref — skipping."
+  fi
+done
+
