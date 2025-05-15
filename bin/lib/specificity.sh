@@ -1,12 +1,19 @@
 source "$(dirname $0)"/lib/colors.sh
 
 normalize_specificity() {
-  case "${1,,}" in
+  if [ -z "${1-}" ]; then
+    return
+  fi
+
+  # Strip ANSI color codes
+  input=$(echo -e "$1" | sed -E 's/\x1B\[[0-9;]*[mK]//g')
+
+  case "${input,,}" in
     c*) echo "common" ;;
     m*) echo "mixed" ;;
     s*) echo "specific" ;;
     *)
-      echo "Unrecognized specificity abbreviation: '$specificity'. Expected 'common', 'mixed', or 'specific' (or any abbreviation starting with 'c', 'm', or 's')."
+      echo "Unrecognized specificity abbreviation: '$specificity'. Expected 'common', 'mixed', or 'specific' (or any abbreviation starting with 'c', 'm', or 's')." >&2
       exit 1
       ;;
   esac

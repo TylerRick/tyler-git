@@ -2,12 +2,14 @@
 
 set -euo pipefail
 
-# Lists all commits with notes in refs/notes/specificity
+# Lists all commits (log) but also shows refs/notes/specificity
 
-# TODO: instead (or possibly as an option), use git log / rev-list instead, so that we also see
+# TODO: add this as alternative to git-ls-notes-specificity
+# uses git log / rev-list instead, so that we also see
 # which commits are _missing_ a specificity
 
-git notes --ref=refs/notes/specificity list | while read -r note_id commit; do
-  tag=$(git notes --ref=refs/notes/specificity show "$commit" || true)
-  echo "$commit $tag"
-done
+# For now we have this alias:
+#   log-oneline-notes         = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N'
+# but it adds an extra newline between lines.
+
+git log-oneline-notes

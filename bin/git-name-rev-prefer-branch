@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Like git name-rev --name-only but falls back to using tags only if no branch exists for the
+# given commit.
+
+# TODO: --fallback to specify whether to fall back to shortened rev (current behavior),
+# "undefined" (name-rev's default), or nothing
+
+commit="$1"
+git name-rev --name-only --no-undefined --exclude=refs/tags/* "$commit" 2>/dev/null ||
+git name-rev --name-only --no-undefined                       "$commit" 2>/dev/null ||
+git rev-parse --short $commit
