@@ -1,0 +1,39 @@
+#!/bin/bash
+
+set -euo pipefail
+
+cmd_name=$(basename "$0")
+notes_ref=specificity
+
+function usage() {
+  cat - >&2 <<End
+Usage: $cmd_name [<commit>]
+
+Examples:
+
+  $cmd_name
+  $cmd_name @
+  $cmd_name acfd9a6
+
+End
+  exit 1
+}
+
+case "${1:-}" in
+  -h|--help)
+    usage
+    ;;
+esac
+
+commit=${1:-@}
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+specificity=$(git notes --ref=$notes_ref show "$commit" 2>/dev/null || true)
+
+if [[ -n "$specificity" ]]; then
+  echo "$specificity"
+else
+  : # echo "(unspecified)"
+fi
+
