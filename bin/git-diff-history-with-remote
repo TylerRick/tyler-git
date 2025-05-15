@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# If you rewrite your local branch and its commits have now diverged from origin, but git diff
+# doesn't help because it's not the content that has changed, but the commit messages or other
+# metadata, this tool will help you see it.
+
+# See also:
+# - git-diff-upstream
+#   TODO: decide whether to call it upstream or remote; remote is what is configured in .git/config,
+#   but @{u} is "upstream"
+
+remote_ref=$(git rev-parse --abbrev-ref --symbolic-full-name @{u})
+local_ref=$(git rev-parse --abbrev-ref --symbolic-full-name @)
+git-diff-history $remote_ref $local_ref "$@"

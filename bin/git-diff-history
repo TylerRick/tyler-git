@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# See also:
+# - git-diff-commits
+
+history_a=$1; shift
+history_b=$2; shift
+
+# TODO: parse options and pass some, such as -U to diff, but the rest to git log
+u=0
+
+diff -U${u} \
+  <(git log $history_a "$@") \
+  <(git log $history_b "$@")
