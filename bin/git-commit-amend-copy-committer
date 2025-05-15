@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+set -euo pipefail
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -19,7 +21,7 @@ reset commiter date to copy the author date, but it provides no way to _keep_ co
 was in the original commit.
 
 Example:
-  git rebase -i --exec git-commit-amend-copy-committer onto-commit
+  git rebase -i --exec 'git-commit-amend-copy-committer \$(git-rebase-i-get-orig-commit)'
 
 When this is used as an exec command during a rebase -i, and we amend a commit,
 we throw off git's own internal rewritten commit mapping that it would use for
@@ -34,14 +36,15 @@ End
   exit
 }
 
-commit=$1
-
-if [ -z "$commit" ]; then
+if [ -z "${1-}" ]; then
   usage
 fi
 
+commit_input=$1
+
+commit=$(git rev-parse --verify "$commit_input"^{commit})
+
 #════════════════════════════════════════════════════════════════════════════════════════════════════
-#old_commit=$(git rev-parse HEAD)
 
 echo
 echo "Prior to amending: original commit $commit:"
@@ -50,7 +53,7 @@ git-notes-show-all "$commit"
 eval "$(git-commit-metadata-vars $commit)"
 
 echo
-echo "⚙️  Amending HEAD..."
+echo "⚙️  Amending HEAD ($(git name-rev-prefer-branch @)) …"
 # We can't rely on git's native notes.rewriteRef feature 
 #export GIT_NOTES_REWRITE_REF=refs/notes/*
 git commit --allow-empty --amend --no-edit --no-verify --reset-author

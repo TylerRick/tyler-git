@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage: $(basename "$0")
+
+Outputs the original commit ID of the commit that was just rewritten/created/cherry-picked by a pick command.
+
+This is only intended to be used from within an exec line of a git rebase -i script!
+
+Problem statement: When git rebase -i --exec <cmd> runs after each pick, how do
+I access the original (pre-rewrite) commit ID corresponding to the one that was
+just picked and rewritten?
+
+Solution: Use this command.
+
+Example:
+  git rebase -i --exec 'copy-something-from-orig-commit \$(git-rebase-i-get-orig-commit)' onto-commit
+End
+  exit
+}
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+rewritten_file=".git/rebase-merge/rewritten-list"
+
+if [ ! -d .git/rebase-merge ]; then
+  echo >&2 "❌ Not inside an interactive rebase with merge backend."
+  exit 1
+fi
+
+if [ ! -f "$rewritten_file" ]; then
+  # This just means no commits have been rewritten so far. (By default, rebase will fast-forwarding
+  # over the unchanged commits. Unless using the --no-ff, --force-rebase, -f option.) Which means
+  # that HEAD should actually have the _same_ commit ID post-rebase as it had pre-rebase.
+  git rev-parse --verify HEAD^{commit}
+  exit
+fi
+
+# To do idea: If <rewritten_commit> arg is provided, grep for that commit and return the orig commit for that commit instead of using tail -n1 to get the last created commit. 
+mapfile -t mappings < <(tail -n 1 $rewritten_file)
+
+original_commit=$(echo "${mappings[0]}" | awk '{print $1}')
+rewritten_commit=$(echo "${mappings[0]}" | awk '{print $2}')
+
+echo "$original_commit"
