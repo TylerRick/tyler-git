@@ -12,11 +12,13 @@ source "$(dirname $0)"/lib/specificity.sh
 split=false
 detect=true
 act=true
+force=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)      echo "Usage: $(basename "$0") [--no-act] [<commit>]" >&2; exit 0 ;;  
     --no-detect | -D) detect=false; shift ;;  
     --no-act | -n)    act=false; shift ;;  
+    --force | -f)     force=true; shift ;;  
     --split)          split=true; shift ;;  
     -*)               echo "Unknown option $1" >&2; exit 1 ;;  
     *) break ;;  
@@ -36,9 +38,9 @@ fi
 
 # 2) classify commit
 mapfile -t specs < <(git-diff-tree-specificity --quiet "$commit" | awk '{print $NF}' | sort -u)
+echo
 echo "Files have these specificity values: ${specs[@]}"
 count=${#specs[@]}
-echo count=$count
 if (( count == 0 )); then
   _red "Could not detect any common or specific files. (Is this an empty commit?)"
   if [[ $act == true ]]; then
@@ -46,19 +48,33 @@ if (( count == 0 )); then
     git log-oneline -30
     read -rp "${cyan}Manually classify commit: [c]ommon, [m]mixed, or [s]pecific?${reset} " response
     specificity=$(normalize_specificity "$response")
+    user_specificity=$specificity
   else
     exit
   fi
 elif (( count == 1 )); then
   specificity=${specs[0]}
+  # Strip color
+  specificity=$(echo -e "$specificity" | sed -E 's/\x1B\[[0-9;]*[mK]//g')
+  detected_specificity=$specificity
 else
   specificity=mixed
+  detected_specificity=$specificity
 fi
-_cyan "=> Commit $commit overall specificity: ${bold}$specificity${reset}"
+echo "=> ${cyan}Commit $commit overall specificity: ${bold}${reset}$(colorize_specificity $specificity)${reset}"
 
 # 3) record & split if needed
 if [[ $act == true ]]; then
-  git-set-commit-specificity "$commit" "$specificity"
+  recorded=$(git-get-commit-specificity $commit)
+  if [[ $detected_specificity == "mixed" ]] && [[ $recorded =~ ^(common|specific)$ ]] && ! $force; then
+    # By default don't set to mixed if already set to specific or common
+    echo "=> Would have set to $(colorize_specificity $specificity) but was already set to $(colorize_specificity $recorded). Skipping."
+    # If, however, they manually _entered_ the specificity, or they used --force, then we'll set it
+    # to the detected value.
+  else
+    git-set-commit-specificity "$commit" "$specificity"
+  fi
+
   if [[ $split == true ]]; then
     if [[ "$specificity" == mixed ]]; then
       set -x
