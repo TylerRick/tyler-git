@@ -64,6 +64,7 @@ done
 
 state_dir=".git/split-commit"
 
+echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
 if $continued; then
   if [[ ! -d $state_dir ]]; then
     echo >&2 "⚠️  No split in progress. Nothing to continue."
@@ -195,9 +196,12 @@ is_done()  { [[ -f "$state_dir/$1" ]]; }
 
 echo
 git log-oneline -1
-git-detect-commit-specificity --trust-recorded $commit
 
-recorded=$(git-get-commit-specificity HEAD)
+if ! $continued; then
+  git-detect-commit-specificity --trust-recorded $commit
+fi
+
+recorded=$(git-get-commit-specificity --ensure-present HEAD)
 
 if [ "$recorded" == mixed ] || $continued; then
   :
@@ -259,13 +263,19 @@ if ! is_done $step; then
   echo "→ Manually review these ${#files[@]} $(colorize_specificity mixed) files: stage the $(colorize_specificity common) hunks or edit to make it common…"
   echo
   if (( ${#files[@]} )); then
+
+    touch $state_dir/files_done
     for file in "${files[@]}"; do
+      echo '───────────────────────────────────────────────────────────────────────────────────────────────────'
       # If file has already been staged (even partially staged), it means they have already taken
       # some action to stage it the way they want it. Since that is the entire purpose of the loop
       # for this file, it doesn't make sense to _ask_ them here whether they want to it, so we can
       # skip it and move on to the next unstaged file.
       if [[ $(git-staged-status "$file") =~ (fully|partly)\ staged ]]; then
         echo "${cyan}${file}:${reset} already $(git-staged-status "$file")"
+        continue
+      elif grep -xF -- "$file" $state_dir/files_done >/dev/null; then
+        echo "${cyan}${file}:${reset} already reviewed"
         continue
       fi
 
@@ -288,6 +298,16 @@ if ! is_done $step; then
         [ -f "${tmpfile:-}" ] && rm -f "$tmpfile"
         #echo
       }
+
+      diff() {
+        git diff --find-renames --find-copies "$@" "$file" </dev/tty >/dev/tty 2>/dev/tty || true
+      }
+
+      diff
+
+      # Show detect last because its matches are more important clues that we don't want you to
+      # miss. And if the diff is really long, you would miss this output if we put it before the
+      # diff.
       detect
 
       # Loop until user stages the file or explicitly says to do [n]othing with it.
@@ -304,7 +324,7 @@ if ! is_done $step; then
             echo; echo
             n=''
             [ $resp == "1" ] && n='-n 1'
-            git log $n --patch $commit "$file" </dev/tty >/dev/tty 2>/dev/tty
+            git log $n --patch $commit "$file" </dev/tty >/dev/tty 2>/dev/tty || true
             echo; echo
             ;;
           dd)
@@ -315,12 +335,12 @@ if ! is_done $step; then
             ;;
           d)
             echo; echo
-            git diff --find-renames --find-copies "$file" </dev/tty >/dev/tty 2>/dev/tty
+            diff
             echo; echo
             ;;
           s)
             echo; echo
-            git diff --find-renames --find-copies --staged "$file" </dev/tty >/dev/tty 2>/dev/tty
+            diff --staged
             echo; echo
             ;;
           e)
@@ -332,7 +352,7 @@ if ! is_done $step; then
             break
             ;;
           p)
-            git add --intent-to-add "$file"
+            git_add --intent-to-add "$file"
             git_add -p "$file"
             break
             ;;
@@ -343,13 +363,18 @@ if ! is_done $step; then
             echo "    Invalid option!"
             ;;
         esac
-      done
-    done
+      done 
+      echo "$file" >> $state_dir/files_done
+    done # for file
 
   else
     echo "  (none)"
   fi
   mark_done $step
+
+  # Note: If we had another review loop like that in a later step, then we'd want to clear this list
+  # before moving on:
+  #   echo > $state_dir/files_done
 else
   echo "↪️  $step: already done"
 fi
@@ -418,5 +443,7 @@ export GIT_NOTES_DISPLAY_REF=refs/notes/specificity
 git log-oneline-notes -n ${new_commits_count}
 #format='%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N'
 #git log -2 --pretty=format:"$format"
+
+read -rp 'Done?' don
 
 clean_up
