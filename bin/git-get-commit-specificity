@@ -15,17 +15,27 @@ Examples:
   $cmd_name @
   $cmd_name acfd9a6
 
+Options:
+
+  --ensure-present
+    Exit with failure if no specificity recorded yet.
 End
   exit 1
 }
 
-case "${1:-}" in
-  -h|--help)
-    usage
-    ;;
-esac
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
 
-commit=${1:-@}
+ensure_present=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)      usage;;
+    --ensure-present) ensure_present=true; shift ;;
+    -*)               echo "Unknown option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
+
+commit=${1:-HEAD}
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -33,6 +43,9 @@ specificity=$(git notes --ref=$notes_ref show "$commit" 2>/dev/null || true)
 
 if [[ -n "$specificity" ]]; then
   echo "$specificity"
+elif $ensure_present; then
+  echo >&2 "❌ No specificity found for $commit_short!"
+  exit 1
 else
   : # echo "(unspecified)"
 fi

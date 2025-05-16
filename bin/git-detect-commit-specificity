@@ -3,6 +3,7 @@
 # Usage: git-detect-commit-specificity [commit]
 
 set -euo pipefail
+trap 'echo "[ERR] at line $LINENO: $BASH_COMMAND"' ERR
 
 source "$(dirname $0)"/lib/colors.sh
 source "$(dirname $0)"/lib/specificity.sh
@@ -42,6 +43,9 @@ Options:
     previously recorded that it is common or specific. Instead it will warn something like this:
 
       => Would have set to mixed but was already set to specific. Skipping.
+
+  --ensure-present
+    Exit with failure if no specificity recorded yet.
 End
   exit
 }
@@ -52,14 +56,16 @@ should_file_detect=true
 should_detect=true
 should_record=true
 force=false
-if_needed=false
+trust_recorded=false
+ensure_present=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)      usage;;
-    --if-needed|--trust-recorded) if_needed=true; shift ;;
+    --if-needed|--trust-recorded) trust_recorded=true; shift ;;
     --no-file-detect) should_file_detect=false; shift ;;
     --no-record | -n) should_record=false; shift ;;
     --force | -f)     force=true; shift ;;
+    --ensure-present) ensure_present=true; shift ;;
     -*)               echo "Unknown option $1" >&2; exit 1 ;;
     *) break ;;
   esac
@@ -79,7 +85,10 @@ fi
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
 recorded=$(git-get-commit-specificity $commit)
-if [ -n "$recorded" ] && $if_needed; then
+if [ -z "$recorded" ] && $ensure_present; then
+  echo "${red}$commit_short${reset}: No specificity recorded"
+  exit 1
+elif [ -n "$recorded" ] && $trust_recorded; then
   needed=false
   echo "${red}$commit_short${reset}: Using previously recorded specificity $(colorize_specificity $recorded)"
   should_detect=false
