@@ -11,9 +11,27 @@ set -euo pipefail
 source "$(dirname $0)"/lib/specificity.sh
 source "$(dirname $0)"/git-get-file-specificity
 
-#═══════════════════════════════════════════════════════════════════════════════════════════════════
+function usage() {
+  cat - >&2 <<End
+Usage: $(basename "$0") [--name-only] [--detect] [<commit>] [<specificity>]
 
-# Parse options
+Options:
+
+  --name-only
+    List filenames only, instead of including change type prefix and adding the specificity after each filename
+
+  --detect
+    Run git-detect-file-specificity for each file. Useful to make sure all files in a commit have been classified and make sure none of them are showing as "unknown".
+
+  --quiet
+    Passes --quiet to git-detect-file-specificity.
+End
+  exit
+}
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+# Parse options and args
+
 quiet=false
 name_only=false
 color_name=true
@@ -21,16 +39,16 @@ detect=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --quiet | -q) quiet=true; shift ;;  
-    --name-only) name_only=true; shift ;;  
-    --detect)    detect=true;    shift ;;  
-    --help)      echo "Usage: $(basename "$0") [--name-only] [--detect] [<commit>] [<specificity>]" >&2; exit 0 ;;  
-    -*)         echo "Unknown option $1" >&2; exit 1 ;;  
+    --name-only)  name_only=true; shift ;;  
+    --detect)     detect=true;    shift ;;  
+    --help | -h)  usage ;;  
+    -*)           echo "Unknown option $1" >&2; exit 1 ;;  
     *) break ;;  
   esac
 done
 
 # Determine commit and optional specificity filter
-if [[ $# -ge 1 && ! "$1" =~ ^(common|specific|mixed)$ ]]; then
+if [[ $# -ge 1 && ! "$1" =~ ^(common|specific|mixed|unknown)$ ]]; then
   commit=$1; shift
 fi
 specificity_filter=""
@@ -38,12 +56,14 @@ if [[ $# -ge 1 ]]; then
   specificity_filter=$1; shift
 fi
 
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
 # If detect mode, run git-detect-file-specificity on each file first
 if $detect; then
   # ls_files_cmd --name-only $commit
   while IFS=$'\t' read -r path; do
     #set -x # Show next command only
-    git-detect-file-specificity ${commit} "$path" </dev/tty || true
+    git-detect-file-specificity $($quiet && echo '--quiet') ${commit} "$path" </dev/tty || true
     #{ set +x; } 2>/dev/null
   done < <(ls_files_cmd --name-only $commit)
   echo 'Done with detect'
