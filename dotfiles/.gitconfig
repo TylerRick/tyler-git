@@ -424,6 +424,7 @@
   # git config --global alias.my_alias command adds aliases to the bottom here:
 
   rebase-keep-committer = rebase -i --exec 'git-commit-amend-copy-committer'
+  rebase-split-commit-by-specificity = rebase -i --exec 'git-split-commit-by-specificity'
 
 [branch]
   # git config --global branch.autoSetupMerge true
