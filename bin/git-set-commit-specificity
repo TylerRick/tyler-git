@@ -24,7 +24,7 @@ Examples:
   $cmd_name c
 
 End
-  exit 1
+  exit
 }
 
 case "${1:-}" in

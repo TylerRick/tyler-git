@@ -18,16 +18,25 @@ actually tries to do some detection, and checks whether what has been recorded m
 
 Options:
   -q, --quiet
+    Only show disagreement (discrepancies) and "unknown" files that need human to classify.
+    Don't show any output about files that already have a recorded specificity, unless there is a discrepancy.
+    Implies --show-matches never.
+
   -m, --show-matches (never|if_disagreement|always)
+
   -f, --file <file_contents>
     Use <file_contents> as the file contents to check instead of using the current contents of the
     main arg <file>.
      
+To do:
+  Add option to control which types of outputs to show: disagreement, no_specific_found, agreement, unknown.
+    Q. If you tell it to not show disagreement or unknown, does that mean it shouldn't ask you what to do about them either?
 End
   exit
 }
 
 # Parse options
+quiet=false
 show_matches=if_disagreement
 positional_args=
 while (( "$#" > 0 )); do
@@ -109,7 +118,17 @@ if [[ -n "$commit" ]]; then
   fi
   # Look at file contents as of that commit
   tmpfile=$(mktemp)
-  git show "$commit:$file" > $tmpfile
+  # Q. What should we check if the file was deleted (D) in this commit? We could either...
+  # - Have it see an empty file, meaning it would never be a "specific" match.
+  # - Have it see the lines that were removed, meaning it would match if "specific" content was
+  #   being removed. This actually seems like what we want, because we want even if it's being
+  #   removed, we still want the file to be classified as specific and that removal included in a
+  #   specific commit rather than a common commit. 
+  git show --unified=0 --color=always $commit -- "$file" \
+    | tail -n +5 \
+    | grep -P '^(\x1b\[[0-9;]*m)*[-+]' \
+    >$tmpfile 2>/dev/null
+  #cat $tmpfile
   file_contents=$tmpfile
 else
   # Look in working tree
@@ -163,9 +182,10 @@ confirm_loop() {
   done
 }
 
-if [[ -z "$recorded" && "$detected_specific" == true ]]; then
+# was: if [[ -z "$recorded" && "$detected_specific" == true ]]; then
+if [[ -z "$recorded" ]]; then
   echo -e "${cyan}${file}:${reset} detected=${bold}$colorized_detected${reset} but no specificity recorded yet."
-  choice=$(confirm_loop "mark as specific?")
+  choice=$(confirm_loop " → What is the actual specificity?")
   if [[ -n "$choice" ]]; then
     specificity=$choice
     git-set-file-specificity "$file" "$specificity"
@@ -179,18 +199,22 @@ if [[ "$recorded" == common && "$detected_specific" == true ]]; then
   if [[ $show_matches == if_disagreement || $show_matches == always ]]; then
     echo "$specific_matches"
   fi
-  _red "${file}: Discrepancy! ${reset}${discrepancy_msg}" >&2 
+  _red "${file}: Disagreement! ${reset}${discrepancy_msg}" >&2 
   choice=$(confirm_loop "override classification for this file? (you may need to update your detection script if it failed to detect a specific/mixed file.)")
   if [[ -n "$choice" ]]; then
     git-set-file-specificity "$file" "$choice"
     _green "updated ${file} → ${bold}${choice}${reset}."
   fi
 elif [[ "$recorded" =~ ^(specific|mixed)$ ]] && [[ "$detected_specific" == false ]]; then
-  _green "${file}: No specific keywords found${reset}: ${discrepancy_msg}" >&2 
+  if ! $quiet; then
+    _green "${file}: No specific keywords found${reset}: ${discrepancy_msg}" >&2 
+  fi
 else
   # no discrepancy; detected already agrees with recorded
   if [[ $show_matches == always ]]; then
     print_matches
   fi
-  echo -e "${cyan}${file}:${reset} ${green}Agreement${reset}: recorded=${bold}$(colorize_specificity $recorded)${reset}; detected=${bold}$colorized_detected${reset}"
+  if ! $quiet; then
+    echo -e "${cyan}${file}:${reset} ${green}Agreement${reset}: recorded=${bold}$(colorize_specificity $recorded)${reset}; detected=${bold}$colorized_detected${reset}"
+  fi
 fi

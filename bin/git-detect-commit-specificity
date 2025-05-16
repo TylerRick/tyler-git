@@ -19,8 +19,9 @@ contained in its tree.  It then records this specificity (unless --no-record).
 Options:
   --if-needed, --trust-recorded
     If we've already recorded the specificity for this commit, then we trust that it is correct and
-    can skip doing the usual detection and recording steps. Equivalent to passing --no-file-detect
-    --no-record in that case.
+    can skip doing the usual recording step. Equivalent to passing --no-record in that case.
+    We still run the file detection, though, in case we had any unknown" files in this commit; we
+    don't want to leave those unclassified!
 
     Since the automatic detection is prone to false positives and negatives, this option is
     recommended if ever you're running this again for a commit where you know you've already
@@ -69,22 +70,22 @@ commit_short=$(git rev-parse --short --verify "$commit"^{commit})
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
-recorded=$(git-get-commit-specificity $commit)
-if [ -n "$recorded" ] && $if_needed; then
-  needed=false
-  echo "${red}$commit_short${reset}: Using previously recorded specificity $(colorize_specificity $recorded)"
-  should_file_detect=false
-  should_detect=false
-  should_record=false
-else
-  needed=true
+# For each file in the commit, detect, ask user for help classifying if needed, and record; then
+# report the specificity for each file
+if $should_file_detect; then
+  git-diff-tree-specificity -q --detect $commit
 fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
-# For each file in the commit, detect & record; then report the specificity for each file
-if $should_file_detect; then
-  git-diff-tree-specificity --detect $commit
+recorded=$(git-get-commit-specificity $commit)
+if [ -n "$recorded" ] && $if_needed; then
+  needed=false
+  echo "${red}$commit_short${reset}: Using previously recorded specificity $(colorize_specificity $recorded)"
+  should_detect=false
+  should_record=false
+else
+  needed=true
 fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
@@ -101,7 +102,7 @@ if $should_detect; then
     _red "Could not detect any common or specific files. (Is this an empty commit?)"
     if $should_record; then
       #git log --color --stat --graph -3
-      git log-oneline -30
+      git log-oneline -10
       read -rp "${cyan}Manually classify commit: [c]ommon, [m]mixed, or [s]pecific?${reset} " response
       specificity=$(normalize_specificity "$response")
       user_specificity=$specificity
