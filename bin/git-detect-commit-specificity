@@ -72,7 +72,7 @@ commit_short=$(git rev-parse --short --verify "$commit"^{commit})
 recorded=$(git-get-commit-specificity $commit)
 if [ -n "$recorded" ] && $if_needed; then
   needed=false
-  echo "${cyan}$commit_short${reset}: Using previously recorded specificity $(colorize_specificity $recorded)"
+  echo "${red}$commit_short${reset}: Using previously recorded specificity $(colorize_specificity $recorded)"
   should_file_detect=false
   should_detect=false
   should_record=false

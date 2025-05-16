@@ -257,6 +257,7 @@ if ! is_done $step; then
   echo
   mapfile -t files < <(get_files_with_specificity mixed)
   echo "→ Manually review these ${#files[@]} $(colorize_specificity mixed) files: stage the $(colorize_specificity common) hunks or edit to make it common…"
+  echo
   if (( ${#files[@]} )); then
     for file in "${files[@]}"; do
       # If file has already been staged (even partially staged), it means they have already taken
@@ -269,17 +270,23 @@ if ! is_done $step; then
       fi
 
       detect() {
-        # Looking only at the lines that were _changed_ (could also consider _added_, but there
+        tmpfile=$(mktemp)
+        git add --intent-to-add "$file"
+
+        # Old: Looking only at the lines that were _changed_ (could also consider _added_, but there
         # shouldn't even be any specific matches _removed_ either, so we probably want to flag that
         # too as a condition to look into),
+        # old: git diff "$@" "$file" > $tmpfile
+        #
+        # Only match on the + (added) lines from the diff.
+        { git diff --unified=0 "$@" "$file" | tail -n +5 | grep -P '^(\x1b\[[0-9;]*m)*\+' || true; } > $tmpfile
+
         # Show lines/match that our detector thinks is specific to give the user hints about which
         # hunks they need to either _avoid_ staging, or edit so that they no longer match specific
         # keywords.
-        tmpfile=$(mktemp)
-        git add --intent-to-add "$file"
-        git diff "$@" "$file" > $tmpfile
         git-detect-file-specificity --show-matches always --file $tmpfile "$file"
         [ -f "${tmpfile:-}" ] && rm -f "$tmpfile"
+        #echo
       }
       detect
 
