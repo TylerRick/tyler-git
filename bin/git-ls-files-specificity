@@ -15,6 +15,7 @@ function ls_files_cmd() {
     name_only=false
   fi
   commit=${1:-}
+
   if [ -n "$commit" ]; then
     git ls-tree --full-tree -r --name-only "$commit"
   else
@@ -23,6 +24,7 @@ function ls_files_cmd() {
   if [ $name_only = true ]; then
     cat -
   else
+    # Prefix with fake status M for modified
     awk '{print "M\t" $0}'
   fi
 }

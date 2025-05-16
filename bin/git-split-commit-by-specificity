@@ -271,7 +271,7 @@ if ! is_done $step; then
 
       detect() {
         tmpfile=$(mktemp)
-        git add --intent-to-add "$file"
+        git_add --intent-to-add "$file"
 
         # Old: Looking only at the lines that were _changed_ (could also consider _added_, but there
         # shouldn't even be any specific matches _removed_ either, so we probably want to flag that
@@ -297,12 +297,14 @@ if ! is_done $step; then
         # anyway; we'd probably want more of an interactive stepping through each match, ask what to
         # do with it, but that's a lot more work, so for now, just make them edit manually.
 
-        file_status="  → ${cyan}${file}:${reset} $(git-staged-status "$file")"
-        read -rp "$file_status: [l]og, [d]iff/[dd] detect, diff [s]taged/[sd] detect, [e]dit, [a]dd, add -[p], [n]othing? " resp
+        file_status="  → ${cyan}${file}${reset} $(git-staged-status "$file")"
+        read -rp "$file_status: [l]og -[1], [d]iff/[dd] detect, diff [s]taged/[sd] detect, [e]dit, [a]dd, add -[p], [n]othing? " resp
         case "${resp,,}" in
-          l)
+          l|1)
             echo; echo
-            git log -n 1 --patch $commit "$file" </dev/tty >/dev/tty 2>/dev/tty
+            n=''
+            [ $resp == "1" ] && n='-n 1'
+            git log $n --patch $commit "$file" </dev/tty >/dev/tty 2>/dev/tty
             echo; echo
             ;;
           dd)
@@ -323,6 +325,7 @@ if ! is_done $step; then
             ;;
           e)
             edit_file "$file"
+            detect
             ;;
           a)
             git_add "$file"

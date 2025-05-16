@@ -26,6 +26,6 @@ colorize_specificity() {
     common) _green "$message" ;;
     mixed) _yellow "$message" ;;
     specific) _red "$message" ;;
-    *) echo "$message" ;;
+    *)    _magenta "$message" ;;
   esac
 }
