@@ -1,73 +1,92 @@
 #!/usr/bin/env bash
-# git-get-file-specificity (fast & correct)
 # Usage: git-get-file-specificity [--verify] <path>
+#
 # Returns: common | specific | mixed  (or nothing if not listed)
 # If listed in >1 list, prints error to stderr and exits 1.
 
 set -euo pipefail
-
-verify=false
-if [[ "${1:-}" == --verify ]]; then
-  verify=true
-  shift
-fi
-file="$1"
-base=".git/file_specificity"
+trap 'echo "[ERR] at line $LINENO: $BASH_COMMAND"' ERR
 
 # Read each list once, stripping comments/blank-lines
 # Store as newline-delimited string in associative array
-declare -A lists
-for type in common specific mixed; do
-  patfile="$base/$type"
-  [[ -f "$patfile" ]] || continue
-  lists[$type]=$(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^[[:space:]]*$/d' "$patfile")
-  [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] cached $type: $(echo "${lists[$type]}" | wc -l) patterns" >&2
-done
+if [[ -z "${__file_specificity_initialized:-}" ]]; then
+  declare -g __file_specificity_initialized=true
+  declare -gA __file_specificity_lists
 
-matches=()
-for type in common specific mixed; do
-  list="${lists[$type]:-}"
-  [[ -z "$list" ]] && continue
-  [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] checking $type patterns" >&2
-  while IFS= read -r pat; do
-    [[ -z "$pat" ]] && continue
-    if [[ "$pat" == */ ]]; then
-      prefix="${pat%/}"
-			# escape literal [ and ] so it isn't interpreted as glob pattern
-      esc="${prefix//\[/\\[}"
-      esc="${esc//\]/\\]}"
-      [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type prefix? '$file' starts '$prefix/'" >&2
-      if [[ "$file" == ${esc}/* ]]; then
-        matches+=("$type")
-        break
+  git_get_file_specificity_init() {
+    local base=".git/file_specificity"
+    local type patfile cleaned
+    for type in common specific mixed; do
+      patfile="$base/$type"
+      if ! [[ -f "$patfile" ]]; then continue; fi
+      # Clean comments and whitespace once
+      cleaned=$(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^[[:space:]]*$/d' "$patfile")
+      __file_specificity_lists["$type"]="$cleaned"
+      if [[ -n "${DEBUG:-}" ]]; then echo "[DEBUG] cached $type: $(echo "$cleaned" | wc -l) patterns" >&2; fi
+    done
+    return 0
+  }
+
+  git_get_file_specificity_init
+fi
+
+git_get_file_specificity() {
+  local file verify=false
+  if [[ "${1:-}" == --verify ]]; then
+    verify=true
+    shift
+  fi
+  file="$1"
+
+  local type list matches=() pat prefix esc
+
+  for type in common specific mixed; do
+    list="${__file_specificity_lists[$type]:-}"
+    [[ -z "$list" ]] && continue
+    [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] checking $type patterns" >&2
+    while IFS= read -r pat; do
+      [[ -z "$pat" ]] && continue
+      if [[ "$pat" == */ ]]; then
+        prefix="${pat%/}"
+        esc="${prefix//\[/\\[}"
+        esc="${esc//\]/\\]}"
+        [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type prefix? '$file' starts '$prefix/'" >&2
+        if [[ "$file" == ${esc}/* ]]; then
+          matches+=("$type")
+          break
+        fi
+      else
+        esc="${pat//\[/\\[}"
+        esc="${esc//\]/\\]}"
+        [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type glob? '$file' == '$pat'" >&2
+        if [[ "$file" == $esc ]]; then
+          matches+=("$type")
+          break
+        fi
       fi
-    else
-      esc="${pat//\[/\\[}"
-      esc="${esc//\]/\\]}"
-      [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type glob? '$file' == '$pat'" >&2
-      if [[ "$file" == $esc ]]; then
-        matches+=("$type")
-        break
-       fi
-    fi
-  done <<< "$list"
-done
+    done <<< "$list"
+  done
 
-case ${#matches[@]} in
-  0)
-    if $verify; then
-      echo "ERROR: '$file': no specificity recorded yet" >&2
-      exit 1
-    else
-      exit 0
-    fi
-    ;;
-  1)
-    echo "${matches[0]}"
-    ;;
-  *)
-    echo "ERROR: '$file' matches multiple lists: ${matches[*]}" >&2
-    exit 1
-    ;;
-esac
+  case ${#matches[@]} in
+    0)
+      if $verify; then
+        echo "Error: '$file': no specificity recorded yet" >&2
+        return 1
+      else
+        return 0
+      fi
+      ;;
+    1)
+      echo "${matches[0]}"
+      ;;
+    *)
+      echo "Error: '$file' matches multiple lists: ${matches[*]}" >&2
+      return 1
+      ;;
+  esac
+}
 
+# Allow script to be sourced or executed
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  git_get_file_specificity "$@"
+fi

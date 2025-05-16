@@ -9,6 +9,7 @@
 set -euo pipefail
 
 source "$(dirname $0)"/lib/specificity.sh
+source "$(dirname $0)"/git-get-file-specificity
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -59,7 +60,7 @@ while IFS=$'\t' read -r status path old; do
     disp="$status  $path"
   fi
   specificity=$(git-get-file-specificity "$path" 2>/dev/null || true)
-  [[ -n "$specificity_filter" && "$specificity" != "$specificity_filter" ]] && continue
+  [[ -n "$specificity_filter" && "${specificity:-unknown}" != "$specificity_filter" ]] && continue
 
   if $name_only; then
     entries+=("$path|")
