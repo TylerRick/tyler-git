@@ -12,6 +12,7 @@
 
 # To do:
 # - add a trap that detects error and tells user to run --continue to re-try
+# - add an --abort command
 
 set -euo pipefail
 cd "$(git rev-parse --git-dir)/.."
@@ -19,17 +20,49 @@ cd "$(git rev-parse --git-dir)/.."
 source "$(dirname $0)"/lib/colors.sh
 source "$(dirname $0)"/lib/specificity.sh
 
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage:
+  $(basename "$0")
+  $(basename "$0") --continue      # resume an in-progress split
+
+If this commit was classified as "mixed", and it is the current HEAD, then attempt to split it
+into a separate common and specific commit.
+
+(In case its specificity has not been classified yet, this will first call
+git-detect-commit-specificity --trust-recorded so we will know if it is mixed or not.)
+
+This can be used as part of an overall "split out a common repo" workflow.
+
+Options:
+  --no-copy-committer
+    By default, we will call git-commit-amend-copy-committer to avoid changing the committer from
+    what it was in the original commit.
+End
+  exit
+}
+
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
-# Parse args & state
+
+continued=false
+copy_committer=true
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)         usage ;;
+    --continue)          continued=true; shift ;;
+    --no-copy-committer) copy_committer=false; shift ;;
+    -*)                  echo "Unknown option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+# Parse args & mode / state
 #───────────────────────────────────────────────────────────────────────────────────────────────────
 
 state_dir=".git/split-commit"
-continued=false
-
-if [[ "${1:-}" == "--continue" ]]; then
-  continued=true
-  shift
-fi
 
 if $continued; then
   if [[ ! -d $state_dir ]]; then
@@ -56,6 +89,11 @@ commit_short=$(git rev-parse --short --verify "$commit"^{commit})
 # Helpers
 #───────────────────────────────────────────────────────────────────────────────────────────────────
 
+clean_up() {
+  undo_disable_local_exclude_file
+  rm -rf "$state_dir"
+}
+
 get_files_with_specificity() {
   git-diff-tree-specificity --quiet --name-only $commit $1
 }
@@ -73,7 +111,7 @@ function disable_local_exclude_file() {
       echo >&2 "Can't back up .git/info/exclude — $local_exclude_backup_file already exists!"
       exit 1
     fi
-    mv --no-clobber .git/info/exclude $local_exclude_backup_file 
+    mv --no-clobber .git/info/exclude $local_exclude_backup_file
   fi
 }
 function undo_disable_local_exclude_file() {
@@ -81,6 +119,7 @@ function undo_disable_local_exclude_file() {
     mv --no-clobber $local_exclude_backup_file .git/info/exclude || true
   fi
 }
+
 
 git_add() {
   # Unfortunately, overriding core.excludesFile only stops it from using the global ~/.gitignore
@@ -126,9 +165,11 @@ confirm_commit_loop() {
     new_commit=$(git rev-parse HEAD)
     echo $new_commit >> $state_dir/new_commits
 
-    # We want the new commits to still show up with the same committer as the original commit. But by
-    # default it would have recorded me as the committer.
-    git-commit-amend-copy-committer $commit
+    if $copy_committer; then
+      # We want the new commits to still show up with the same committer as the original commit. But by
+      # default it would have recorded me as the committer.
+      git-commit-amend-copy-committer $commit
+    fi
 
     git-set-commit-specificity @ $specificity
   fi
@@ -141,8 +182,41 @@ mark_done() { echo "done" > "$state_dir/$1"; }
 is_done()  { [[ -f "$state_dir/$1" ]]; }
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
+# Detect/get specificity
+#───────────────────────────────────────────────────────────────────────────────────────────────────
+
+#step=0.detect_specificity
+#if ! is_done $step; then
+#
+#  mark_done $step
+#else
+#  echo "↪️  $step: already done"
+#fi
+
+echo
+git log-oneline -1
+git-detect-commit-specificity --trust-recorded $commit
+
+recorded=$(git-get-commit-specificity HEAD)
+
+if [ "$recorded" == mixed ] || $continued; then
+  :
+else
+  echo "  ✅ No split needed"
+  if [ -d .git/rebase-merge ] && $copy_committer; then
+    # This is a convenience in case we're using this directly in a rebase, like
+    #  git rebase -i --root --exec 'git-split-commit-by-specificity'
+    # Otherwise, the user would have to also add git-commit-amend-copy-committer to the --exec list.
+    git-commit-amend-copy-committer $(git-rebase-i-get-orig-commit)
+  fi
+  clean_up
+  exit
+fi
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
 # Start splitting: Reset & unstage
 #───────────────────────────────────────────────────────────────────────────────────────────────────
+
 step=1.reset
 if ! is_done $step; then
   echo "→ Resetting to parent of $commit (keeping worktree)…"
@@ -156,6 +230,7 @@ fi
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 # Stage 100%-common files
 #───────────────────────────────────────────────────────────────────────────────────────────────────
+
 step=2.stage_common
 if ! is_done $step; then
   echo
@@ -174,7 +249,7 @@ fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 # Help user to process mixed files that require manual review and splitting (partial staging) or
-# editing 
+# editing
 #───────────────────────────────────────────────────────────────────────────────────────────────────
 
 step=3.stage_common_portion_of_mixed
@@ -216,7 +291,7 @@ if ! is_done $step; then
         # do with it, but that's a lot more work, so for now, just make them edit manually.
 
         file_status="  → ${cyan}${file}:${reset} $(git-staged-status "$file")"
-        read -rp "$file_status: [l]og, [d]iff/[dd] detect, diff [s]taged/[ds] detect, [e]dit, [a]dd, add -[p], [n]othing? " resp
+        read -rp "$file_status: [l]og, [d]iff/[dd] detect, diff [s]taged/[sd] detect, [e]dit, [a]dd, add -[p], [n]othing? " resp
         case "${resp,,}" in
           l)
             echo; echo
@@ -226,7 +301,7 @@ if ! is_done $step; then
           dd)
             detect
             ;;
-          ds)
+          sd)
             detect --staged
             ;;
           d)
@@ -272,6 +347,7 @@ fi
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 # Commit common changes, which should all be staged now
 #───────────────────────────────────────────────────────────────────────────────────────────────────
+
 step=4.commit_common
 if ! is_done $step; then
   echo
@@ -288,6 +364,7 @@ fi
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 # Restore original commit tree into worktree and index (stage changes)
 #───────────────────────────────────────────────────────────────────────────────────────────────────
+
 step=6.stage_specific_from_original_commit
 if ! is_done $step ; then
   echo
@@ -307,6 +384,7 @@ fi
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 # Commit specific
 #───────────────────────────────────────────────────────────────────────────────────────────────────
+
 step=7.commit_specific
 if ! is_done $step; then
   echo
@@ -319,8 +397,9 @@ else
 fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
-# Clean up
+# Announce success and clean up
 #───────────────────────────────────────────────────────────────────────────────────────────────────
+
 echo
 new_commits_count=$(wc -l < $state_dir/new_commits)
 echo "✔ Done splitting commit $commit_short: Replaced with these ${new_commits_count} commits:"
@@ -330,6 +409,4 @@ git log-oneline-notes -n ${new_commits_count}
 #format='%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N'
 #git log -2 --pretty=format:"$format"
 
-undo_disable_local_exclude_file
-
-rm -rf "$state_dir"
+clean_up
