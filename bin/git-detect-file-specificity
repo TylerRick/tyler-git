@@ -215,6 +215,6 @@ else
     print_matches
   fi
   if ! $quiet; then
-    echo -e "${cyan}${file}:${reset} ${green}Agreement${reset}: recorded=${bold}$(colorize_specificity $recorded)${reset}; detected=${bold}$colorized_detected${reset}"
+    echo -e "${cyan}${file}:${reset} ${green}Agreement${reset}: recorded=$(colorize_specificity $recorded)${reset}; detected=${bold}$colorized_detected${reset}"
   fi
 fi
