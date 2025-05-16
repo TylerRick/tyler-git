@@ -29,7 +29,7 @@ set -e
 #rm -f "$tmpfile"
 
 if (( $exit_code == 0 )); then
-  echo "Error: Expected to be common only!"
+  echo "Warning: Expected to be common only!"
   exit 1
 else
   # echo "Is common only"
