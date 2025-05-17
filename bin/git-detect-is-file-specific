@@ -23,6 +23,9 @@ End
   exit
 }
 
+# TODO: allow custom script that takes path, commit id, and contents
+# and can proved more custom override for whether this file during this commit should be considered specific or not
+
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
 # Determine grep command (GNU grep required for -P)
