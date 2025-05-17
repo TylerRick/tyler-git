@@ -6,7 +6,12 @@ set -euo pipefail
 
 usage() {
   cat - <<End >&2
-Usage: $(basename "$0") <orig-commit>
+Usage:
+  $(basename "$0") <orig-commit>
+    Copy commiter from commiter of other commit
+
+  $(basename "$0") --from-author
+    Copy commiter from author of other commit (HEAD by default)
 
 Amends the tip commit, copying from orig-commit:
 - the committer (name, email, and date)
@@ -49,10 +54,28 @@ End
   exit 64 # EX_USAGE
 }
 
-if [ -d .git/rebase-merge ]; then
-  commit_input=$(git-rebase-i-get-orig-commit)
+from_author=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)      usage;;
+    --from-author)    from_author=true; shift ;;
+    -*)               echo "Unknown option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
+
+if $from_author; then
+  # Copy commiter from author of other commit (HEAD by default)
+  commit_input=${1:-HEAD}
 else
-  commit_input=${1-}
+  # Copy commiter from commiter of other commit
+
+  if [ -d .git/rebase-merge ]; then
+    commit_input=$(git-rebase-i-get-orig-commit)
+  else
+    commit_input=${1-}
+  fi
+  amend_ops="--reset-author"
 fi
 
 if [ -z "$commit_input" ]; then
@@ -61,14 +84,25 @@ fi
 
 commit=$(git rev-parse --verify "$commit_input"^{commit})
 
+if [ -d .git/rebase-merge ]; then
+  rebase_orig_commit=$(git-rebase-i-get-orig-commit)
+fi
+
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
-eval "$(git-commit-metadata-vars $commit)"
+if $from_author; then
+  orig_vars="$(git-commit-metadata-vars $commit)"
+  vars=$(echo "$orig_vars" | grep -v GIT_COMMITTER | sed 's/GIT_AUTHOR/GIT_COMMITTER/')
+  eval "$vars"
+else
+  eval "$(git-commit-metadata-vars $commit)"
+fi
 
-# echo "⚙️  Amending HEAD ($(git name-rev-prefer-branch @)) …"
-git commit --allow-empty --amend --no-edit --no-verify --reset-author
+#echo "⚙️  Amending HEAD ($(git name-rev-prefer-branch @)) …"
+#env | grep GIT_ | sort
+git commit --allow-empty --amend --no-edit --no-verify "${amend_ops-}"
 
-if [ -d ".git/rebase-merge" ]; then
+if [ -n "$rebase_orig_commit" ]; then
   new_commit=$(git rev-parse HEAD)
-  git-rebase-i-update-orig-commit $commit $new_commit
+  git-rebase-i-update-orig-commit $rebase_orig_commit $new_commit
 fi
