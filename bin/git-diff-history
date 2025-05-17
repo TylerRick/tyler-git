@@ -3,12 +3,43 @@
 # See also:
 # - git-diff-commits
 
-history_a=$1; shift
-history_b=$2; shift
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+# Parse args
 
-# TODO: parse options and pass some, such as -U to diff, but the rest to git log
-u=0
+diff_options=
+positional_args=
+log_options=
+while (( "$#" )); do
+  case "$1" in
+    # TODO: Fix so you can do -U3 or -C3 without a space before opt arg.
+    -U|-C)
+      echo hi diff
+      diff_options="$diff_options $1 $2"
+      shift 2
+      ;;
+    -*|--*=) # unknown opts
+      log_options="$log_options $1"
+      shift
+      ;;
+    *) # preserve positional arguments
+      positional_args="$positional_args $1"
+      shift
+      ;;
+  esac
+done
+eval set -- "$positional_args"
+#echo "diff_options: ${diff_options}"
+#echo "log_options: ${log_options}"
+#echo "args: $@"
 
-diff -U${u} \
-  <(git log $history_a "$@") \
-  <(git log $history_b "$@")
+history_a="$1"; shift
+history_b="$1"; shift
+#echo "a=$history_a b=$history_b"
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+log_options="$log_options --format=fuller"
+set -x
+diff $diff_options \
+  <(git log $log_options $history_a "$@") \
+  <(git log $log_options $history_b "$@")
