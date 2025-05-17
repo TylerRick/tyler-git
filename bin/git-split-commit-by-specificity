@@ -173,6 +173,8 @@ confirm_commit_loop() {
     fi
 
     git-set-commit-specificity @ $specificity
+
+    git notes --ref=split-commit-status add -f -m "done" $new_commit
   fi
 }
 
@@ -197,10 +199,27 @@ is_done()  { [[ -f "$state_dir/$1" ]]; }
 echo
 git log-oneline -1
 
-if ! $continued; then
+split_commit_status=$(git notes --ref=split-commit-status show $commit 2>/dev/null || true)
+
+# Ensure we have no files with unknown specificity.
+# This needs more thought.  On the one hand, we want to run this every time, because we want to
+# check for files with "unknown" specificity, because we won't be able to split accurately if there
+# are any. On the other hand, this detection is very slow. So we need to improve this and be
+# smarter about what we check (check less) or when we check.
+# One idea is to simply check more directly for that problem by running:
+#   git-diff-tree-specificity -q $commit unknown
+# and seeing if there are any.
+# And there may be still other ways that are even better.
+#
+# For now, if we've already marked this commit as done, and we're running this command again as part
+# of a rebase, then skip anything slow and needless like this.
+# And if they are continuing, then this has already been done as well. (I suppose we could use
+# is_done instead.)
+if ! [ "$split_commit_status" == "done" ] && ! $continued; then
   git-detect-commit-specificity --trust-recorded $commit
 fi
 
+# Ensure we have no commit with unknown specificity.
 recorded=$(git-get-commit-specificity --ensure-present HEAD)
 
 if [ "$recorded" == mixed ] || $continued; then
