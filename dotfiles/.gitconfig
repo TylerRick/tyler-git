@@ -562,6 +562,8 @@
   # To set this value to match all notes, execute the following:
   #   git config --global notes.rewriteRef "refs/notes/*"
   rewriteRef = refs/notes/*
+
+  displayRef = refs/notes/*
 [flags]
   autopush = true
 [merge "ours"]
