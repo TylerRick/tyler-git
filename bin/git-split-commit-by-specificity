@@ -90,6 +90,15 @@ commit_short=$(git rev-parse --short --verify "$commit"^{commit})
 # Helpers
 #───────────────────────────────────────────────────────────────────────────────────────────────────
 
+get_split_commit_status() {
+  git notes --ref=split-commit-status show "$@" 2>/dev/null || true
+}
+set_split_commit_status() {
+  set -x
+  git notes --ref=split-commit-status add -f "$@"
+  set +x
+}
+
 clean_up() {
   undo_disable_local_exclude_file
   rm -rf "$state_dir"
@@ -173,6 +182,12 @@ confirm_commit_loop() {
     fi
 
     git-set-commit-specificity @ $specificity
+
+    set_split_commit_status -m "done" $new_commit
+
+    # TODO: document what to do (and possibly extract helper script) if you need to make further
+    # "amends" (amends should automatically rewrite, but if you need to reset and re-commit, you may
+    # need to re-update rewritten list)
   fi
 }
 
@@ -197,10 +212,27 @@ is_done()  { [[ -f "$state_dir/$1" ]]; }
 echo
 git log-oneline -1
 
-if ! $continued; then
+split_commit_status=$(get_split_commit_status $commit)
+
+# Ensure we have no files with unknown specificity.
+# This needs more thought.  On the one hand, we want to run this every time, because we want to
+# check for files with "unknown" specificity, because we won't be able to split accurately if there
+# are any. On the other hand, this detection is very slow. So we need to improve this and be
+# smarter about what we check (check less) or when we check.
+# One idea is to simply check more directly for that problem by running:
+#   git-diff-tree-specificity -q $commit unknown
+# and seeing if there are any.
+# And there may be still other ways that are even better.
+#
+# For now, if we've already marked this commit as done, and we're running this command again as part
+# of a rebase, then skip anything slow and needless like this.
+# And if they are continuing, then this has already been done as well. (I suppose we could use
+# is_done instead.)
+if ! [ "$split_commit_status" == "done" ] && ! $continued; then
   git-detect-commit-specificity --trust-recorded $commit
 fi
 
+# Ensure we have no commit with unknown specificity.
 recorded=$(git-get-commit-specificity --ensure-present HEAD)
 
 if [ "$recorded" == mixed ] || $continued; then
@@ -212,6 +244,8 @@ else
     #  git rebase -i --root --exec 'git-split-commit-by-specificity'
     # Otherwise, the user would have to also add git-commit-amend-copy-committer to the --exec list.
     git-commit-amend-copy-committer $(git-rebase-i-get-orig-commit)
+
+    set_split_commit_status -m "done" HEAD
   fi
   clean_up
   exit
@@ -300,7 +334,7 @@ if ! is_done $step; then
       }
 
       diff() {
-        git diff --find-renames --find-copies "$@" "$file" </dev/tty >/dev/tty 2>/dev/tty || true
+        git diff -U12 --find-renames --find-copies "$@" -- "$file" </dev/tty >/dev/tty 2>/dev/tty || true
       }
 
       diff
@@ -391,6 +425,7 @@ if ! is_done $step; then
 
   mark_done $step
 
+  # TODO: instructions what to do if you need to make further amends
   git-verify-commit-common-only @ || read -p "Press Enter to continue" _
 else
   echo "↪️  $step: already done"
