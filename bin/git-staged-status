@@ -11,13 +11,29 @@ fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
-# Check if file is tracked by git
-if ! git ls-files --error-unmatch "$file" >/dev/null 2>&1; then
+
+# Check index entry (includes staged deletes and intent-to-add)
+index_entry=$(git ls-files --stage -- "$file" 2>/dev/null || true)
+
+# Check if it's staged for deletion
+if git diff --cached --name-status -- "$file" | grep -q "^D"; then
+  echo "staged for deletion"
+  exit 0
+fi
+
+# Check intent-to-add (mode 000000, hash 40 zeroes)
+if [[ "$index_entry" =~ ^000000[[:space:]]+0{40}[[:space:]]+0[[:space:]] ]]; then
+  echo "intent-to-add"
+  exit 0
+fi
+
+# If not in index at all
+if [[ -z "$index_entry" ]]; then
   echo "error: file not tracked by git"
   exit 1
 fi
 
-# Get diffs
+# Check staging status via diff
 unstaged=$(git diff -- "$file")
 staged=$(git diff --cached -- "$file")
 

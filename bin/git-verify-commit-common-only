@@ -17,8 +17,20 @@ if ! [ "$commit" ]; then
 fi
 
 # Look at contents of that commit (message + patch)
+# -U0 Don't include any context lines.
+# Q. Should we include removed lines (-)?
+#   Currently we are including them.
+#   Argument for: They could help us catch some times of mistakes, such as including removal of
+#   lines that are specific in our common commit when they should have waited until the next commit,
+#   the specific commit.
+#   Argument against: This often include false positives, such as when an entire mixed file is
+#   removed, we do want that removal in the common commit, even though some of the removed lines are
+#   specific lines.
+#   I think it's okay to see these lines, even though sometimes it means reviewing the same lines
+#   twice from different checks. This extra review step (double checking) could sometimes help us
+#   catch things we would have otherwise missed.
 tmpfile=$(mktemp)
-git show "$commit" > $tmpfile
+git show -U0 "$commit" > $tmpfile
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
