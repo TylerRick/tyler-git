@@ -94,9 +94,7 @@ get_split_commit_status() {
   git notes --ref=split-commit-status show "$@" 2>/dev/null || true
 }
 set_split_commit_status() {
-  set -x
   git notes --ref=split-commit-status add -f "$@"
-  set +x
 }
 
 clean_up() {
@@ -110,6 +108,10 @@ get_files_with_specificity() {
 
 edit_file() {
   ${VISUAL:-${EDITOR:-vi}} "$@" </dev/tty >/dev/tty 2>/dev/tty
+}
+
+log_oneline_with_commit_specificity() {
+  GIT_NOTES_DISPLAY_REF=refs/notes/specificity git log-oneline-notes "$@"
 }
 
 #───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -150,9 +152,23 @@ confirm_commit_loop() {
     echo "Ready to commit the staged $(colorize_specificity $specificity) changes? "
     git status --short
 
-    read -rp "  diff [s]taged changes, [C]ommit? " resp
+    read -rp "  [d]iff, diff [s]taged changes, [C]ommit? " resp
     resp=${resp:-c}
     case "${resp,,}" in
+      # For the common commit (the first commit), looking at this diff will show us what files are
+      # _not_ staged and therefore which files are _not_ going to be included in the common commit.
+      # This would be a good thing to check, to make sure what's "left" looks right for what will be
+      # included in the _next_ commit, the specific commit. Remember, it's easier to fix anything
+      # now _before_ the commit than _after_ the commit, due to rewrite tracking and such.
+      #
+      # When we've finished staging everything for the _specific_ commit, however, there should
+      # _not_ be anything left unstaged, and we should probably just omit this option (a refinement
+      # for another day).
+      d)
+        echo; echo
+        git diff --find-renames --find-copies
+        echo; echo
+        ;;
       s)
         echo; echo
         git diff --find-renames --find-copies --staged
@@ -172,16 +188,18 @@ confirm_commit_loop() {
   else
     git commit -c $commit
 
-    new_commit=$(git rev-parse HEAD)
-    echo $new_commit >> $state_dir/new_commits
-
     if $copy_committer; then
       # We want the new commits to still show up with the same committer as the original commit. But by
-      # default it would have recorded me as the committer.
+      # default it would have recorded _me_ as the committer.
+      # Since this will rewrite the commit _again_ we make sure to get the new_commit _after_ doing
+      # this.
       git-commit-amend-copy-committer $commit
     fi
 
-    git-set-commit-specificity @ $specificity
+    new_commit=$(git rev-parse HEAD)
+    echo $new_commit >> $state_dir/new_commits
+
+    git-set-commit-specificity $new_commit $specificity
 
     set_split_commit_status -m "done" $new_commit
 
@@ -198,6 +216,23 @@ mark_done() { echo "done" > "$state_dir/$1"; }
 is_done()  { [[ -f "$state_dir/$1" ]]; }
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
+# Show info about this commit to give context
+# User needs to know...
+# - which commit we're working on
+#   - They can always run their own git commands on this commit in a different window
+# - if there are any renames (git log --name-status)
+#───────────────────────────────────────────────────────────────────────────────────────────────────
+
+echo
+
+# One-line summary of the commit
+git log-oneline -1 $commit
+
+# More detailed summary that makes it clear if there are any renames
+git log --find-renames --name-status -1 --stat $commit
+echo
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
 # Detect/get specificity
 #───────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -208,9 +243,6 @@ is_done()  { [[ -f "$state_dir/$1" ]]; }
 #else
 #  echo "↪️  $step: already done"
 #fi
-
-echo
-git log-oneline -1
 
 split_commit_status=$(get_split_commit_status $commit)
 
@@ -315,7 +347,11 @@ if ! is_done $step; then
 
       detect() {
         tmpfile=$(mktemp)
-        git_add --intent-to-add "$file"
+        # Tell Git that we're intending to track the file, but without staging its contents right
+        # away. This way, it treats the file as if it’s modified, but we haven’t actually staged any
+        # changes yet. This then lets us use git -p to interactively stage specific parts of the file.
+        # This is expected to fail if this file is a D (delete).
+        git_add --intent-to-add -- "$file" 2>/dev/null || true
 
         # Old: Looking only at the lines that were _changed_ (could also consider _added_, but there
         # shouldn't even be any specific matches _removed_ either, so we probably want to flag that
@@ -323,7 +359,7 @@ if ! is_done $step; then
         # old: git diff "$@" "$file" > $tmpfile
         #
         # Only match on the + (added) lines from the diff.
-        { git diff --unified=0 "$@" "$file" | tail -n +5 | grep -P '^(\x1b\[[0-9;]*m)*\+' || true; } > $tmpfile
+        { git diff --unified=0 "$@" -- "$file" | tail -n +5 | grep -P '^(\x1b\[[0-9;]*m)*\+' || true; } > $tmpfile
 
         # Show lines/match that our detector thinks is specific to give the user hints about which
         # hunks they need to either _avoid_ staging, or edit so that they no longer match specific
@@ -352,13 +388,18 @@ if ! is_done $step; then
         # do with it, but that's a lot more work, so for now, just make them edit manually.
 
         file_status="  → ${cyan}${file}${reset} $(git-staged-status "$file")"
-        read -rp "$file_status: [l]og -[1], [d]iff/[dd] detect, diff [s]taged/[sd] detect, [e]dit, [a]dd, add -[p], [n]othing? " resp
+        read -rp "$file_status: [l]og -p -[1], [ls]log specificity, [d]iff/[dd] detect, diff [s]taged/[sd] detect, [e]dit, [y]/[a]dd, add -[p], [n]othing? " resp
         case "${resp,,}" in
           l|1)
             echo; echo
             n=''
             [ $resp == "1" ] && n='-n 1'
             git log $n --patch $commit "$file" </dev/tty >/dev/tty 2>/dev/tty || true
+            echo; echo
+            ;;
+          ls)
+            echo; echo
+            log_oneline_with_commit_specificity -- $file
             echo; echo
             ;;
           dd)
@@ -381,7 +422,11 @@ if ! is_done $step; then
             edit_file "$file"
             detect
             ;;
-          a)
+          # [y]es alias is provided in case the user, seeing the _full_ diff that we show and all
+          # the change hunks included there, assumes or thinks that we are in a git add -p command,
+          # in which case the valid options _do_ include yes (to add all of the hunks shown) or no
+          # (to not add those hunks).
+          y|a)
             git_add "$file"
             break
             ;;
@@ -421,12 +466,13 @@ step=4.commit_common
 if ! is_done $step; then
   echo
 
+  echo "You're about to commit the common commit (the first commit). Please confirm that what is staged (diff [s]taged) is the entirety of what is common, and what is left unstaged ([d]iff) is what you want to save for the _next_ commit, the specific commit."
   confirm_commit_loop common
 
   mark_done $step
 
   # TODO: instructions what to do if you need to make further amends
-  git-verify-commit-common-only @ || read -p "Press Enter to continue" _
+  git-verify-commit-common-only HEAD || read -p "Press Enter to continue" _
 else
   echo "↪️  $step: already done"
 fi
@@ -438,7 +484,7 @@ fi
 step=6.stage_specific_from_original_commit
 if ! is_done $step ; then
   echo
-  echo "→ 5. Restoring original tree ($commit), which should contain the $(colorize_specificity specific) changes, into work tree and index…"
+  echo "→ 5. Restoring original tree ($commit), which should only contain the $(colorize_specificity specific) changes from the original commit, into work tree and index…"
 
   # The remaining changes from the original commit that _weren't_ included in the common commit
   # should be all the specific changes. (original_commit - common_changes = specific_changes)
@@ -474,11 +520,8 @@ echo
 new_commits_count=$(wc -l < $state_dir/new_commits)
 echo "✔ Done splitting commit $commit_short: Replaced with these ${new_commits_count} commits:"
 
-export GIT_NOTES_DISPLAY_REF=refs/notes/specificity
-git log-oneline-notes -n ${new_commits_count}
-#format='%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N'
-#git log -2 --pretty=format:"$format"
+log_oneline_with_commit_specificity -n ${new_commits_count}
 
-read -rp 'Done?' don
+read -rp 'Done splitting this commit? ' _
 
 clean_up
