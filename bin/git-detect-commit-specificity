@@ -107,11 +107,17 @@ if $should_detect; then
   count=${#specs[@]}
 
   detected_specificity=
-  if (( count == 0 )); then
+  if git log -1 --format='%s' $commit | grep 'Merge branch'; then
+    # This is a temporary heuristic that looks for our placeholder fake-merge commits and treats
+    # them all as specific.
+    specificity=specific
+    detected_specificity=$specificity
+  elif (( count == 0 )); then
     _red "Could not detect any common or specific files. (Is this an empty commit?)"
     if $should_record; then
-      #git log --color --stat --graph -3
-      git log-oneline -10
+      echo
+      log_oneline_with_commit_specificity -8
+      echo
       read -rp "${cyan}Manually classify commit: [c]ommon, [m]mixed, or [s]pecific?${reset} " response
       specificity=$(normalize_specificity "$response")
       user_specificity=$specificity
