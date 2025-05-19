@@ -116,12 +116,12 @@
   # This should match the format of show-oneline
   log-oneline-no-color      = log --color --pretty=format:'%h %ai %an%d %s'
   log-oneline               = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s'
-  log-oneline-notes         = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N'
+  log-oneline-notes         = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N%Creset'
   # Removes trailing newline from %N
   #log-oneline = "!f() { git log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N<<ENDNOTE>>%Creset' \"$@\" | sed -E ':a;N;$!ba;s/\\n?<<ENDNOTE>>//g' | less -R; }; f"
 
   log-oneline-graph         = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' --graph
-  log-oneline-notes-graph   = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N' --graph
+  log-oneline-notes-graph   = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N%Creset' --graph
   ls                        = log-oneline-graph
   lsn                       = log-oneline-notes-graph
   log-oneline-no-walk       = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' --no-walk
