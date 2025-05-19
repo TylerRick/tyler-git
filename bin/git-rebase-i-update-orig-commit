@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"' err
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -38,6 +39,18 @@ if [ -z "${2-}" ]; then
   usage
 fi
 
+quiet=false
+verbose=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)      usage;;
+    --quiet | -s)     quiet=true; shift ;;
+    --verbose | -v)   verbose=true; shift ;;
+    -*)               echo "Unknown option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
+
 old_commit=$(git rev-parse --verify "$1"^{commit})
 new_commit=$(git rev-parse --verify "$2"^{commit})
 
@@ -51,13 +64,41 @@ if [ ! -d .git/rebase-merge ]; then
 fi
 
 if [ ! -f "$rewritten_file" ]; then
+  # Append instead of try to modify
   echo "$old_commit $new_commit" >> $rewritten_file
   exit 0
 fi
 
-if ! grep "^$old_commit .*" $rewritten_file; then
+if ! grep "^$old_commit .*" $rewritten_file >/dev/null; then
   echo >&2 "❌ Could not find $old_commit in $rewritten_file!"
   exit 1
 fi
 
-sed -i "s/^$old_commit .*/$old_commit $new_commit/" $rewritten_file
+# It's possible that when you end up amending a commit, you actually end up with the same commit id.
+# This is because git commits are content-addressed objects — their SHA-1/SHA-256 hash is computed from:
+# - The tree object (the contents of the files)
+# - The parent commit(s),
+# - The author and committer name, email, and timestamps,
+# - The commit message.
+# If all of those are identical, git doesn't need to create a new commit. Instead, it just gives you
+# back the existing commit that it already has in its database.
+if [ "$old_commit" = "$new_commit" ]; then
+  tmp_file="$rewritten_file.tmp"
+  grep -v "^$old_commit " "$rewritten_file" > "$tmp_file" || true
+  mv "$tmp_file" "$rewritten_file"
+  if ! $quiet; then
+		echo "⚠️  No-op rewrite detected (same commit ID). Removed redundant mapping:"
+  fi
+	if $verbose; then
+		echo "⊘ $old_commit → $new_commit"
+  fi
+else
+  sed -i "s/^$old_commit .*/$old_commit $new_commit/" $rewritten_file
+  if ! $quiet; then
+    echo "✅ Updated rewritten commit mapping: $old_commit ─→ $new_commit"
+  fi
+  if $verbose; then
+    git log-oneline -1 $old_commit | sed 's/^/ ⊘ /'; echo
+    git log-oneline -1 $new_commit | sed 's/^/ → /'; echo
+  fi
+fi

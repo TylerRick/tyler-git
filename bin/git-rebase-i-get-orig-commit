@@ -8,43 +8,92 @@ usage() {
   cat - <<End >&2
 Usage: $(basename "$0")
 
-Outputs the original commit ID of the commit that was just rewritten/created/cherry-picked by a pick command.
+Outputs the original commit ID of the most recent pick command in the current interactive rebase.
 
 This is only intended to be used from within an exec line of a git rebase -i script!
 
-Problem statement: When git rebase -i --exec <cmd> runs after each pick, how do
-I access the original (pre-rewrite) commit ID corresponding to the one that was
-just picked and rewritten?
+Background
 
-Solution: Use this command.
+  Usually during a rebase (except when it fast-forwards some of the initial commits in your list
+  because it detects they are unchanged), after each pick command completes, it creates a _new_,
+  "rewritten" commit with a new commit ID.
 
-Example:
-  git rebase -i --exec 'copy-something-from-orig-commit \$(git-rebase-i-get-orig-commit)' onto-commit
+  But in some use cases, such as commands run with --exec, it is can be useful or necessary to
+  access the _original_ commit ID, the one that 'rebase -i' just picked and replayed onto the new
+  base.
+
+  This can be used, for example, to update .git/rebase-merge/rewritten-list (see
+  git-rebase-i-update-orig-commit) to map from the original commit to the rewritten commit, for
+  commands that don't automatically do that for you, so that at the end of the rewrite, it can
+  rewrite note objects according to your notes.rewriteRef config.
+
+  You won't be able to find that original commit ID in git log or any built-in tools like that. The
+  only place that original id is available is in the \`.git/rebase-merge/done\` log file. There, we
+  can find the original \`pick\` command, which included the original commit id (in shortened form).
+
+  This command searches the rebase "to-do" log (.git/rebase-merge/done) for the most recent pick/p
+  command, ignoring any following squash/fixup that may have subsequently amended it, and returns
+  the original commit ID for the original, pre-written commit.  
+
+Why does it ignore fixup/squash commands?
+
+  If your last commit/command(s) was a fixup or squash, then we don't want to use that commit as our
+  original commit because that is actually just a temporary commit intended to be used to amend a
+  "real" commit.
+
+  Those fixup/squash commits will get dropped from the history anyway, and they would not have any
+  notes or any other useful metadata that we care about — only what is needed to complete the
+  fixup/squash command. The fact that these temporary commits show up at all in
+  .git/rebase-merge/rewritten-list at all is kind of pointless.
+
+  This is consistent with the behavior of --exec, which as the man page for rebase will tell you:
+           If --autosquash is used, exec lines will not be appended for the intermediate commits, and will only appear at the
+           end of each squash/fixup series.
+
+  In other words, any exec command will be operating on the result of the last pick + any
+  squash/fixup commands that immediately follow it.
+
+Examples:
+  git rebase -i --exec 'git-rebase-i-update-orig-commit \$(git-rebase-i-get-orig-commit) HEAD'
+
+  git rebase -i --exec 'copy-something-else-from-orig-commit-to-new-commit \$(git-rebase-i-get-orig-commit) HEAD'
+
+  # You don't actually need to pass this to git-commit-amend-copy-committer, as it automatically
+  # uses exactly that if no commit is provided. But some commands may not do that.
+  git rebase -i --exec 'git-commit-amend-copy-committer \$(git-rebase-i-get-orig-commit)'
 End
   exit
 }
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
-rewritten_file=".git/rebase-merge/rewritten-list"
+done_file=".git/rebase-merge/done"
 
 if [ ! -d .git/rebase-merge ]; then
   echo >&2 "❌ Not inside an interactive rebase with merge backend."
   exit 1
 fi
 
-if [ ! -f "$rewritten_file" ]; then
-  # This just means no commits have been rewritten so far. (By default, rebase will fast-forwarding
-  # over the unchanged commits. Unless using the --no-ff, --force-rebase, -f option.) Which means
-  # that HEAD should actually have the _same_ commit ID post-rebase as it had pre-rebase.
-  git rev-parse --verify HEAD^{commit}
-  exit
+if [ ! -f "$done_file" ]; then
+  echo >&2 "❌ Could not find $done_file (rebase done log)."
+  exit 1
 fi
 
-# To do idea: If <rewritten_commit> arg is provided, grep for that commit and return the orig commit for that commit instead of using tail -n1 to get the last created commit. 
-mapfile -t mappings < <(tail -n 1 $rewritten_file)
+# Extract last line in .git/rebase-merge/done that begins with "pick" or "p" (ignore fixup/squash).
+last_pick_line=$(grep -E '^\s*(pick|p)\s+[0-9a-f]{7,40}' "$done_file" | tail -n 1 || true)
 
-original_commit=$(echo "${mappings[0]}" | awk '{print $1}')
-rewritten_commit=$(echo "${mappings[0]}" | awk '{print $2}')
+if [[ -z "$last_pick_line" ]]; then
+  echo >&2 "❌ Could not find a previous pick command in $done_file."
+  exit 1
+fi
 
-echo "$original_commit"
+# Extract the commit hash (2nd word in line)
+original_commit=$(awk '{print $2}' <<< "$last_pick_line")
+
+# Make sure the commit object exists and output the result
+if git cat-file -e "$original_commit"^{commit} 2>/dev/null; then
+  echo "$original_commit"
+else
+  echo >&2 "❌ Extracted commit ID is not valid: $original_commit"
+  exit 1
+fi
