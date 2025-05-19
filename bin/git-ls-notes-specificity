@@ -50,7 +50,12 @@ remove_note_unless_ancestor_of() {
 }
 
 git notes --ref=refs/notes/specificity list | while read -r note_id commit; do
-  tag=$(git notes --ref=refs/notes/specificity show "$commit" || true)
+  raw=$(git notes --ref=refs/notes/specificity show "$commit" || true)
+  if [[ "$raw" == *$'\n'* ]]; then
+    git set-commit-specificity $commit "$(echo "$raw" | head -n1)"
+  fi
+
+  specificity=$(git-get-commit-specificity "$commit" || true)
 
   if $show_symbolic; then
     symbolic_rev=" $(git name-rev-prefer-branch "$commit" 2>/dev/null || true)"
@@ -58,5 +63,5 @@ git notes --ref=refs/notes/specificity list | while read -r note_id commit; do
 
   remove_note_unless_ancestor_of $commit || continue
 
-  echo "$commit $tag${symbolic_rev-}"
+  echo "$commit $specificity${symbolic_rev-}"
 done

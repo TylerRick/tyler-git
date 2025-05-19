@@ -2,8 +2,12 @@
 
 set -euo pipefail
 
+source "$(dirname $0)"/lib/specificity.sh
+
 cmd_name=$(basename "$0")
 notes_ref=specificity
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
 
 function usage() {
   cat - >&2 <<End
@@ -39,7 +43,11 @@ commit=${1:-HEAD}
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
+# Suppress error if no note exists
 specificity=$(git notes --ref=$notes_ref show "$commit" 2>/dev/null || true)
+
+# Warn to stderr if it detects problem
+normalize_specificity "$specificity" >/dev/null
 
 if [[ -n "$specificity" ]]; then
   echo "$specificity"

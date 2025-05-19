@@ -5,6 +5,11 @@ set -euo pipefail
 source "$(dirname $0)"/lib/colors.sh
 source "$(dirname $0)"/lib/specificity.sh
 
+# Returns the effective rewrite mode
+notes_rewrite_mode() {
+  echo "${GIT_NOTES_REWRITE_MODE:-$(git config --get notes.rewriteMode || echo concatenate)}"
+}
+
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
 cmd_name=$(basename "$0")
@@ -52,5 +57,9 @@ recorded=$(git-get-commit-specificity $commit)
 
 git notes --ref=$notes_ref add -f -m "$specificity" "$commit" 2>/dev/null
 _cyan "Marked ${bold}$commit${reset}${cyan} as ${bold}$specificity${reset} (was: $recorded)"
+
+if [ -n "$(git config notes.rewriteRef)" ] && ! [[ "$(notes_rewrite_mode)" == "overwrite" ]]; then
+  echo "❌ Warning: git config notes.rewriteMode is $(notes_rewrite_mode). Change this to 'overwrite' to avoid having old values merged during a git rebase due to notes.rewriteRef." 
+fi
 
 echo "  $(git show-oneline $commit)${reset}"
