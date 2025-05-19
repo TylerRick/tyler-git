@@ -58,8 +58,24 @@ recorded=$(git-get-commit-specificity $commit)
 git notes --ref=$notes_ref add -f -m "$specificity" "$commit" 2>/dev/null
 _cyan "Marked ${bold}$commit${reset}${cyan} as ${bold}$specificity${reset} (was: $recorded)"
 
-if [ -n "$(git config notes.rewriteRef)" ] && ! [[ "$(notes_rewrite_mode)" == "overwrite" ]]; then
-  echo "❌ Warning: git config notes.rewriteMode is $(notes_rewrite_mode). Change this to 'overwrite' to avoid having old values merged during a git rebase due to notes.rewriteRef." 
+if [ -d .git/rebase-merge ] && [ -n "$(git config notes.rewriteRef)" ]; then
+  if  [[ "$(notes_rewrite_mode)" == "overwrite" ]]; then
+    # Git’s internal logic for notes copy --for-rewrite=rebase does not handle identity rewrites (unchanged commits) safely under overwrite mode.
+    # Even if a note exists and even if the commit is untouched, the mere presence of the commit ID in the rewrite flow is enough to potentially erase the note, whether or not it's explicitly mapped in rewritten-list.
+    # There is no safe way to rely on Git’s built-in notes.rewriteRef + overwrite behavior during interactive rebase when some commits are rewritten to themselves.
+    echo >&2 "⚠️  Warning: git config notes.rewriteMode is $(notes_rewrite_mode). Change this to 'concatenate' to be safe. With 'override' if you do a rebase and some commits remain unchanged (not rewritten), the notes for those commits could become lost!" 
+  elif  [[ "$(notes_rewrite_mode)" == "concatenate" ]] && [[ "$specificity" != "$recorded" ]]; then
+    # Get it to work more like overwrite mode by deleting the old note to make room for the new one
+    # that will get copied by notes.rewriteRef.
+    orig_commit=$(git-rebase-i-get-orig-commit)
+    if [ -n "${orig_commit-}" ]; then
+      echo >&2 "⚠️  Warning: Removing old specifity from original commit so that it won't get concatenated with the new note. If you abort the rebase, you will need to manually restore this:" 
+      echo >&2 "git set-commit-specificity $orig_commit $recorded"
+      echo "# $(date '+%Y-%m-%d %H:%M:%S')"                        >> .git/removed-specificity-log
+      echo     "git set-commit-specificity $orig_commit $recorded" >> .git/removed-specificity-log
+      git notes --ref=$notes_ref remove $orig_commit
+    fi
+  fi
 fi
 
 echo "  $(git show-oneline $commit)${reset}"

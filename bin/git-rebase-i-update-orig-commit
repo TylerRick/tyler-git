@@ -87,7 +87,8 @@ if [ "$old_commit" = "$new_commit" ]; then
   grep -v "^$old_commit " "$rewritten_file" > "$tmp_file" || true
   mv "$tmp_file" "$rewritten_file"
   if ! $quiet; then
-		echo "⚠️  No-op rewrite detected (same commit ID). Removed redundant mapping:"
+		echo >&2 "⚠️  No-op rewrite detected (same commit ID). Removed redundant mapping."
+		echo >&2 "⚠️   Warning: If using notes.rewriteMode overwrite, the notes for this commit will get lost!"
   fi
 	if $verbose; then
 		echo "⊘ $old_commit → $new_commit"

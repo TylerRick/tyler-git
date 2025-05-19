@@ -11,7 +11,7 @@ normalize_specificity() {
   if [[ "$input" == *$'\n'* ]]; then
     echo >&2 "❌ Error! specificity string contains multiple lines!:"
     echo >&2 "$input"
-    echo >&2 "If this is from notes on a commit, git may have combined (concatenated) notes during a rebase. This can happen if using the default config for notes.rewriteMode, which is concatenate. Make sure to change that to overwrite to prevent this from happening in the future (just be warned that this will be used for _all_ notes matching notes.rewriteRef)."
+    echo >&2 "If this is from notes on a commit, git may have combined (concatenated) notes during a rebase. This can happen if using the default config for notes.rewriteMode, which is concatenate. You can run git-ls-notes-specificity to fix those."
     #exit 1
   fi
 
