@@ -23,6 +23,9 @@ Options:
 
   --ensure-present
     Exit with failure if no specificity recorded yet.
+
+  --color
+    Colorize the specificity.
 End
   exit 1
 }
@@ -30,16 +33,19 @@ End
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
 ensure_present=false
+color=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)      usage;;
+    --color)          color=true; shift;;
     --ensure-present) ensure_present=true; shift ;;
     -*)               echo "Unknown option $1" >&2; exit 1 ;;
     *) break ;;
   esac
 done
 
-commit=${1:-HEAD}
+commit=${1-HEAD}
+commit_short=$(git rev-parse --short --verify "$commit"^{commit})
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -50,6 +56,9 @@ specificity=$(git notes --ref=$notes_ref show "$commit" 2>/dev/null || true)
 normalize_specificity "$specificity" >/dev/null
 
 if [[ -n "$specificity" ]]; then
+  if $color; then
+    specificity=$(colorize_specificity "$specificity")
+  fi
   echo "$specificity"
 elif $ensure_present; then
   echo >&2 "❌ No specificity found for $commit_short!"
