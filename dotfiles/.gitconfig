@@ -136,6 +136,8 @@
   # Very condensed. Almost nothing but body and stats.
   log-body-stat     = log --pretty=format:'______________________________________%n%Cred%h%Creset  (%Cgreen%ai%Creset)%n%s%n%n%-b' --stat=400
 
+  log-fuller = log --color --format=fuller --show-notes
+
   # the "convert-" commands all expect a list of refs on stdin
   convert-refs-to-log-xml      = log --color --no-walk=unsorted --stdin --pretty=format:'<ref>%Cred%h%Creset</ref><author-date>%Cgreen%ai%Creset</author-date><author-name>%Cblue%an%Creset</author-name><ref-names>%C(yellow)%D%Creset</ref-names><message>%s</message>'
   convert-refs-to-log-null-sep = log --color --no-walk=unsorted --stdin --pretty=format:'%Cred%h%Creset%x00%Cgreen%ai%Creset%x00%Cblue%an%Creset%x00%C(yellow)%D%Creset%x00%s'
