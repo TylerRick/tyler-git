@@ -29,3 +29,7 @@ colorize_specificity() {
     *)    _magenta "$message" ;;
   esac
 }
+
+log_oneline_with_commit_specificity() {
+  GIT_NOTES_DISPLAY_REF=refs/notes/specificity git log-oneline-notes "$@"
+}

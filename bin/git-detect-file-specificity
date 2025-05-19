@@ -170,13 +170,14 @@ print_matches() {
 confirm_loop() {
   local prompt="$1"; shift
   while true; do
-    read -p "$(printf "${bold}%s${reset} [${cyan}s${reset}]pecific/[${cyan}m${reset}]ixed/[${cyan}c${reset}]ommon [${cyan}v${reset}]iew/[${cyan}n${reset}]o? " "$prompt")" ans
-    case "${ans:-n}" in
-      [sS]) echo specific; return ;;
-      [mM]) echo mixed;    return ;;
-      [cC]) echo common;   return ;;
-      [vV]) ${VISUAL:-${EDITOR:-vi}} "$file" </dev/tty >/dev/tty 2>/dev/tty ;;
-      [nN])                return ;;
+    read -p "$(printf "${bold}%s${reset} [${cyan}s${reset}]pecific/[${cyan}m${reset}]ixed/[${cyan}c${reset}]ommon [${cyan}e${reset}]dit/[${cyan}n${reset}]o? " "$prompt")" response
+    response="${response:-n}"
+    case "${response,,}" in
+      [s]) echo specific; return ;;
+      [m]) echo mixed;    return ;;
+      [c]) echo common;   return ;;
+      [e]) ${VISUAL:-${EDITOR:-vi}} "$file" </dev/tty >/dev/tty 2>/dev/tty ;;
+      [n])                return ;;
       *) _yellow "Please enter a valid option." ;;
     esac
   done

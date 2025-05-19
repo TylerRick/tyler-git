@@ -38,7 +38,7 @@ if [[ ${#recorded[@]} -eq 1 && "${recorded[0]}" == "$specificity" ]]; then
 	exit 0
 fi
 
-echo "Changed to '$specificity' (was ${recorded[*]}"
+echo "Changed to '$specificity' (was ${recorded[*]})"
 
 # remove from old lists
 for rec in "${recorded[@]}"; do

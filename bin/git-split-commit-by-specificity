@@ -27,6 +27,7 @@ usage() {
 Usage:
   $(basename "$0")
   $(basename "$0") --continue      # resume an in-progress split
+  $(basename "$0") status          # show status of current split
 
 If this commit was classified as "mixed", and it is the current HEAD, then attempt to split it
 into a separate common and specific commit.
@@ -46,12 +47,14 @@ End
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
+status_cmd=false
 continued=false
 copy_committer=true
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)         usage ;;
     --continue)          continued=true; shift ;;
+    status)              status_cmd=true; shift ;;
     --no-copy-committer) copy_committer=false; shift ;;
     -*)                  echo "Unknown option $1" >&2; exit 1 ;;
     *) break ;;
@@ -63,6 +66,10 @@ done
 #───────────────────────────────────────────────────────────────────────────────────────────────────
 
 state_dir=".git/split-commit"
+
+if $status_cmd && [[ -d $state_dir ]]; then
+  continued=true
+fi
 
 echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
 if $continued; then
@@ -108,10 +115,6 @@ get_files_with_specificity() {
 
 edit_file() {
   ${VISUAL:-${EDITOR:-vi}} "$@" </dev/tty >/dev/tty 2>/dev/tty
-}
-
-log_oneline_with_commit_specificity() {
-  GIT_NOTES_DISPLAY_REF=refs/notes/specificity git log-oneline-notes "$@"
 }
 
 #───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -185,6 +188,7 @@ confirm_commit_loop() {
 
   if git diff --cached --quiet; then
     echo >&2 "Nothing staged to commit! Skipping the $(colorize_specificity $specificity) commit."
+    skipped_commit=true
   else
     git commit -c $commit
 
@@ -228,9 +232,13 @@ echo
 # One-line summary of the commit
 git log-oneline -1 $commit
 
-# More detailed summary that makes it clear if there are any renames
-git log --find-renames --name-status -1 --stat $commit
-echo
+if ! $status_cmd; then
+  # More detailed summary that makes it clear if there are any renames
+  # This is a bit redundant with the output from git-detect-commit-specificity below, so we'll skip
+  # it if running the status command.
+  git log --find-renames --name-status -1 --stat $commit
+  echo
+fi
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 # Detect/get specificity
@@ -260,8 +268,14 @@ split_commit_status=$(get_split_commit_status $commit)
 # of a rebase, then skip anything slow and needless like this.
 # And if they are continuing, then this has already been done as well. (I suppose we could use
 # is_done instead.)
-if ! [ "$split_commit_status" == "done" ] && ! $continued; then
+if ! [ "$split_commit_status" == "done" ] && ( $status_cmd || ! $continued ); then
   git-detect-commit-specificity --trust-recorded $commit
+fi
+
+# If they're running the "status" command then this is all we show.
+if $status_cmd; then
+  # TODO: Also show which step they are on.
+  exit
 fi
 
 # Ensure we have no commit with unknown specificity.
@@ -326,6 +340,7 @@ step=3.stage_common_portion_of_mixed
 if ! is_done $step; then
   echo
   mapfile -t files < <(get_files_with_specificity mixed)
+  # TODO: reorder so that package.json can be reviewed prior to package-lock.json
   echo "→ Manually review these ${#files[@]} $(colorize_specificity mixed) files: stage the $(colorize_specificity common) hunks or edit to make it common…"
   echo
   if (( ${#files[@]} )); then
@@ -467,12 +482,16 @@ if ! is_done $step; then
   echo
 
   echo "You're about to commit the common commit (the first commit). Please confirm that what is staged (diff [s]taged) is the entirety of what is common, and what is left unstaged ([d]iff) is what you want to save for the _next_ commit, the specific commit."
+  skipped_commit=false
   confirm_commit_loop common
 
   mark_done $step
 
-  # TODO: instructions what to do if you need to make further amends
-  git-verify-commit-common-only HEAD || read -p "Press Enter to continue" _
+  if ! $skipped_commit; then
+    echo "→ Verifing that the $(colorize_specificity common) commit only includes $(colorize_specificity common) line changes…"
+    # TODO: show instructions what to do if you need to make further amends: just run git-commit-amend-copy-committer
+    git-verify-commit-common-only HEAD || read -p "Press Enter to continue" _
+  fi
 else
   echo "↪️  $step: already done"
 fi
@@ -505,6 +524,7 @@ step=7.commit_specific
 if ! is_done $step; then
   echo
 
+  commit_success=false
   confirm_commit_loop specific
 
   mark_done $step
@@ -519,8 +539,13 @@ fi
 echo
 new_commits_count=$(wc -l < $state_dir/new_commits)
 echo "✔ Done splitting commit $commit_short: Replaced with these ${new_commits_count} commits:"
-
 log_oneline_with_commit_specificity -n ${new_commits_count}
+echo
+echo
+
+if ! git diff --exit-code $commit HEAD; then
+  echo >&2 "⚠️  Contents of new commit(s) is different from original commit ($commit)."
+fi
 
 read -rp 'Done splitting this commit? ' _
 
