@@ -8,6 +8,13 @@ normalize_specificity() {
   # Strip ANSI color codes
   input=$(echo -e "$1" | sed -E 's/\x1B\[[0-9;]*[mK]//g')
 
+  if [[ "$input" == *$'\n'* ]]; then
+    echo >&2 "❌ Error! specificity string contains multiple lines!:"
+    echo >&2 "$input"
+    echo >&2 "If this is from notes on a commit, git may have combined (concatenated) notes during a rebase. This can happen if using the default config for notes.rewriteMode, which is concatenate. Make sure to change that to overwrite to prevent this from happening in the future (just be warned that this will be used for _all_ notes matching notes.rewriteRef)."
+    #exit 1
+  fi
+
   case "${input,,}" in
     c*) echo "common" ;;
     m*) echo "mixed" ;;

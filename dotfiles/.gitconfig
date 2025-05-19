@@ -564,6 +564,7 @@
   rewriteRef = refs/notes/*
 
   displayRef = refs/notes/*
+  rewriteMode = overwrite
 [flags]
   autopush = true
 [merge "ours"]
