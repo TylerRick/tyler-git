@@ -73,6 +73,7 @@ if ! grep "^$old_commit .*" $rewritten_file >/dev/null; then
   echo >&2 "❌ Could not find $old_commit in $rewritten_file!"
   exit 1
 fi
+matching_line=$(grep "^$old_commit .*" $rewritten_file)
 
 # It's possible that when you end up amending a commit, you actually end up with the same commit id.
 # This is because git commits are content-addressed objects — their SHA-1/SHA-256 hash is computed from:
@@ -94,9 +95,11 @@ if [ "$old_commit" = "$new_commit" ]; then
 		echo "⊘ $old_commit → $new_commit"
   fi
 else
+  old_rewritten_commit=$(echo "$matching_line" | awk '{print $2}')
+
   sed -i "s/^$old_commit .*/$old_commit $new_commit/" $rewritten_file
   if ! $quiet; then
-    echo "✅ Updated rewritten commit mapping: $old_commit ─→ $new_commit"
+    echo "✅ Updated rewritten commit mapping: $old_commit ─→ $new_commit (was $old_rewritten_commit)"
   fi
   if $verbose; then
     git log-oneline -1 $old_commit | sed 's/^/ ⊘ /'; echo
