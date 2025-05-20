@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+# Shows the status of where you are in the middle of an interactive git rebase
+
+cat .git/rebase-merge/done
+echo '<<<─────────── You are here ───────────>>>'
+cat .git/rebase-merge/git-rebase-todo
