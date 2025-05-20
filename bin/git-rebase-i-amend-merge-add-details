@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+# Replaces the message of the current merge commit (HEAD) with a detailed summary of merged commits
+
+set -euo pipefail
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+copy_committer=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --copy-committer)    copy_committer=true; shift ;;
+    -*)                  echo "Unknown option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+# Extract parent commits of the current merge
+# (assuming from_parent is the branch being merged in)
+into_parent=$(git rev-parse HEAD^1)
+from_parent=$(git rev-parse HEAD^2) # will fail if not a merge
+
+# Detect merged commits: those in from_parent that are not in into_parent
+merged_commits=$(git log --format='%s' --no-merges "${into_parent}..${from_parent}")
+
+# Get branch names for each parent, if we can (best effort)
+branch1=$(git-name-rev-prefer-branch "$into_parent" 2>/dev/null | sed 's#rewritten/##' || echo "$into_parent")
+branch2=$(git-name-rev-prefer-branch "$from_parent" 2>/dev/null | sed 's#rewritten/##' || echo "$from_parent")
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+# Format commit summary
+if [ -n "$merged_commits" ]; then
+  summary=$(echo "$merged_commits" | sed 's/^/  /')
+else
+  summary="  (No non-merge commits)"
+fi
+
+# Construct the new commit message
+# Other variations to consider:
+#   Merge branch '$branch2' into $branch1
+# but in the context of a rebase, $branch1 may not even have 
+message=$(cat <<End
+Merge from '$branch2':
+
+* $branch2:
+$summary
+End
+)
+
+if $copy_committer; then
+  orig_vars="$(git-commit-metadata-vars $from_parent)"
+  vars=$(echo "$orig_vars" | grep DATE)
+  eval "$vars"
+  #env | grep GIT_ | sort
+fi
+
+# Amend the commit
+git commit --allow-empty --amend --no-edit --no-verify --reset-author -m "$message"
