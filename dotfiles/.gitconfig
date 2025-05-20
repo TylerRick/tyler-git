@@ -248,6 +248,8 @@
   # Shortens a rev as short as it can make it while still being uniqe
   shorten-ref = rev-parse --short
 
+  is-ancestor = merge-base --is-ancestor
+
   #─────────────────────────────────────────────────────────────────────────────────────────────────
 
   # List untracked files (same list as shown by git status)
