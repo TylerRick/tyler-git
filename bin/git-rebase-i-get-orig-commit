@@ -79,8 +79,8 @@ if [ ! -f "$done_file" ]; then
   exit 1
 fi
 
-# Extract last line in .git/rebase-merge/done that begins with "pick" or "p" (ignore fixup/squash).
-last_pick_line=$(grep -E '^\s*(pick|p)\s+[0-9a-f]{7,40}' "$done_file" | tail -n 1 || true)
+# Extract last pick (or edit/reword) (ignore fixup/squash) line from .git/rebase-merge/done.
+last_pick_line=$(grep -E '^\s*(pick|p|edit|e|reword|r)\s+[0-9a-f]{7,40}' "$done_file" | tail -n 1 || true)
 
 if [[ -z "$last_pick_line" ]]; then
   echo >&2 "❌ Could not find a previous pick command in $done_file."
