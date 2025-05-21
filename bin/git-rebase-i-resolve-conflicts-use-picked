@@ -5,7 +5,19 @@ mapfile -t files < <(git diff --name-only --diff-filter=U)
 for file in "${files[@]}"; do
   echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
   echo "$file"
-  git checkout --theirs "$file"
+  echo "Before resolving:"
+  git diff --staged "$file"
+  echo
+
+  if git rev-parse --quiet --verify MERGE_HEAD; then
+    # If we detect we're in a merge, then use the opposite side — --ours
+    git checkout --ours "$file"
+  else
+    git checkout --theirs "$file"
+  fi
   git add -f "$file"
+
+  echo
+  echo "After resolving:"
   git diff --staged "$file"
 done

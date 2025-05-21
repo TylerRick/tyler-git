@@ -6,10 +6,19 @@ head_name=$(cat .git/rebase-merge/head-name)
 onto=$(cat .git/rebase-merge/onto)
 
 all=false
+C=5
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)      usage;;
     --all | -a)       all=true; shift ;;
+    -C)
+      if ! [ -n "$2" ] || [ "${2:0:1}" = "-" ]; then
+        echo "Error: Argument for $1 is missing" >&2
+        exit 64 # EX_USAGE
+      fi
+      C="$2"
+      shift 2
+      ;;
     -*)               echo "Unknown option $1" >&2; exit 1 ;;
     *) break ;;
   esac
@@ -24,7 +33,7 @@ if $all; then
   echo '<<<─────────── You are here ───────────>>>'
   cat .git/rebase-merge/git-rebase-todo
 else
-  tail -n4 .git/rebase-merge/done
+  tail -n$C .git/rebase-merge/done
   echo '<<<─────────── You are here ───────────>>>'
-  head -n4 .git/rebase-merge/git-rebase-todo
+  head -n$C .git/rebase-merge/git-rebase-todo
 fi
