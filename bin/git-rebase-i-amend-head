@@ -6,68 +6,43 @@ set -euo pipefail
 
 usage() {
   cat - <<End >&2
-Usage:
-  $(basename "$0") <orig-commit>
-    Copy some details from other commit
+Usage: $(basename "$0")
 
-Amends the tip commit, copying from orig-commit:
-- the author/committer details
-- the notes
+Copy some details from other commit
 
-Use case:
+Amends the tip commit during an interactive rebase.
 
-This can be used during a rebase, if you want...
+This simply passes control to a more specific command depending on what HEAD is. This is convenient
+for use with --exec so that you can simply add the same "fix" command after every pick or merge and
+it will just "do the right thing".
 
-To copy the notes as you go, so that you can be sure they get copied as you go, rather than waiting
-until the very end of the rebase and hoping/trusting that you didn't modify a commit in some way
-that doesn't end up getting tracked correctly in .git/rebase-merge/rewritten-list, thus preventing
-the post-rebase notes copying (notes.rewriteRef) from actually working. Copying as you go is simpler
-and more reliable.
+If HEAD is a merge commit, this executes git-rebase-i-amend-merge-add-details.
 
-Downsides: You have to insert this after every pick line (+ fixups, if any) using --exec or similar,
-which makes the rebase command sequence messier.
-
-If it detects this is being run inside a rebase, it will default the source commit to
-\$(git-rebase-i-get-orig-commit).
+Otherwise, this executes git-commit-amend-copy.
 
 Example:
-  git rebase -i --exec 'git-commit-amend-copy'
+  git rebase -i --exec 'git-commit-amend-head'
 
-See also: git-commit-amend-copy-committer
+See also: git-rebase-i-amend-merge-add-details, git-commit-amend-copy
 End
   exit 64 # EX_USAGE
 }
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
-# Parse options
+# Parse args and apply defaults
 
-notes_copy_opts="-f"
-
-# TODO: pass other opts through to git-commit-amend-copy-committer
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)      usage;;
-    --no-force)     
-      notes_copy_opts=""
-      shift ;;
-    --force | -f)     
-      notes_copy_opts="-f"
-      shift ;;
     -*)               echo "Unknown option $1" >&2; exit 1 ;;
     *) break ;;
   esac
 done
 
-# Copy commiter from commiter of other commit
-
 if [ -z "${1-}" ] && [ -d .git/rebase-merge ]; then
   source_commit_input=$(git-rebase-i-get-orig-commit)
 else
   source_commit_input=${1-}
-fi
-
-if [ -z "$source_commit_input" ]; then
-  usage
 fi
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -81,11 +56,8 @@ head_short=$(git rev-parse --short HEAD)
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
-if [[ $source_short = $head_short ]]; then
-  : # No-op
+if git-is-merge-commit $head; then
+  git-rebase-i-amend-merge-add-details
 else
-  echo "ℹ️ Copying committer and notes from commit $source_short → $head_short"
-  #set -x
-  git-commit-amend-copy-committer $source_commit >/dev/null
-  git-notes-copy-all "${notes_copy_opts-}" $source_commit $head_short >/dev/null
+  git-commit-amend-copy
 fi
