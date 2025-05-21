@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage: $(basename "$0") [<source-commit>]
+
+Reapplies the changes from an older/original version of this merge, applying them to the index /
+working tree.
+
+This is intended to be used as an exec command following a merge command in an interactive rebase.
+
+Why? Because the merge command will somewhat simplisticly/naively attempt to do the merge with only
+the exact some inputs — that is, the same 2 parent commits (or rewritten/different versions of them)
+as the original merge that you are now "replaying"/recreating in your rebase sequence.
+
+It does _not_ automatically reuse the tree content or any manual conflict resolutions from that
+original merge that you may have committed in that original merge.
+
+The _only_ mechanism git uses to resolve conflicts is via rerere — and some of the fixes made in the
+original commit may have been fixes to "semantic" conflicts or conflicts of "omission", rather than
+regular "merge conflicts", which are the only kind that rerere even detects and records a resolution
+for.
+
+So this is just an extra safe-guard / double-check that you can do after a rebase merge to see if
+there may be any changes in the original commit that have been missed, and gives you an easy way to
+include them in the new commit (via commit --amend) if they _do_ turn out to be desirable changes
+that would have been missed.
+
+Without something like this, git rebase --rebase-merges would happily and silently lose your
+carefully constructed manual merge resolutions that you made in your original merge commit — and not
+include them in the new replacement merge commit.
+
+Example:
+  # Since this command is only used for merges, and --exec adds the command after _every_ commit,
+  # including pick commits, you can't simply do this, because it would cause an error after pick
+  # commit.
+  git rebase -i --exec 'git-rebase-i-amend-merge-reapply-orig-changes'
+
+  # Instead, you can do this, which will automatically delegate to this if it is a merge commit:
+  git rebase -i --exec 'git-rebase-i-amend-head'
+End
+  exit
+}
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+force=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)         usage;;
+    --force | -f)        force=true; shift ;;
+    -*)                  echo "Unknown option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
+
+if [ -z "${1-}" ] && [ -d .git/rebase-merge ]; then
+  source_commit_input=$(git-rebase-i-get-orig-commit)
+else
+  source_commit_input=${1-}
+fi
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+source_commit=$(git rev-parse --verify "$source_commit_input"^{commit})
+source_short=$(git rev-parse --short $source_commit)
+
+# The commit we are amending, which can only be HEAD
+head=$(git rev-parse HEAD)
+head_short=$(git rev-parse --short HEAD)
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+if ! git-is-merge-commit HEAD; then
+  echo "❌ HEAD is not a merge commit"
+  exit 1
+fi
+
+# Would be nice if we could directly apply the 3-way diff patch shown by git show --cc.
+# But unfortunately, it is not in the format that git apply understands.
+if false; then
+  # Generate patch from original merge
+  tmp_patch=$(mktemp)
+  echo "Saved patch to $tmp_patch"
+  git show --cc $source_commit > "$tmp_patch"
+
+  # Apply the patch in working tree
+  echo "📦 Applying patch to working tree..."
+  git apply --3way --index --verbose "$tmp_patch" || {
+    echo "⚠️ Patch could not be applied cleanly. Review manually."
+    rm "$tmp_patch"
+    exit 1
+  }
+  rm "$tmp_patch"
+fi
+
+if [[ "${force:-false}" != true ]]; then
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "❌ Working directory not clean. Use --force to override."
+    exit 1
+  fi
+fi
+
+# So we have to fall back to this more destructive/risky command. This will wipe out any local
+# changes you may have!
+git checkout $source_commit .
+
+echo
+echo "✅ Patch from original merge commit ($source_short) has been reapplied to your index and working tree."
+echo "🔍 Please review changes with: git diff --staged and removed any unwanted changes."
+echo "📌 If it looks good, amend your merge commit:"
+echo "    git commit --amend --no-edit"
+git status --short
+echo
+
+echo "Here are the differences from the original commit ($source_short) now:"
+set -x
+git diff $source_short || true

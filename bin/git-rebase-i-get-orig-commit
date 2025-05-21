@@ -8,7 +8,8 @@ usage() {
   cat - <<End >&2
 Usage: $(basename "$0")
 
-Outputs the original commit ID of the most recent pick command in the current interactive rebase.
+Outputs the original commit ID of the most recently attempted pick/edit/reword or merge command in
+the current interactive rebase.
 
 This is only intended to be used from within an exec line of a git rebase -i script!
 
@@ -22,18 +23,21 @@ Background
   access the _original_ commit ID, the one that 'rebase -i' just picked and replayed onto the new
   base.
 
-  This can be used, for example, to update .git/rebase-merge/rewritten-list (see
-  git-rebase-i-update-orig-commit) to map from the original commit to the rewritten commit, for
-  commands that don't automatically do that for you, so that at the end of the rewrite, it can
-  rewrite note objects according to your notes.rewriteRef config.
+  This can be used, for example, to…
+  - update .git/rebase-merge/rewritten-list (see git-rebase-i-update-orig-commit) to map from the
+    original commit to the rewritten commit, for commands that don't automatically do that for you,
+    so that at the end of the rewrite, it can rewrite note objects according to your
+    notes.rewriteRef config.
+  - reapply changes from the original merge commit (see git-rebase-i-amend-merge-reapply-orig-changes)
+    to avoid losing any manual fixes that were included in the original merge commit
 
   You won't be able to find that original commit ID in git log or any built-in tools like that. The
   only place that original id is available is in the \`.git/rebase-merge/done\` log file. There, we
   can find the original \`pick\` command, which included the original commit id (in shortened form).
 
-  This command searches the rebase "to-do" log (.git/rebase-merge/done) for the most recent pick/p
-  command, ignoring any following squash/fixup that may have subsequently amended it, and returns
-  the original commit ID for the original, pre-written commit.  
+  This command searches the rebase "to-do" log (.git/rebase-merge/done) for the most recent
+  pick/merge/etc.  command (ignoring any following squash/fixup that may have subsequently amended
+  it), and returns the original commit ID for the original, pre-written commit.  
 
 Why does it ignore fixup/squash commands?
 
@@ -54,20 +58,37 @@ Why does it ignore fixup/squash commands?
   squash/fixup commands that immediately follow it.
 
 Examples:
+
   git rebase -i --exec 'git-rebase-i-update-orig-commit \$(git-rebase-i-get-orig-commit) HEAD'
 
   git rebase -i --exec 'copy-something-else-from-orig-commit-to-new-commit \$(git-rebase-i-get-orig-commit) HEAD'
 
-  # You don't actually need to pass this to git-commit-amend-copy-committer, as it automatically
-  # uses exactly that if no commit is provided. But some commands may not do that.
+  # You don't actually need to pass this to any of the commands in the following examples, since
+  # they automatically uses exactly internally that if no commit is provided. But some commands may
+  # not do that.
+
+  git rebase -i --exec 'git-rebase-i-amend-merge-reapply-orig-changes \$(git-rebase-i-get-orig-commit)'
+
   git rebase -i --exec 'git-commit-amend-copy-committer \$(git-rebase-i-get-orig-commit)'
 End
   exit
 }
 
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+verbose=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)         usage;;
+    --verbose)           verbose=true; shift ;;
+    -*)                  echo "Unknown option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
+
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
-done_file=".git/rebase-merge/done"
+done_file="${GIT_DIR:-.git}/rebase-merge/done"
 
 if [ ! -d .git/rebase-merge ]; then
   echo >&2 "❌ Not inside an interactive rebase with merge backend."
@@ -79,16 +100,32 @@ if [ ! -f "$done_file" ]; then
   exit 1
 fi
 
-# Extract last pick (or edit/reword) (ignore fixup/squash) line from .git/rebase-merge/done.
-last_pick_line=$(grep -E '^\s*(pick|p|edit|e|reword|r)\s+[0-9a-f]{7,40}' "$done_file" | tail -n 1 || true)
+# Extract line containing the last "real" commit command (one that recreates/replays a commit from
+# the original history, including pick/edit/reword/merge, but ignoring fixup/squash) from
+# .git/rebase-merge/done.
+line=$(grep -E '^\s*(p|pick|e|edit|r|reword|m|merge)\s+' "$done_file" | tail -n 1 || true)
 
-if [[ -z "$last_pick_line" ]]; then
-  echo >&2 "❌ Could not find a previous pick command in $done_file."
+if [[ -z "$line" ]]; then
+  echo >&2 "❌ Could not find a previous commit command in $done_file."
   exit 1
 fi
 
+if $verbose; then
+  echo >&2 "Extracting commit from line: $line"
+fi
+
 # Extract the commit hash (2nd word in line)
-original_commit=$(awk '{print $2}' <<< "$last_pick_line")
+# A more strict regex would be [0-9a-f]{7,40}
+if [[ $line =~ ^(m|merge)\ -C\ ([0-9a-f]+) ]]; then
+  original_commit=${BASH_REMATCH[2]}
+  $verbose && echo "🔁 Found original merge commit: $original_commit"
+elif [[ $line =~ ^(p|pick|e|edit|r|reword)\ ([0-9a-f]+) ]]; then
+  original_commit=${BASH_REMATCH[2]}
+  $verbose && echo "🔁 Found original commit: $original_commit"
+else
+  echo >&2 "❌ Could not extract previous commit from line: $line"
+  exit 1
+fi
 
 # Make sure the commit object exists and output the result
 if git cat-file -e "$original_commit"^{commit} 2>/dev/null; then
