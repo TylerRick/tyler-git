@@ -1,163 +1,84 @@
-#!/usr/bin/env ruby
-#---------------------------------------------------------------------------------------------------
-# TODO:
-# show number of conflicts
-# list all conflicts (and their type/severity?)
-#---------------------------------------------------------------------------------------------------
-require 'pathname'
-gem 'quality_extensions'
-require 'quality_extensions/pathname'
-gem 'colored'
-require 'colored'
+#!/usr/bin/env bash
 
-#---------------------------------------------------------------------------------------------------
-# Parse args
+set -euo pipefail
 
-require 'optparse'
+usage() {
+  cat - <<End >&2
+Usage: $(basename "$0") [<file>]
 
-@options = {
-  :verbose => 0,
-  :show => 'revision',
+Shows the status of where you are in the middle of a merge
+End
+  exit
 }
 
-def parse_args
-  ARGV.options do |opts|
-    opts.banner = <<End
-Usage: #{File.basename($0)} [options]
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+# TODO: Ideas
 
-Detects whether there is a merge, rebase, or cherry pick in progress and provides information about the merge/etc.
-End
+#Add a --conflicts option to show conflict hunks
+#If in a conflict state and file has unresolved markers:
+#grep -C 3 -E '<<<<<<<|=======|>>>>>>>' "$file"
+#
+#Add a --diff option to open 3-way diff in meld, vimdiff, or whatever is preferred.
+#
+#Add a --diff option to show 2-way diff view between versions
+#git diff $merge_base $head -- $file   # BASE → LOCAL
+#git diff $merge_base $merge_head -- $file   # BASE → REMOTE
+#or with pager:
+#git diff --color --word-diff $merge_base $head -- $file | less -R
 
-    opts.on("-v", "--verbose", "Be more verbose")                                                                              { @options[:verbose] = 1 }
-    opts.on("-t", "--type", "Output only the type of merge (merge, rebase, cherry_pick, or other). Exit code is 1 if none.")   { @options[:show_type_only] = true }
-    opts.on("-h", "--help", "Show this help message.")                                                                         { puts opts; exit }
-    opts.parse!
-  end
-end
-parse_args
+#════════════════════════════════════════════════════════════════════════════════════════════════════
 
-#---------------------------------------------------------------------------------------------------
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)      usage;;
+    -*)               echo "Unknown option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
 
-def exit_code
-  if @merge_type
-    0
+file=${1-}
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+# or: merge_head=$(cat .git/MERGE_HEAD)
+merge_head=$(git rev-parse --short MERGE_HEAD)
+merge_head_name=$(git name-rev-prefer-branch $merge_head)
+
+merge_base=$(git merge-base HEAD MERGE_HEAD)
+merge_base=$(git rev-parse --short $merge_base)
+merge_base_name=$(git name-rev-prefer-branch $merge_base)
+
+head=$(git rev-parse --short HEAD)
+head_name=$(git name-rev-prefer-branch $head)
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+show_file_at() {
+  if [ -z "$file" ]; then return; fi
+  ref=$1
+  echo
+  echo "───────── $file @ $ref ─────────"
+  if git cat-file -e "$ref:$file"; then
+    git show "$ref:$file"
   else
-    1
-  end
-end
+    echo "(File not present at $ref)"
+  fi
+  echo "────────────────────────────────"
+}
 
-def handle_show_type_only
-  if @options[:show_type_only]
-    if @merge_type
-      puts @merge_type
-      exit exit_code
-    else
-      exit exit_code
-    end
-  end
-end
+#════════════════════════════════════════════════════════════════════════════════════════════════════
 
-def print_rev(label, rev)
-  rev_pretty = `git name-rev --name-only --always --no-undefined #{rev}`.chomp
-  puts "#{label.bold}#{rev.inspect.green} #{"(#{rev_pretty.green})" if rev != rev_pretty}"
-end
-
-def print_head
-  puts
-  head_rev = `git rev-parse HEAD`.chomp
-  print_rev "HEAD is currently: ", head_rev
-end
-
-#---------------------------------------------------------------------------------------------------
-
-Dir.chdir(File.dirname(`git rev-parse --git-dir`.chomp))
-
-rebase_normal_dir = Pathname.new('.git/rebase-apply')
-rebase_interactive_dir = Pathname.new('.git/rebase-merge')
-
-if (rebase_dir = [rebase_normal_dir, rebase_interactive_dir].detect(&:exist?))
-  rebase_type = rebase_dir == rebase_normal_dir ? :normal : :interactive
-  @merge_type = :rebase
-  handle_show_type_only
-
-  onto = `git rebase-info --onto`.chomp
-  head = `git rebase-info --head`.chomp
-
-  puts "You are rebasing #{head.inspect.green}".bold + " (orig head) onto #{onto.inspect.green}".bold
-  print_head
-
-  puts
-  
-  if rebase_type == :normal
-    id = `git rebase-info --filename`.chomp
-  else
-    id = `git rebase-info --stopped-rev`.chomp
-  end
-  puts "Currently applying this commit".bold + " (#{id.magenta}):"
-  system "git rebase-info --summary"
-  puts
-
-  puts 'To continue:' + "
-After resolving the conflicts,
-mark the corrected paths with 'git add <paths>', and
-run 'git rebase --continue'"
-  puts
-
-  puts "If you continue, the commit message will be: ??"
-  # TODO: in the case of a fixup, it will be the message from the previous commit (before the fixup) in 'done'
-  puts
-
-
-elsif system('git rev-parse --verify -q MERGE_HEAD >/dev/null') == false and (file = Pathname.new('.git/MERGE_MSG')).exist?
-  @merge_type = :cherry_pick
-  handle_show_type_only
-
-  puts "This is a cherry pick"
-
-  merge_msg = file.read
-  puts "If you commit this, the merge_msg will be:\n#{merge_msg}"
-
-  print_head
-
-
-
-elsif system('git rev-parse --verify -q MERGE_HEAD >/dev/null') == true
-  @merge_type = :merge
-  handle_show_type_only
-
-  puts "This is a normal merge".bold
-  print_head
-
-  upstream   ||= 'MERGE_HEAD'
-  mine       ||= 'HEAD'
-
-  #merge_base = `git merge-base MERGE_HEAD HEAD`.chomp
-  merge_base = `git merge-base #{upstream} #{mine}`.chomp
-  print_rev "merge base: ", merge_base
-
-  puts "Parent commits are:"
-  print_rev "Mine   (HEAD)        ", mine
-  print_rev "Theirs (MERGE_HEAD): ", upstream
-
-elsif system("git diff-index --exit-code --name-status --diff-filter=U --cached HEAD >/dev/null") == false # exit code 1 means there were files found
-  @merge_type = :other
-  handle_show_type_only
-
-  puts "It appears that there is no merge, rebase, or cherry pick in progress BUT there are unmerged files."
-  puts 'This can happen, for example, after you pop a stash and it has conflicts applying the changes.'
-
-else
-  @merge_type = nil
-  handle_show_type_only
-
-  puts "It appears that there is no merge, rebase, or cherry pick in progress and there are no unmerged files."
-end
-
-if @merge_type
-  puts "Unmerged paths:".underline
-  system 'git diff-index --name-only --cached --diff-filter=U HEAD'
-end
-
-exit exit_code
-
-#---------------------------------------------------------------------------------------------------
+echo "Merging $merge_head_name ($merge_head) into $head_name ($head):"
+echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
+echo "Merging $merge_head_name ($merge_head) (MERGE_HEAD / REMOTE):"
+git log-oneline-graph -n5 $merge_head
+show_file_at $merge_head_name
+echo
+echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
+echo "→ into $head_name ($head) (HEAD / LOCAL):"
+git log-oneline-graph -n5 $head
+show_file_at $head_name
+echo
+echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
+echo "⤙ with common ancestor $merge_base_name ($merge_base) (MERGE_BASE / BASE):"
+git log-oneline-graph -n5 $merge_base
+show_file_at $merge_base

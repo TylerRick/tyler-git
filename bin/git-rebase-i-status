@@ -5,9 +5,26 @@
 head_name=$(cat .git/rebase-merge/head-name)
 onto=$(cat .git/rebase-merge/onto)
 
-echo "Rebasing $head_name onto $onto"
-echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
+all=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)      usage;;
+    --all | -a)       all=true; shift ;;
+    -*)               echo "Unknown option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
 
-cat .git/rebase-merge/done
-echo '<<<─────────── You are here ───────────>>>'
-cat .git/rebase-merge/git-rebase-todo
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+echo "Rebasing $head_name onto $onto :"
+echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
+if $all; then
+  cat .git/rebase-merge/done
+  echo '<<<─────────── You are here ───────────>>>'
+  cat .git/rebase-merge/git-rebase-todo
+else
+  tail -n4 .git/rebase-merge/done
+  echo '<<<─────────── You are here ───────────>>>'
+  head -n4 .git/rebase-merge/git-rebase-todo
+fi

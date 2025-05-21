@@ -1,0 +1,163 @@
+#!/usr/bin/env ruby
+#---------------------------------------------------------------------------------------------------
+# TODO:
+# show number of conflicts
+# list all conflicts (and their type/severity?)
+#---------------------------------------------------------------------------------------------------
+require 'pathname'
+gem 'quality_extensions'
+require 'quality_extensions/pathname'
+gem 'colored'
+require 'colored'
+
+#---------------------------------------------------------------------------------------------------
+# Parse args
+
+require 'optparse'
+
+@options = {
+  :verbose => 0,
+  :show => 'revision',
+}
+
+def parse_args
+  ARGV.options do |opts|
+    opts.banner = <<End
+Usage: #{File.basename($0)} [options]
+
+Detects whether there is a merge, rebase, or cherry pick in progress and provides information about the merge/etc.
+End
+
+    opts.on("-v", "--verbose", "Be more verbose")                                                                              { @options[:verbose] = 1 }
+    opts.on("-t", "--type", "Output only the type of merge (merge, rebase, cherry_pick, or other). Exit code is 1 if none.")   { @options[:show_type_only] = true }
+    opts.on("-h", "--help", "Show this help message.")                                                                         { puts opts; exit }
+    opts.parse!
+  end
+end
+parse_args
+
+#---------------------------------------------------------------------------------------------------
+
+def exit_code
+  if @merge_type
+    0
+  else
+    1
+  end
+end
+
+def handle_show_type_only
+  if @options[:show_type_only]
+    if @merge_type
+      puts @merge_type
+      exit exit_code
+    else
+      exit exit_code
+    end
+  end
+end
+
+def print_rev(label, rev)
+  rev_pretty = `git name-rev --name-only --always --no-undefined #{rev}`.chomp
+  puts "#{label.bold}#{rev.inspect.green} #{"(#{rev_pretty.green})" if rev != rev_pretty}"
+end
+
+def print_head
+  puts
+  head_rev = `git rev-parse HEAD`.chomp
+  print_rev "HEAD is currently: ", head_rev
+end
+
+#---------------------------------------------------------------------------------------------------
+
+Dir.chdir(File.dirname(`git rev-parse --git-dir`.chomp))
+
+rebase_normal_dir = Pathname.new('.git/rebase-apply')
+rebase_interactive_dir = Pathname.new('.git/rebase-merge')
+
+if (rebase_dir = [rebase_normal_dir, rebase_interactive_dir].detect(&:exist?))
+  rebase_type = rebase_dir == rebase_normal_dir ? :normal : :interactive
+  @merge_type = :rebase
+  handle_show_type_only
+
+  onto = `git rebase-info --onto`.chomp
+  head = `git rebase-info --head`.chomp
+
+  puts "You are rebasing #{head.inspect.green}".bold + " (orig head) onto #{onto.inspect.green}".bold
+  print_head
+
+  puts
+  
+  if rebase_type == :normal
+    id = `git rebase-info --filename`.chomp
+  else
+    id = `git rebase-info --stopped-rev`.chomp
+  end
+  puts "Currently applying this commit".bold + " (#{id.magenta}):"
+  system "git rebase-info --summary"
+  puts
+
+  puts 'To continue:' + "
+After resolving the conflicts,
+mark the corrected paths with 'git add <paths>', and
+run 'git rebase --continue'"
+  puts
+
+  puts "If you continue, the commit message will be: ??"
+  # TODO: in the case of a fixup, it will be the message from the previous commit (before the fixup) in 'done'
+  puts
+
+
+elsif system('git rev-parse --verify -q MERGE_HEAD >/dev/null') == false and (file = Pathname.new('.git/MERGE_MSG')).exist?
+  @merge_type = :cherry_pick
+  handle_show_type_only
+
+  puts "This is a cherry pick"
+
+  merge_msg = file.read
+  puts "If you commit this, the merge_msg will be:\n#{merge_msg}"
+
+  print_head
+
+
+
+elsif system('git rev-parse --verify -q MERGE_HEAD >/dev/null') == true
+  @merge_type = :merge
+  handle_show_type_only
+
+  puts "This is a normal merge".bold
+  print_head
+
+  upstream   ||= 'MERGE_HEAD'
+  mine       ||= 'HEAD'
+
+  #merge_base = `git merge-base MERGE_HEAD HEAD`.chomp
+  merge_base = `git merge-base #{upstream} #{mine}`.chomp
+  print_rev "merge base: ", merge_base
+
+  puts "Parent commits are:"
+  print_rev "Mine   (HEAD)        ", mine
+  print_rev "Theirs (MERGE_HEAD): ", upstream
+
+elsif system("git diff-index --exit-code --name-status --diff-filter=U --cached HEAD >/dev/null") == false # exit code 1 means there were files found
+  @merge_type = :other
+  handle_show_type_only
+
+  puts "It appears that there is no merge, rebase, or cherry pick in progress BUT there are unmerged files."
+  puts 'This can happen, for example, after you pop a stash and it has conflicts applying the changes.'
+
+else
+  @merge_type = nil
+  handle_show_type_only
+
+  puts "It appears that there is no merge, rebase, or cherry pick in progress and there are no unmerged files."
+end
+
+if @merge_type
+  puts "Unmerged paths:".underline
+  system 'git diff-index --name-only --cached --diff-filter=U HEAD'
+end
+
+exit exit_code
+
+#---------------------------------------------------------------------------------------------------
