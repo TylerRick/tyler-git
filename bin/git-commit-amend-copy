@@ -70,9 +70,16 @@ fi
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
 source_commit=$(git rev-parse --verify "$source_commit_input"^{commit})
+source_short=$(git rev-parse --short $source_commit)
+new_short=$(git rev-parse --short HEAD)
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
-set -x
-git-commit-amend-copy-committer $source_commit
-git-notes-copy-all "${notes_copy_opts-}" $source_commit HEAD
+if [[ $source_short = $new_short ]]; then
+  : # No-op
+else
+  echo "ℹ️ Copying committer and notes from commit $source_short → $new_short"
+  #set -x
+  git-commit-amend-copy-committer $source_commit >/dev/null
+  git-notes-copy-all "${notes_copy_opts-}" $source_commit $new_short >/dev/null
+fi

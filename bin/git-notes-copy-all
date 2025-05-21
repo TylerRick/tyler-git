@@ -123,7 +123,7 @@ copy_notes() {
       git notes --ref="$ref" copy "${notes_copy_opts-}" "$old" "$new" 2>/dev/null
 
       if [[ "$any_copied" = false ]]; then
-        echo "📤 Copied notes from commit $old_short -→ $new_short:"
+        echo "📤 Copied notes from commit $old_short → $new_short:"
         any_copied=true
       fi
 
