@@ -213,6 +213,8 @@
   rbi = rebase -i
   rba = rebase --abort
 
+  # Override any GIT_SEQUENCE_EDITOR previously set to make sure it won't interrupt with the simple
+  # task of editing the file, and won't try to add duplicate extra lines, for example.
   rb-edit-todo = ! GIT_SEQUENCE_EDITOR='vim' git rebase --edit-todo
 
   # Since interactive rebases are safer and more powerful than regular rebases and autoSetupRebase
@@ -531,6 +533,7 @@
   instructionFormat = "[%as %an]%d %s" # %as is short ISO date, %d lists branch/tags
   instructionFormat = "[%N] %s [%as %an]" # %N is notes
 	backend = merge
+	rescheduleFailedExec = true
 [mergetool "p4merge"]
   #cmd = ~/bin/p4merge \
   cmd = $HOME/installed/shell/bin/p4merge \
@@ -568,10 +571,23 @@
   # To set this value to match all notes, execute the following:
   #   git config --global notes.rewriteRef "refs/notes/*"
   #rewriteRef = refs/notes/*
+  #
+  # Alternatively, you can use --exec git-commit-amend-copy to copy those notes as you go instead of
+  # waiting until the end of the rewrite. If you're wanting to use git-commit-amend-copy-committer
+  # for each commit anyway, then this seems like a potentially safer / more reliable method to do
+  # both that and copy your notes over. Actually, technically rewriteRef rewrites your notes rather
+  # than copying them so another benefit of this approach is it allows you to have those notes exist
+  # still in the old branch _and_ in the new/rewritten branch.
 
   #displayRef = refs/notes/*
   displayRef = refs/notes/specificity
-  rewriteMode = overwrite
+
+  # concatenate is safer; overwrite can sometimes be too agressive and cause you to lose notes,
+  # especialy if you "rewrite" from and to the same commit id (that is, if you don't end up actualy
+  # rewriting some commit, because an amend ends up detecting it would be the samea as, and reusing,
+  # the same commit id)
+  rewriteMode = concatenate
+  #rewriteMode = overwrite
 [flags]
   autopush = true
 [merge "ours"]
