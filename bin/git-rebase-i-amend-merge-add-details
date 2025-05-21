@@ -49,6 +49,11 @@ done
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
+if ! git-is-merge-commit HEAD; then
+  echo "❌ HEAD is not a merge commit"
+  exit 1
+fi
+
 # Extract parent commits of the current merge
 # (assuming from_parent is the branch being merged in)
 into_parent=$(git rev-parse HEAD^1)
