@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# Get list of unmerged files
+mapfile -t files < <(git diff --name-only --diff-filter=U)
+for file in "${files[@]}"; do
+  echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
+  echo "$file"
+  git checkout --theirs "$file"
+  git add -f "$file"
+  git diff --staged "$file"
+done
