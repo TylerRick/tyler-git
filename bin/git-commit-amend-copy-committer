@@ -112,5 +112,6 @@ git commit --allow-empty --amend --no-edit --no-verify "${amend_ops-}"
 
 if [ -n "${rebase_orig_commit-}" ]; then
   new_commit=$(git rev-parse HEAD)
-  git-rebase-i-update-orig-commit --verbose $rebase_orig_commit $new_commit
+  #git-rebase-i-update-orig-commit --verbose $rebase_orig_commit $new_commit
+  git-rebase-i-update-orig-commit $rebase_orig_commit $new_commit
 fi

@@ -87,7 +87,9 @@ if [ "$old_commit" = "$new_commit" ]; then
   tmp_file="$rewritten_file.tmp"
   grep -v "^$old_commit " "$rewritten_file" > "$tmp_file" || true
   mv "$tmp_file" "$rewritten_file"
-  if ! $quiet; then
+
+  [ -n "$(git config notes.rewriteRef)" ] && notes_rewrite_enabled=true || notes_rewrite_enabled=false
+  if $notes_rewrite_enabled && ! $quiet; then
 		echo >&2 "⚠️  No-op rewrite detected (same commit ID). Removed redundant mapping."
 		echo >&2 "⚠️   Warning: If using notes.rewriteMode overwrite, the notes for this commit will get lost!"
   fi
