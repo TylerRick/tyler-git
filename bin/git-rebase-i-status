@@ -35,5 +35,5 @@ if $all; then
 else
   tail -n$C .git/rebase-merge/done
   echo '<<<─────────── You are here ───────────>>>'
-  head -n$C .git/rebase-merge/git-rebase-todo
+  head -n$C .git/rebase-merge/git-rebase-todo | grep -v '^#'
 fi
