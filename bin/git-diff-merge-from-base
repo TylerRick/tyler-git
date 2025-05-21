@@ -1,0 +1,23 @@
+#!/bin/bash
+
+merge_commit="$1"
+shift
+
+if [ -z "$merge_commit" ]; then
+  cat <<-End
+Usage: $(basename "$0") <merge-commit>"
+
+Show what a merge commit introduced by comparing to its merge base
+
+git-diff-merge-from-base f032a27
+git-diff-merge-from-base f032a27 --name-status
+git-diff-merge-from-base f032a27 -- file1 file2
+End
+  exit 1
+fi
+
+parent1=$(git rev-parse "$merge_commit"^)
+parent2=$(git rev-parse "$merge_commit"^2)
+merge_base=$(git merge-base "$parent1" "$parent2")
+
+git diff --find-renames "$merge_base" "$merge_commit" "$@"
