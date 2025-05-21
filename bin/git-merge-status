@@ -40,13 +40,17 @@ file=${1-}
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
-# or: merge_head=$(cat .git/MERGE_HEAD)
-merge_head=$(git rev-parse --short MERGE_HEAD)
-merge_head_name=$(git name-rev-prefer-branch $merge_head)
+merge_msg=$(cat .git/MERGE_MSG)
 
-merge_base=$(git merge-base HEAD MERGE_HEAD)
-merge_base=$(git rev-parse --short $merge_base)
-merge_base_name=$(git name-rev-prefer-branch $merge_base)
+if git rev-parse --quiet --verify MERGE_HEAD; then
+  # or: merge_head=$(cat .git/MERGE_HEAD)
+  merge_head=$(git rev-parse --short MERGE_HEAD)
+  merge_head_name=$(git name-rev-prefer-branch $merge_head)
+
+  merge_base=$(git merge-base HEAD MERGE_HEAD)
+  merge_base=$(git rev-parse --short $merge_base)
+  merge_base_name=$(git name-rev-prefer-branch $merge_base)
+fi
 
 head=$(git rev-parse --short HEAD)
 head_name=$(git name-rev-prefer-branch $head)
@@ -67,18 +71,26 @@ show_file_at() {
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
-echo "Merging $merge_head_name ($merge_head) into $head_name ($head):"
-echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
-echo "Merging $merge_head_name ($merge_head) (MERGE_HEAD / REMOTE):"
-git log-oneline-graph -n5 $merge_head
-show_file_at $merge_head_name
+echo "Merge message: $merge_msg"
 echo
-echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
-echo "→ into $head_name ($head) (HEAD / LOCAL):"
-git log-oneline-graph -n5 $head
-show_file_at $head_name
-echo
-echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
-echo "⤙ with common ancestor $merge_base_name ($merge_base) (MERGE_BASE / BASE):"
-git log-oneline-graph -n5 $merge_base
-show_file_at $merge_base
+
+if [ -n "${merge_head-}" ]; then
+  echo "Merging $merge_head_name ($merge_head) into $head_name ($head):"
+  echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
+  echo "Merging $merge_head_name ($merge_head) (MERGE_HEAD / REMOTE):"
+  git log-oneline-graph -n5 $merge_head
+  show_file_at $merge_head_name
+  echo
+  echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
+  echo "→ into $head_name ($head) (HEAD / LOCAL):"
+  git log-oneline-graph -n5 $head
+  show_file_at $head_name
+  echo
+  echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
+  echo "⤙ with common ancestor $merge_base_name ($merge_base) (MERGE_BASE / BASE):"
+  git log-oneline-graph -n5 $merge_base
+  show_file_at $merge_base
+fi
+
+set -x
+git diff --cc | head -n10
