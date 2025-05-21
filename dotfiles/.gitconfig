@@ -460,6 +460,7 @@
 [diff]
   unified = 15
   compactionHeuristic = true
+  renames = true
 
   # diff.relative = true is great most of the time, but can be a pain sometimes.
   # For example, if you are inside of the directory where the file now lives, but it was previously
