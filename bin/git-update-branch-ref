@@ -5,6 +5,9 @@
 # forget to.
 # (See https://stackoverflow.com/questions/36006054/why-does-git-update-ref-accepts-non-refs-references)
 
+# TODO: An even easier way would be:
+# git branch -f $branch $2
+
 branch=$1
 ref=refs/heads/$branch; shift
 git rev-parse "$ref" >/dev/null || exit 1
