@@ -1,0 +1,19 @@
+#!/bin/bash
+
+merge_commit="$1"
+shift
+
+if [ -z "$merge_commit" ]; then
+  cat <<-End
+Usage: $(basename "$0") <merge-commit>"
+
+Show what the merged-in branch (parent 2) contributed to a merge commit
+End
+  exit 1
+fi
+
+parent1=$(git rev-parse "$merge_commit"^)
+parent2=$(git rev-parse "$merge_commit"^2)
+merge_base=$(git merge-base "$parent1" "$parent2")
+
+git diff --find-renames "$merge_base" "$parent2" "$@"
