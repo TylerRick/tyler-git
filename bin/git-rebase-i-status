@@ -2,6 +2,12 @@
 
 # Shows the status of where you are in the middle of an interactive git rebase
 
+head_name=$(cat .git/rebase-merge/head-name)
+onto=$(cat .git/rebase-merge/onto)
+
+echo "Rebasing $head_name onto $onto"
+echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
+
 cat .git/rebase-merge/done
 echo '<<<─────────── You are here ───────────>>>'
 cat .git/rebase-merge/git-rebase-todo
