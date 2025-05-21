@@ -31,7 +31,6 @@ refs_globs=()
 map_file=""
 old_commit=""
 new_commit=""
-copied=()
 
 # Parse args
 while [[ "$#" -gt 0 ]]; do
@@ -62,7 +61,7 @@ while [[ "$#" -gt 0 ]]; do
       if [[ -z "$old_commit" ]]; then
         old_commit="$1"
       elif [[ -z "$new_commit" ]]; then
-        new_commit=$(git rev-parse --short "$1")
+        new_commit="$1"
       else
         echo "Too many arguments" >&2
         print_usage
@@ -107,20 +106,42 @@ if [[ ${#matching_refs[@]} -eq 0 ]]; then
   exit 0
 fi
 
-# Copy notes
+# Copy and report notes
 copy_notes() {
   local old="$1"
-  local new
-  new=$(git rev-parse --short "$2")
+  local new="$2"
+  local old_short new_short
+  old_short=$(git rev-parse --short "$old")
+  new_short=$(git rev-parse --short "$new")
+
+  local any_copied=false
+
   for ref in "${matching_refs[@]}"; do
     if git notes --ref="$ref" show "$old" > /dev/null 2>&1; then
       # TODO: use merge instead of copy and allow passing merge strategy
       # Silence Overwriting existing notes for object errors when using -f
-      git notes --ref="$ref" copy "${notes_copy_opts-}"  "$old" "$new" 2>/dev/null
-      #copied+=("$ref $old $new")
-      copied+=("$ref $new")
+      git notes --ref="$ref" copy "${notes_copy_opts-}" "$old" "$new" 2>/dev/null
+
+      if [[ "$any_copied" = false ]]; then
+        echo "📤 Copied notes from commit $old_short -→ $new_short:"
+        any_copied=true
+      fi
+
+      note=$(git notes --ref="$ref" show "$new" 2>/dev/null || true)
+
+      if [[ "$note" == *$'\n'* ]] || [[ "$note" != "$(echo "$note" | tr -d '\n')" ]]; then
+        echo "─── $ref ───"
+        echo "$note"
+        echo
+      else
+        echo "  • $ref: $note"
+      fi
     fi
   done
+
+  if [[ "$any_copied" = false ]]; then
+    echo "ℹ️  No notes found to copy for commit $old_short"
+  fi
 }
 
 if [[ -n "$map_file" ]]; then
@@ -132,29 +153,3 @@ else
   copy_notes "$old_commit" "$new_commit"
 fi
 
-if [[ ${#copied[@]} -eq 0 ]]; then
-  echo "ℹ️  No notes copied (no notes existed on input commits for the given refs)"
-else
-  echo "📤 Copied notes from input commits:"
-  for entry in "${copied[@]}"; do
-    ref="${entry% *}"
-    #old=
-    new="${entry#* }"
-
-    if note=$(git notes --ref="$ref" show "$new" 2>/dev/null); then
-      # Trim trailing newlines for length check
-      stripped=$(echo "$note" | tr -d '\n')
-
-      if [[ "$note" == *$'\n'* ]] || [[ "$stripped" != "$note" ]]; then
-        # Multi-line or has trailing newline: block style
-        echo "─── $ref @ $new ───"
-        echo "$note"
-        echo
-      else
-        # Single line: inline bullet
-        # $old -> $new
-        echo "  • $ref: $note"
-      fi
-    fi
-  done
-fi
