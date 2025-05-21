@@ -1,0 +1,22 @@
+#!/bin/bash
+
+set -euo pipefail
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+commit_input=${1-HEAD}
+commit=$(      git rev-parse --verify "$commit_input"^{commit})
+commit_short=$(git rev-parse --short  "$commit_input"^{commit})
+
+# Check if commit is a merge commit by counting parent lines in the commit object
+parent_count=$(git cat-file -p $commit | grep -c '^parent')
+
+if [ "$parent_count" -gt 1 ]; then
+  # if $verbose; then
+  #echo "$commit_input ($commit_short) is a merge commit with $parent_count parents." >&2
+  exit 0
+else
+  # if $verbose; then
+  # echo "$commit_input ($commit_short) is not a merge commit." >&2
+  exit 1
+fi

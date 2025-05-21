@@ -1,15 +1,47 @@
 #!/usr/bin/env bash
 
-# Replaces the message of the current merge commit (HEAD) with a detailed summary of merged commits
-
 set -euo pipefail
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage: $(basename "$0")
+
+Replaces the message of the current merge commit (HEAD) with a detailed summary of merged commits
+
+Options:
+  --copy-dates (the default, currently)
+
+    If --copy-dates is provided, then it additionally copies author/committer date from parent2
+    (the tip of the merged-in branch).
+
+    The goal is for the rewritten history to appear _as if_ this merge took place back then, soon
+    after the marged-in topic branch was pushed up. Without this, it would create an obvious
+    anachronism in the timeline: super-recent merge requests appearing back amidst really-old
+    regular commits. The best approximation we can have for "soon after the marged-in topic branch
+    was pushed up", without adding an arbitrary + offset, is "immediately after" = the _same_
+    date/time as the last (tip) commit in the merged-in branch.
+
+    We leave the author/committer of this merge commit the way it was, because the author/committer
+    of the merge is _not_ necessarily the author of the commits being merged in, and it would be
+    misleading to show that someone created the merge other than the person who actually created the
+    merge.
+
+  --no-copy-dates
+    Turn off --copy-dates
+End
+  exit
+}
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
-copy_committer=false
+copy_dates=true
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --copy-committer)    copy_committer=true; shift ;;
+    --help | -h)         usage;;
+    --copy-dates)        copy_dates=true; shift ;;
+    --no-copy-dates)     copy_dates=false; shift ;;
     -*)                  echo "Unknown option $1" >&2; exit 1 ;;
     *) break ;;
   esac
@@ -50,7 +82,7 @@ $summary
 End
 )
 
-if $copy_committer; then
+if $copy_dates; then
   orig_vars="$(git-commit-metadata-vars $from_parent)"
   vars=$(echo "$orig_vars" | grep DATE)
   eval "$vars"
