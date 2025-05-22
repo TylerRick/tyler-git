@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND" >&2' err
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat <<EOF >&2
+Usage: $(basename "$0") [--quiet|-s] [--verbose|-v] <mapping-file> <old-commit> <new-commit>
+
+Updates the rewritten-commit mapping in <mapping-file> by replacing the entry for <old-commit>
+with <new-commit>. If <mapping-file> does not exist, it is created with a single mapping.
+If <old-commit> == <new-commit>, any existing mapping is removed.
+
+TODO: Give option for what to when <old-commit> == <new-commit>: any existing mapping is removed, or
+just update it normally.
+
+Options:
+  -q, --quiet      Suppress non-error output
+  -v, --verbose    Show detailed before/after log lines
+  -h, --help       Show this help message
+EOF
+  exit 1
+}
+
+# Parse flags
+quiet=false
+verbose=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -q|--quiet)    quiet=true;    shift ;;  
+    -v|--verbose)  verbose=true;  shift ;;  
+    -h|--help)     usage ;;      
+    --)            shift; break ;;
+    -* )           echo "Unknown option: $1" >&2; usage ;;  
+    *)             break ;;      
+  esac
+done
+
+if (( $# != 3 )); then
+  usage
+fi
+
+mapping_file=$1
+old_commit=$(git rev-parse --verify "$2"^{commit})
+new_commit=$(git rev-parse --verify "$3"^{commit})
+
+# Ensure directory exists if creating file
+if [[ ! -f "$mapping_file" ]]; then
+  echo "$old_commit $new_commit" >> "$mapping_file"
+  $quiet || echo "✅ Added mapping: $old_commit → $new_commit"
+  exit 0
+fi
+
+# File exists: find entry
+if ! grep -qE "^$old_commit\s+" "$mapping_file"; then
+  echo "❌ Could not find $old_commit in $mapping_file" >&2
+  exit 1
+fi
+
+# Remove or update
+if [[ "$old_commit" == "$new_commit" ]]; then
+  # Remove redundant mapping
+  tmp="${mapping_file}.tmp"
+  grep -vE "^$old_commit\s+" "$mapping_file" > "$tmp"
+  mv "$tmp" "$mapping_file"
+  if ! $quiet; then
+    echo "⚠️  Removed mapping for $old_commit (no-op rewrite)"
+  fi
+  if $verbose; then
+    echo "⊘ $old_commit"
+  fi
+else
+  # Update existing mapping
+  old_line=$(grep -E "^$old_commit\s+" "$mapping_file")
+  sed -i.bak "s#^$old_commit\s\+.*#$old_commit $new_commit#" "$mapping_file"
+  $quiet || echo "✅ Updated mapping: $old_commit → $new_commit"
+  if $verbose; then
+    echo "Before: $old_line"
+    echo "After : $old_commit $new_commit"
+  fi
+fi
+
+
