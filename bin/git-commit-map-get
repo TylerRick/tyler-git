@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND" >&2' err
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat <<End >&2
+Usage: $(basename "$0") (--old|--new) <mapping-file> <commit>
+
+--old <file> <new_commit>: look up and print the old_commit for given new_commit
+--new <file> <old_commit>: look up and print the new_commit for given old_commit
+Supports full or short commit hashes in mapping file and input.
+
+Examples:
+  ⟫ git-commit-map-get -n .git/split-branch/rewritten-linear 0d898b5
+  57c247f
+
+  ⟫ git-commit-map-get -o .git/split-branch/rewritten-linear 57c247f
+  0d898b5
+
+End
+  exit 1
+}
+
+mode=""
+if [[ $# -gt 0 ]]; then
+  case "$1" in
+    -o|--old) mode=old; shift;;
+    -n|--new) mode=new; shift;;
+  esac
+fi
+if [[ -z "$mode" || $# -ne 2 ]]; then
+  usage
+fi
+
+mapping_file=$1
+input=$2
+
+# Expand input commit
+input_full=$(git rev-parse --verify "$input"^{commit})
+input_short=$(git rev-parse --short "$input_full")
+
+if [[ ! -f "$mapping_file" ]]; then
+  echo "❌ Mapping file not found: $mapping_file" >&2
+  exit 1
+fi
+
+case "$mode" in
+  old)
+    # find line where second column matches input
+    regex="^[0-9a-f]+\\s+(?:$input_full|$input_short)(\\s*#.*)?$"
+    line=$(grep -E "$regex" "$mapping_file" | head -n1 || true)
+    if [[ -z "$line" ]]; then
+      echo "❌ No mapping for new-commit $input" >&2
+      exit 1
+    fi
+    # extract first token
+    echo "$line" | awk '{print $1}'
+    ;;
+
+  new)
+    # find line where first column matches input
+    regex="^(?:$input_full|$input_short)\\s+[0-9a-f]+(\\s*#.*)?$"
+    line=$(grep -E "$regex" "$mapping_file" | head -n1 || true)
+    if [[ -z "$line" ]]; then
+      echo "❌ No mapping for old-commit $input" >&2
+      exit 1
+    fi
+    # extract second token
+    echo "$line" | awk '{print $2}'
+    ;;
+
+  *)
+    usage
+    ;;
+esac
+

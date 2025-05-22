@@ -43,11 +43,12 @@ quiet=false
 verbose=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --help | -h)      usage;;
-    --quiet | -s)     quiet=true; shift ;;
-    --verbose | -v)   verbose=true; shift ;;
-    -*)               echo "Unknown option $1" >&2; exit 1 ;;
-    *) break ;;
+    -q|--quiet)    quiet=true;    shift ;;  
+    -v|--verbose)  verbose=true;  shift ;;  
+    -h|--help)     usage ;;      
+    --)            shift; break ;;
+    -* )           echo "Unknown option: $1" >&2; usage ;;  
+    *)             break ;;      
   esac
 done
 
@@ -97,6 +98,10 @@ if [ "$old_commit" = "$new_commit" ]; then
 		echo "⊘ $old_commit → $new_commit"
   fi
 else
+  # TODO?: Delegate to the general updater:
+  #exec git-update-rewritten-commit ${quiet:+--quiet} ${verbose:+--verbose} \
+  #  "$rewritten_file" "$old_commit" "$new_commit"
+
   old_rewritten_commit=$(echo "$matching_line" | awk '{print $2}')
 
   sed -i "s/^$old_commit .*/$old_commit $new_commit/" $rewritten_file

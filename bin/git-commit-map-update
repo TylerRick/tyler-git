@@ -6,24 +6,24 @@ trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND" >&2' err
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
 usage() {
-  cat <<EOF >&2
-Usage: $(basename "$0") [--quiet|-s] [--verbose|-v] <mapping-file> <old-commit> <new-commit>
+  cat <<End >&2
+Usage: $(basename "$0") [--quiet|-q] [--verbose|-v] <mapping-file> <old-commit> <new-commit>
 
-Updates the rewritten-commit mapping in <mapping-file> by replacing the entry for <old-commit>
-with <new-commit>. If <mapping-file> does not exist, it is created with a single mapping.
-If <old-commit> == <new-commit>, any existing mapping is removed.
+Updates the commit mapping in <mapping-file>, replacing the entry for <old-commit>
+with <new-commit>. Supports files with full or short hashes and optional trailing comments.
+Old or new commits passed may be short or full; they are expanded internally.
 
-Supports mapping files with optional trailing comments ("# ...").  When
-updating, any existing comment on the line is removed.
+If <mapping-file> does not exist, a new file is created with a single mapping.
+If old and new are identical, any existing mapping is removed.
 
 TODO: Give option for what to when <old-commit> == <new-commit>: any existing mapping is removed, or
 just update it normally.
 
 Options:
   -q, --quiet      Suppress non-error output
-  -v, --verbose    Show detailed before/after log lines
+  -v, --verbose    Show before/after mapping lines
   -h, --help       Show this help message
-EOF
+End
   exit 1
 }
 
@@ -41,59 +41,55 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Expect args
 if (( $# != 3 )); then
   usage
 fi
 
 mapping_file=$1
-old_commit=$(git rev-parse --verify "$2"^{commit})
-new_commit=$(git rev-parse --verify "$3"^{commit})
+old_input=$2
+new_input=$3
 
-debug_find_pattern="^$old_commit\\s+[0-9a-f]+(\\s*#.*)?$"
+# Expand commits
+old_full=$(git rev-parse --verify "$old_input"^{commit})
+new_full=$(git rev-parse --verify "$new_input"^{commit})
+old_short=$(git rev-parse --short "$old_full")
+new_short=$(git rev-parse --short "$new_full")
 
-# If mapping file doesn't exist, just append new mapping (no comment)
+# Regex to match a mapping line by old commit (short or full)
+pattern="^($old_full|$old_short)\\s+[0-9a-f]+(\\s*#.*)?$"
+
+# Create file if missing
 if [[ ! -f "$mapping_file" ]]; then
-  echo "$old_commit $new_commit" >> "$mapping_file"
-  $quiet || echo "✅ Added mapping: $old_commit → $new_commit"
+  echo "$old_full $new_full" >> "$mapping_file"
+  $quiet || echo "✅ Added mapping: $old_full → $new_full"
   exit 0
 fi
 
-# Verify old_commit is present (ignoring trailing comments)
-if ! grep -qE "$debug_find_pattern" "$mapping_file"; then
-  echo "❌ Could not find mapping for $old_commit in $mapping_file" >&2
+# Verify old exists
+if ! grep -qE "$pattern" "$mapping_file"; then
+  echo "❌ Could not find mapping for $old_input in $mapping_file" >&2
   exit 1
 fi
 
-# Handle no-op rewrite (old == new): remove existing line
-if [[ "$old_commit" == "$new_commit" ]]; then
-  tmp_file="${mapping_file}.tmp"
-  grep -vE "$debug_find_pattern" "$mapping_file" > "$tmp_file"
-  mv "$tmp_file" "$mapping_file"
-  if ! $quiet; then
-    echo "⚠️  Removed no-op mapping for $old_commit"
-  fi
-  if $verbose; then
-    echo "⊘ $old_commit"
-  fi
+# No-op rewrite: remove line
+if [[ "$old_full" == "$new_full" ]]; then
+  tmp=$(mktemp)
+  grep -vE "$pattern" "$mapping_file" > "$tmp"
+  mv "$tmp" "$mapping_file"
+  $quiet || echo "⚠️  Removed mapping for $old_full"
+  $verbose && echo "⊘ $old_full"
   exit 0
 fi
 
-# Otherwise update existing mapping: strip any trailing comment
-if $verbose; then
-  before_line=$(grep -E "$debug_find_pattern" "$mapping_file")
-  echo "Before: $before_line"
-fi
+# Update mapping: remove any trailing comment
+$verbose && echo "Before: $(grep -E "$pattern" "$mapping_file" || true)"
 
-# Use sed to replace mapping and drop any comment
 sed -i.bak -E \
-  "s#$debug_find_pattern#$old_commit $new_commit#" \
+  "s#$pattern#$old_full $new_full#" \
   "$mapping_file"
 
-if ! $quiet; then
-  echo "✅ Updated mapping: $old_commit → $new_commit"
-fi
+$quiet || echo "✅ Updated mapping: $old_full → $new_full"
+$verbose && echo "After : $(grep -E "^$old_full\\s+$new_full$" "$mapping_file" || true)"
 
-if $verbose; then
-  after_line="$(grep -E "^$old_commit\\s+$new_commit$" "$mapping_file")"
-  echo "After : $after_line"
-fi
+exit 0
