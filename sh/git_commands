@@ -320,7 +320,7 @@ function  gllrf() {
 }
 
 alias   gwc='git whatchanged'
-alias   glfull='git log --color --format=fuller'
+alias   glfull='git log --color --format=fuller --show-notes'
 
 alias gfileschangedinsamecommitsas='gl --pretty=format:"%h" ./app/views/partials/_transfer_report.html.erb | xargs1 git log -1 --name-status {}'
 
@@ -336,6 +336,7 @@ alias  glsnc='git log --no-color --graph --pretty=format:"%h %ai %an%d %s"'  # n
 # Converted these to aliases in ~/.gitconfig
 #converted to log-oneline-nograph: alias  glsnograph='git log --color --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s"'
 alias   gls='git log-oneline-graph'
+alias  glsn='git log-oneline-notes-graph'
 alias glsnw='git log-oneline-graph --no-walk'
 #alias  glsr='git log --color         --pretty=format:"%Cred%h %Cgreen%ai %Cblue%an %Creset- %s" --reverse'    # git log short reverse
 function gls-from-merge-base() {
@@ -369,8 +370,10 @@ function    git-diff-commits() {
   b=$1; shift
   glfull -1 $a
   glfull -1 $b
-  # Compare patch
-  diff --color "$@" <(glp -1 --no-color $a) <(glp -1 --no-color $b)
+  # Compare patch and metadata
+  #diff --color "$@" <(glp -1 --no-color $a) <(glp -1 --no-color $b)
+  diff --color "$@" <(git log -1 --format=fuller --show-notes --no-color $a) \
+                    <(git log -1 --format=fuller --show-notes --no-color $b)
   echo
   echo 'Or, only diffing addition lines:'
   diff --color "$@" <(glp -1 --no-color $a | grep '^+') <(glp -1 --no-color $b | grep '^+')
