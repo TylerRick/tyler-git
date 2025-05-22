@@ -2,11 +2,20 @@
 
 # Normally you cannot combine --graph and --reverse for git log.
 # This is a workaround for that limitation.
+# It simply takes the normal "forward" log and then reverses the lines, and changes the direction of
+# the arrows.
 
 # Examples:
 #   # Add a horizontal line after each "Merge" commit to make it easier to spot them.
 #   git-log-oneline-graph-reverse $rev | git-log-highlight-merges-after | less
 
 
-{ git log-oneline-graph "$@" | git-graph-tac; } \
+{
+  {
+    git log-oneline-graph "$@"
+    echo # Otherwise there's no trailing in our input stream.
+  } \
+      | git-graph-tac;
+} \
   | ( [ -t 1 ] && exec less -R || cat )
+  # Apply pager if stdin connected to terminal
