@@ -996,7 +996,9 @@ alias gcifrb='git-commit-fixup-rebase'
 # Note: you'll have to manually delete the # commentary that git-commit adds to the bottom of your commit message by default
 alias gciwithhashchars='git commit --cleanup=whitespace'
 
-alias  gcie="git commit --allow-empty-message -m ''"
+alias  gci.="git commit --allow-empty -m '.'"
+alias  gcie="git commit --allow-empty -m '.'"
+alias  gci-empty-message="git commit --allow-empty-message -m ''"
 alias  gcia='git commit --allow-empty --amend'   # (can be used with paths, that is, specify which paths to (only) include in the new, amended commit)
 alias  gcioh='gci -c ORIG_HEAD'    # useful when you 'edit' a commit with git rebase -i, commit some of the patches as new commits, and want to commit the rest as the "original commit"
 alias  gca='git commit -a -v'   # (can't be used with paths, but that's not a problem because you don't need the -a flag when you specify paths -- git commit will automatically add/stage any unstaged changes made to those paths)
