@@ -79,9 +79,11 @@ End
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
 verbose=false
+output_rev_parse_options=
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)         print_usage;;
+    --short)  output_rev_parse_options='--short'; shift;;
     --verbose)           verbose=true; shift ;;
     -*)                  echo "Unknown option $1" >&2; exit 1 ;;
     *) break ;;
@@ -119,23 +121,24 @@ fi
 # Extract the commit hash (2nd word in line)
 # A more strict regex would be [0-9a-f]{7,40}
 if [[ $line =~ ^(m|merge)\ -C\ ([0-9a-f]+) ]]; then
-  original_commit=${BASH_REMATCH[2]}
-  $verbose && echo >&2 "🔁 Found original merge commit: $original_commit"
+  commit=${BASH_REMATCH[2]}
+  commit_type=merge
 #elif [[ $line =~ ^(m|merge)\  ]]; then
 #  echo >&2 "Could not extract original commit id from line: $line"
 #  exit
 elif [[ $line =~ ^(p|pick|e|edit|r|reword)\ ([0-9a-f]+) ]]; then
-  original_commit=${BASH_REMATCH[2]}
-  $verbose && echo >&2 "🔁 Found original commit: $original_commit"
+  commit=${BASH_REMATCH[2]}
+  commit_type=
 else
   echo >&2 "❌ Could not extract previous commit from line: $line"
   exit 1
 fi
 
-# Make sure the commit object exists and output the result
-if git cat-file -e "$original_commit"^{commit} 2>/dev/null; then
-  echo "$original_commit"
-else
+# Make sure the commit object exists
+if ! git cat-file -e "$commit"^{commit} 2>/dev/null; then
   echo >&2 "❌ Extracted commit ID is not valid: $original_commit"
   exit 1
 fi
+
+$verbose && echo >&2 "🔁 Found original $commit_type commit: $commit"
+git rev-parse $output_rev_parse_options $commit
