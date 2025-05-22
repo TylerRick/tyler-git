@@ -11,6 +11,9 @@ Usage: $(basename "$0")
 Replaces the message of the current merge commit (HEAD) with a detailed summary of merged commits
 
 Options:
+  --no-message
+    Don't modify the commit message with a new one we construct here.
+
   --copy-dates (the default, currently)
 
     If --copy-dates is provided, then it additionally copies author/committer date from parent2
@@ -37,10 +40,12 @@ End
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
 copy_dates=true
+modify_message=true
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)         usage;;
     --copy-dates)        copy_dates=true; shift ;;
+    --no-message)        modify_message=false; shift ;;
     --no-copy-dates)     copy_dates=false; shift ;;
     -*)                  echo "Unknown option $1" >&2; exit 1 ;;
     *) break ;;
@@ -80,32 +85,36 @@ branch2=common
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
-# Format commit summary
-if [ -n "$merged_commits" ]; then
-  #summary=$(echo "$merged_commits" | sed 's/^/  /')
-  summary=$(echo "$merged_commits" | sed 's/^/- /')
-else
-  summary="  (No non-merge commits)"
-fi
+message_opts=()
+if $modify_message; then
+  # Format commit summary
+  if [ -n "$merged_commits" ]; then
+    #summary=$(echo "$merged_commits" | sed 's/^/  /')
+    summary=$(echo "$merged_commits" | sed 's/^/- /')
+  else
+    summary="  (No non-merge commits)"
+  fi
 
-# Construct the new commit message
-# Other variations to consider:
-#   Merge branch '$branch2' into $branch1
-# but in the context of a rebase, $branch1 may not even have a useful ref/label attached, so it
-# might just be set to a rev like ae93458.
+  # Construct the new commit message
+  # Other variations to consider:
+  #   Merge branch '$branch2' into $branch1
+  # but in the context of a rebase, $branch1 may not even have a useful ref/label attached, so it
+  # might just be set to a rev like ae93458.
 
-#message=$(cat <<End
-#Merge from '$branch2':
-#
-#* $branch2:
-#$summary
-#End
+  #message=$(cat <<End
+  #Merge from '$branch2':
+  #
+  #* $branch2:
+  #$summary
+  #End
 
-message=$(cat <<End
+  message=$(cat <<-End
 Merge from $branch2:
 $summary
 End
-)
+  )
+  message_opts=(-m "$message")
+fi
 
 if $copy_dates; then
   orig_vars="$(git-commit-metadata-vars $from_parent)"
@@ -115,4 +124,5 @@ if $copy_dates; then
 fi
 
 # Amend the commit
-git commit --allow-empty --amend --no-edit --no-verify --reset-author -m "$message"
+#set -x
+git commit --allow-empty --amend --no-edit --no-verify --reset-author "${message_opts[@]}"
