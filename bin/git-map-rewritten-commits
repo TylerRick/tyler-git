@@ -88,24 +88,26 @@ while read -r orig_sha; do
     short_match=$(git rev-parse --short "$match_sha" 2>/dev/null || echo "$match_sha")
   }
 
-  # pad method to 8 chars
+  # build comment part
+  comment=""
   if (( show_method )); then
     if [[ "$method" == "patch-id" ]]; then
-      method_pad="patch-id"
+      comment="patch-id"
     else
-      method_pad="title   "
+      comment="title   "
     fi
-    output="$short_orig $short_match $method_pad"
-  else
-    output="$short_orig $short_match"
   fi
-
-  # append pretty log if requested
   if (( pretty )); then
     logline=$(git log -n1 --oneline "$match_sha" 2>/dev/null || echo "[no match]")
-    output+=" $logline"
+    comment="${comment:+$comment }$logline"
   fi
 
-  echo "$output"
+  # emit
+  if [[ -n "$comment" ]]; then
+    echo "$short_orig $short_match # $comment"
+  else
+    echo "$short_orig $short_match"
+  fi
+
 done <<< "$orig_commits"
 
