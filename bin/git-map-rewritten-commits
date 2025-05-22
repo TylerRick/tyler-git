@@ -57,11 +57,6 @@ done <<< "$rewritten_commits"
 
 # Match originals
 while read -r orig_sha; do
-  # skip merges
-  if [ "$(git rev-list --parents -n1 "$orig_sha" | wc -w)" -gt 2 ]; then
-    echo "$orig_sha ? merge-commit"
-    continue
-  fi
 
   patchid=$(git diff-tree -p "$orig_sha" | git patch-id --stable 2>/dev/null | cut -d' ' -f1 || true)
   title=$(git log -n1 --pretty=format:%s "$orig_sha")
@@ -98,7 +93,7 @@ while read -r orig_sha; do
     fi
   fi
   if (( pretty )); then
-    logline=$(git log -n1 --oneline "$match_sha" 2>/dev/null || echo "[no match]")
+    logline=$(git log -n1 --oneline "$match_sha" 2>/dev/null || echo "[no match for:] $(git log -n1 --oneline "$orig_sha")")
     comment="${comment:+$comment }$logline"
   fi
 
