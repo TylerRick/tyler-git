@@ -1,57 +1,122 @@
 #!/bin/bash
 set -euo pipefail
 
-if [ $# -ne 2 ]; then
-  echo "Usage: $0 <original-branch> <rewritten-branch>" >&2
+# Options
+short=0
+show_method=0
+pretty=0
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --short)
+      short=1
+      shift
+      ;;
+    --show-match-method)
+      show_method=1
+      shift
+      ;;
+    --pretty)
+      pretty=1
+      shift
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      exit 1
+      ;;
+    *)
+      if [[ -z "${orig_branch:-}" ]]; then
+        orig_branch="$1"
+      elif [[ -z "${rewritten_branch:-}" ]]; then
+        rewritten_branch="$1"
+      else
+        echo "Unexpected argument: $1" >&2
+        exit 1
+      fi
+      shift
+      ;;
+  esac
+done
+
+if [[ -z "${orig_branch:-}" || -z "${rewritten_branch:-}" ]]; then
+  echo "Usage: $0 [--short] [--show-match-method] [--pretty] <original-branch> <rewritten-branch>" >&2
   exit 1
 fi
 
-orig_branch=$1
-rewritten_branch=$2
-
-# Gather commit SHAs
+# Get commit SHAs in oldest-to-newest order
 orig_commits=$(git rev-list --reverse "$orig_branch")
-rewritten_commits=$(git rev-list "$rewritten_branch")
+rewritten_commits=$(git rev-list --reverse "$rewritten_branch")
 
+# Declare storage
 declare -A rewritten_by_patchid
-declare -A rewritten_by_title
+declare -A rewritten_title_counters
+declare -A rewritten_titles
 
-# Build lookup maps for rewritten branch
+# Process rewritten commits
 while read -r sha; do
-  # Ignore merge commits (patch-id doesn't work for them)
+  # Skip merge commits
   if [ "$(git rev-list --parents -n 1 "$sha" | wc -w)" -gt 2 ]; then
     continue
   fi
 
-  patch_output=$(git show "$sha" | git patch-id --stable || true)
+  patch_output=$(git show "$sha" | git patch-id --stable 2>/dev/null || true)
   patchid=$(echo "$patch_output" | cut -d' ' -f1)
+  title=$(git log -n1 --pretty=format:%s "$sha")
 
   if [ -n "$patchid" ]; then
     rewritten_by_patchid["$patchid"]=$sha
   fi
 
-  title=$(git log -n1 --pretty=format:%s "$sha")
-  rewritten_by_title["$title"]=$sha
+  rewritten_titles["$title"]+="$sha "
 done <<< "$rewritten_commits"
 
-# Match each original commit
+# Match commits from original
 while read -r orig_sha; do
   if [ "$(git rev-list --parents -n 1 "$orig_sha" | wc -w)" -gt 2 ]; then
-    # Skip merge commits; add custom logic if desired
-    echo "$orig_sha ?"  # optional: mark as skipped
+    echo "$orig_sha ? merge-commit"
     continue
   fi
 
-  patch_output=$(git show "$orig_sha" | git patch-id --stable || true)
-  patchid=$(echo "$patch_output" | cut -d' ' -f1)
+  patchid=$(git show "$orig_sha" | git patch-id --stable 2>/dev/null | cut -d' ' -f1 || true)
   title=$(git log -n1 --pretty=format:%s "$orig_sha")
 
+  match_sha=""
+  method=""
+
   if [[ -n "$patchid" && -n "${rewritten_by_patchid[$patchid]:-}" ]]; then
-    echo "$orig_sha ${rewritten_by_patchid[$patchid]}"
-  elif [[ -n "${rewritten_by_title[$title]:-}" ]]; then
-    echo "$orig_sha ${rewritten_by_title[$title]}"
+    match_sha="${rewritten_by_patchid[$patchid]}"
+    method="patch-id"
+  elif [[ -n "${rewritten_titles[$title]:-}" ]]; then
+    IFS=' ' read -r -a candidates <<< "${rewritten_titles[$title]}"
+    idx=${rewritten_title_counters["$title"]:-0}
+    if [[ $idx -lt ${#candidates[@]} ]]; then
+      match_sha="${candidates[$idx]}"
+      rewritten_title_counters["$title"]=$((idx + 1))
+      method="title"
+    fi
+  fi
+
+  short_orig=$orig_sha
+  short_match=$match_sha
+  if [[ $short -eq 1 ]]; then
+    short_orig=$(git rev-parse --short "$orig_sha" 2>/dev/null || echo "$orig_sha")
+    short_match=$(git rev-parse --short "$match_sha" 2>/dev/null || echo "$match_sha")
+  fi
+
+  if [[ -n "$match_sha" ]]; then
+    output="$short_orig $short_match"
+    [[ $show_method -eq 1 ]] && output+=" $method"
+    if [[ $pretty -eq 1 ]]; then
+      logline=$(git log -n1 --oneline "$match_sha" 2>/dev/null || true)
+      output+=" $logline"
+    fi
+    echo "$output"
   else
-    echo "$orig_sha ?"
+    output="$short_orig ?"
+    [[ $show_method -eq 1 ]] && output+=" none"
+    [[ $pretty -eq 1 ]] && output+=" [no match]"
+    echo "$output"
   fi
 done <<< "$orig_commits"
 
