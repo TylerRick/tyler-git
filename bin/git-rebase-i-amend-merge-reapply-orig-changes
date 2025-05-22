@@ -59,7 +59,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "${1-}" ] && [ -d .git/rebase-merge ]; then
-  source_commit_input=$(git-rebase-i-get-orig-commit)
+  source_commit_input=$(git-rebase-i-get-copy-source-commit)
 else
   source_commit_input=${1-}
 fi

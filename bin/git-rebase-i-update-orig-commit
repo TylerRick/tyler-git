@@ -20,7 +20,7 @@ to record the newly rewritten commit and associate it with its original commit i
 
 Example:
   git rebase -i --exec 'git commit -amend; new_commit=
-    copy-something-from-orig-commit \$(git-rebase-i-get-orig-commit)' onto-commit
+    copy-something-from-orig-commit \$(git-rebase-i-get-copy-source-commit)' onto-commit
 
 Context:
 

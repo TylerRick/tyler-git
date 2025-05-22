@@ -43,7 +43,7 @@ done
 if [ -z "${1-}" ] && [ -d .git/rebase-merge ]; then
   # This is expected to fail for custom merge commands that don't have a -C <orig_commit> line, for example
   # It is required for git-rebase-i-amend-merge-reapply-orig-changes, but not for git-rebase-i-amend-merge-add-details
-  source_commit_input=$(git-rebase-i-get-orig-commit 2>/dev/null || true)
+  source_commit_input=$(git-rebase-i-get-copy-source-commit 2>/dev/null || true)
 else
   source_commit_input=${1-}
 fi

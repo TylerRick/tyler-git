@@ -29,7 +29,7 @@ Downsides: You have to insert this after every pick line (+ fixups, if any) usin
 which makes the rebase command sequence messier.
 
 If it detects this is being run inside a rebase, it will default the source commit to
-\$(git-rebase-i-get-orig-commit).
+\$(git-rebase-i-get-copy-source-commit).
 
 Example:
   git rebase -i --exec 'git-commit-amend-copy'
@@ -62,7 +62,8 @@ done
 # Copy commiter from commiter of other commit
 
 if [ -z "${1-}" ] && [ -d .git/rebase-merge ]; then
-  source_commit_input=$(git-rebase-i-get-orig-commit)
+  source_commit_input=$(git-rebase-i-get-copy-source-commit)
+
 else
   source_commit_input=${1-}
 fi
@@ -86,7 +87,7 @@ if [[ $source_short = $head_short ]]; then
   : # No-op
 else
   echo "ℹ️ Copying committer and notes from commit $source_short → $head_short"
-  #set -x
+  set -x
   git-commit-amend-copy-committer $source_commit >/dev/null
   git-notes-copy-all "${notes_copy_opts-}" $source_commit $head_short >/dev/null
 fi

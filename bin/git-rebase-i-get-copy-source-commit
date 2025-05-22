@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+print_usage() {
+  cat - <<End >&2
+Usage: $(basename "$0")
+
+Gets the default commit that we should copy from, for use in many scripts such as
+git-commit-amend-copy-committer.
+
+By default, gets the rebase-local-original commit via git-rebase-i-get-orig-commit.
+
+If GIT_COPY_SOURCE_COMMIT_MAP is optionally set, looks up the very-original commit from that
+local-original commit, and returns that instead.
+
+See also: git-rebase-i-get-orig-commit
+End
+  exit
+}
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+verbose=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)         print_usage;;
+    --verbose)           verbose=true; shift ;;
+    -*)                  echo "Unknown option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+# This is the normal/default behavior.
+local_orig_commit=$(git-rebase-i-get-orig-commit)
+
+# But you can override it if you need to temporarily override and run that local-original commit
+# through a specific commit map to get a very-original commit id.
+#
+# If your current branch is already rewritten relative to your very-original branch, then the commit
+# reported by git-rebase-i-get-orig-commit (which gets it from the pick line, which has the
+# already-rewritten commit id) is _not_ the original commit id from your very-original
+# branch. In such a case, if you've messed something up and lost some detail from your very-original
+# branch (which you _should_ have preserved as par of your previous rebase, but you didn't), then
+# you can run your local-original commit id through your very-original-to-local-original map file to
+# look up the very-original commit from that local-original commit.
+# With that, you can now copy over some things from the commits in the pre-written (very-original)
+# branch.
+if [ -n "${GIT_COPY_SOURCE_COMMIT_MAP-}" ]; then
+  original_commit=$(git-commit-map-get --old ${GIT_COPY_SOURCE_COMMIT_MAP-} $local_orig_commit)
+  $verbose && echo >&2 "🔁 Found original commit $original_commit for $local_orig_commit"
+  echo "$original_commit"
+else
+  echo "$local_orig_commit"
+fi
+
