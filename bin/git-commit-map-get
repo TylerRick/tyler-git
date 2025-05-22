@@ -38,7 +38,7 @@ fi
 mapping_file=$1
 input=$2
 
-# Expand input commit
+# Expand input commit to full + short
 input_full=$(git rev-parse --verify "$input"^{commit})
 input_short=$(git rev-parse --short "$input_full")
 
@@ -49,26 +49,24 @@ fi
 
 case "$mode" in
   old)
-    # find line where second column matches input
-    regex="^[0-9a-f]+\\s+(?:$input_full|$input_short)(\\s*#.*)?$"
+    # match where second field is the given commit
+    regex="^([0-9a-f]+)[[:space:]]+($input_full|$input_short)([[:space:]]|#|$)"
     line=$(grep -E "$regex" "$mapping_file" | head -n1 || true)
     if [[ -z "$line" ]]; then
       echo "❌ No mapping for new-commit $input" >&2
       exit 1
     fi
-    # extract first token
     echo "$line" | awk '{print $1}'
     ;;
 
   new)
-    # find line where first column matches input
-    regex="^(?:$input_full|$input_short)\\s+[0-9a-f]+(\\s*#.*)?$"
+    # match where first field is the given commit
+    regex="^($input_full|$input_short)[[:space:]]+([0-9a-f]+)"
     line=$(grep -E "$regex" "$mapping_file" | head -n1 || true)
     if [[ -z "$line" ]]; then
       echo "❌ No mapping for old-commit $input" >&2
       exit 1
     fi
-    # extract second token
     echo "$line" | awk '{print $2}'
     ;;
 
