@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+format_pick_line() {
+  local line=$1
+  if [[ $line =~ ^pick\ ([0-9a-f]+) ]]; then
+    local rev=${BASH_REMATCH[1]}
+  else
+    echo >&2 "pick command not in expected format!"
+    exit 1
+  fi
+
+  local specificity=$(git-get-commit-specificity $rev)
+
+  # Escape slashes and special characters if needed
+  local escaped=$(printf '%s\n' "$specificity" | sed 's/[&/\]/\\&/g')
+  echo "$line" | sed "s/%N/$escaped/"
+}
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+todo_file="$1"
+tmp_file="$(mktemp)"
+cp "$tmp_file" "$todo_file.orig"
+
+while IFS= read -r line; do
+  case "$line" in
+    pick*)
+      format_pick_line "$line"
+      ;;
+    *)
+      echo "$line"
+      ;;
+  esac
+done <"$todo_file" >"$tmp_file"
+mv "$tmp_file" "$todo_file"
+
+# Now open the modified to-do list in the real editor for review
+editor="${VISUAL:-${EDITOR:-vim}}"
+exec "$editor" "$todo_file"
