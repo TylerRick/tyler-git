@@ -85,8 +85,12 @@ fi
 # Update mapping: remove any trailing comment
 $verbose && echo "Before: $(grep -E "$pattern" "$mapping_file" || true)"
 
+# Match and replace any line starting with old_short or old_full
+escaped_old=$(printf "%s" "$old_short" | sed 's/[.[\*^$]/\\&/g')
+escaped_old_full=$(printf "%s" "$old_full" | sed 's/[.[\*^$]/\\&/g')
+
 sed -i.bak -E \
-  "s#$pattern#$old_full $new_full#" \
+  "s/^($escaped_old|$escaped_old_full)[[:space:]]+[0-9a-f]+.*/$old_full $new_full/" \
   "$mapping_file"
 
 $quiet || echo "✅ Updated mapping: $old_full → $new_full"
