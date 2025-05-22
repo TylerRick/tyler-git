@@ -13,6 +13,9 @@ Updates the rewritten-commit mapping in <mapping-file> by replacing the entry fo
 with <new-commit>. If <mapping-file> does not exist, it is created with a single mapping.
 If <old-commit> == <new-commit>, any existing mapping is removed.
 
+Supports mapping files with optional trailing comments ("# ...").  When
+updating, any existing comment on the line is removed.
+
 TODO: Give option for what to when <old-commit> == <new-commit>: any existing mapping is removed, or
 just update it normally.
 
@@ -46,40 +49,51 @@ mapping_file=$1
 old_commit=$(git rev-parse --verify "$2"^{commit})
 new_commit=$(git rev-parse --verify "$3"^{commit})
 
-# Ensure directory exists if creating file
+debug_find_pattern="^$old_commit\\s+[0-9a-f]+(\\s*#.*)?$"
+
+# If mapping file doesn't exist, just append new mapping (no comment)
 if [[ ! -f "$mapping_file" ]]; then
   echo "$old_commit $new_commit" >> "$mapping_file"
   $quiet || echo "✅ Added mapping: $old_commit → $new_commit"
   exit 0
 fi
 
-# File exists: find entry
-if ! grep -qE "^$old_commit\s+" "$mapping_file"; then
-  echo "❌ Could not find $old_commit in $mapping_file" >&2
+# Verify old_commit is present (ignoring trailing comments)
+if ! grep -qE "$debug_find_pattern" "$mapping_file"; then
+  echo "❌ Could not find mapping for $old_commit in $mapping_file" >&2
   exit 1
 fi
 
-# Remove or update
+# Handle no-op rewrite (old == new): remove existing line
 if [[ "$old_commit" == "$new_commit" ]]; then
-  # Remove redundant mapping
-  tmp="${mapping_file}.tmp"
-  grep -vE "^$old_commit\s+" "$mapping_file" > "$tmp"
-  mv "$tmp" "$mapping_file"
+  tmp_file="${mapping_file}.tmp"
+  grep -vE "$debug_find_pattern" "$mapping_file" > "$tmp_file"
+  mv "$tmp_file" "$mapping_file"
   if ! $quiet; then
-    echo "⚠️  Removed mapping for $old_commit (no-op rewrite)"
+    echo "⚠️  Removed no-op mapping for $old_commit"
   fi
   if $verbose; then
     echo "⊘ $old_commit"
   fi
-else
-  # Update existing mapping
-  old_line=$(grep -E "^$old_commit\s+" "$mapping_file")
-  sed -i.bak "s#^$old_commit\s\+.*#$old_commit $new_commit#" "$mapping_file"
-  $quiet || echo "✅ Updated mapping: $old_commit → $new_commit"
-  if $verbose; then
-    echo "Before: $old_line"
-    echo "After : $old_commit $new_commit"
-  fi
+  exit 0
 fi
 
+# Otherwise update existing mapping: strip any trailing comment
+if $verbose; then
+  before_line=$(grep -E "$debug_find_pattern" "$mapping_file")
+  echo "Before: $before_line"
+fi
 
+# Use sed to replace mapping and drop any comment
+sed -i.bak -E \
+  "s#$debug_find_pattern#$old_commit $new_commit#" \
+  "$mapping_file"
+
+if ! $quiet; then
+  echo "✅ Updated mapping: $old_commit → $new_commit"
+fi
+
+if $verbose; then
+  after_line="$(grep -E "^$old_commit\\s+$new_commit$" "$mapping_file")"
+  echo "After : $after_line"
+fi
