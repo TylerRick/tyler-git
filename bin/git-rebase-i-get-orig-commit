@@ -59,17 +59,19 @@ Why does it ignore fixup/squash commands?
 
 Examples:
 
-  git rebase -i --exec 'git-rebase-i-update-orig-commit \$(git-rebase-i-get-orig-commit) HEAD'
+  git rebase -i --exec 'git-rebase-i-update-orig-commit \$(git-rebase-i-get-copy-source-commit) HEAD'
 
-  git rebase -i --exec 'copy-something-else-from-orig-commit-to-new-commit \$(git-rebase-i-get-orig-commit) HEAD'
+  git rebase -i --exec 'copy-something-else-from-orig-commit-to-new-commit \$(git-rebase-i-get-copy-source-commit) HEAD'
 
   # You don't actually need to pass this to any of the commands in the following examples, since
   # they automatically uses exactly internally that if no commit is provided. But some commands may
   # not do that.
 
-  git rebase -i --exec 'git-rebase-i-amend-merge-reapply-orig-changes \$(git-rebase-i-get-orig-commit)'
+  git rebase -i --exec 'git-rebase-i-amend-merge-reapply-orig-changes \$(git-rebase-i-get-copy-source-commit)'
 
-  git rebase -i --exec 'git-commit-amend-copy-committer \$(git-rebase-i-get-orig-commit)'
+  git rebase -i --exec 'git-commit-amend-copy-committer \$(git-rebase-i-get-copy-source-commit)'
+
+See also: git-rebase-i-get-copy-source-commit
 End
   exit
 }
@@ -88,7 +90,7 @@ done
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
-done_file="${GIT_DIR:-.git}/rebase-merge/done"
+done_file=.git/rebase-merge/done
 
 if [ ! -d .git/rebase-merge ]; then
   echo >&2 "❌ Not inside an interactive rebase with merge backend."

@@ -289,7 +289,7 @@ else
     # This is a convenience in case we're using this directly in a rebase, like
     #  git rebase -i --root --exec 'git-split-commit-by-specificity'
     # Otherwise, the user would have to also add git-commit-amend-copy-committer to the --exec list.
-    git-commit-amend-copy-committer $(git-rebase-i-get-orig-commit)
+    git-commit-amend-copy-committer $(git-rebase-i-get-copy-source-commit)
 
     set_split_commit_status -m "done" HEAD
   fi
