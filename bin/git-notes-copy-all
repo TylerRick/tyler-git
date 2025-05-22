@@ -20,6 +20,9 @@ Options:
 
   --map-file <file>
     - Read <old> <new> commit pairs from file instead of positional args
+
+Future enhancement ideas:
+  - Use notes merge instead of copy and allow passing merge strategy
 End
   exit 1
 }
@@ -118,9 +121,8 @@ copy_notes() {
 
   for ref in "${matching_refs[@]}"; do
     if git notes --ref="$ref" show "$old" > /dev/null 2>&1; then
-      # TODO: use merge instead of copy and allow passing merge strategy
       # Silence Overwriting existing notes for object errors when using -f
-      git notes --ref="$ref" copy "${notes_copy_opts-}" "$old" "$new" 2>/dev/null
+      git notes --ref="$ref" copy ${notes_copy_opts-} "$old" "$new" 2>/dev/null
 
       if [[ "$any_copied" = false ]]; then
         echo "📤 Copied notes from commit $old_short → $new_short:"
@@ -150,6 +152,7 @@ if [[ -n "$map_file" ]]; then
     copy_notes "$old" "$new"
   done < "$map_file"
 else
+  #set -x
   copy_notes "$old_commit" "$new_commit"
 fi
 
