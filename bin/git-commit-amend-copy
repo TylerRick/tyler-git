@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"' err
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
