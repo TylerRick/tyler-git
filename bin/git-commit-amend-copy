@@ -8,10 +8,10 @@ trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"' err
 usage() {
   cat - <<End >&2
 Usage:
-  $(basename "$0") <orig-commit>
+  $(basename "$0") <source-commit>
     Copy some details from other commit
 
-Amends the tip commit, copying from orig-commit:
+Amends the tip commit, copying from source-commit:
 - the author/committer details
 - the notes
 
@@ -31,6 +31,15 @@ which makes the rebase command sequence messier.
 If it detects this is being run inside a rebase, it will default the source commit to
 \$(git-rebase-i-get-copy-source-commit).
 
+Options:
+  --fall-back-to-rebase-orig-commit
+    If using GIT_COPY_SOURCE_COMMIT_MAP, this permits it to fall back to using
+    git-rebase-i-get-orig-commit if it can't find a mapping, rather than exit with an error.
+
+  --copy-notes-from-rebase-orig-commit
+    Copy notes from git-rebase-i-get-orig-commit even if using GIT_COPY_SOURCE_COMMIT_MAP for
+    git-commit-amend-copy-committer.
+
 Example:
   git rebase -i --exec 'git-commit-amend-copy'
 
@@ -42,12 +51,20 @@ End
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 # Parse options
 
+fall_back_to_rebase_orig_commit=false
+copy_notes_from_rebase_orig_commit=false
 notes_copy_opts="-f"
 
 # TODO: pass other opts through to git-commit-amend-copy-committer
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)      usage;;
+    --fall-back-to-rebase-orig-commit)
+      fall_back_to_rebase_orig_commit=true
+      shift ;;
+    --copy-notes-from-rebase-orig-commit)
+      copy_notes_from_rebase_orig_commit=true
+      shift ;;
     --no-force)     
       notes_copy_opts=""
       shift ;;
@@ -62,14 +79,26 @@ done
 # Copy commiter from commiter of other commit
 
 if [ -z "${1-}" ] && [ -d .git/rebase-merge ]; then
-  source_commit_input=$(git-rebase-i-get-copy-source-commit)
+  #2>/dev/null
+  source_commit_input=$(
+    git-rebase-i-get-copy-source-commit ||
+      if $fall_back_to_rebase_orig_commit; then
+        echo >&2 "⚠️ Warning: Falling back to git-rebase-i-get-orig-commit"
+        git-rebase-i-get-orig-commit
+      else
+        true
+      fi
+  )
 
 else
   source_commit_input=${1-}
 fi
 
 if [ -z "$source_commit_input" ]; then
-  usage
+  # TODO: add --skip-if-no-input option?
+  exit 0
+  echo >&2 "Missing <source-commit>!"
+  exit 1
 fi
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -89,6 +118,12 @@ else
   #set -x
   git-commit-amend-copy-committer $source_commit >/dev/null
   { set +x; } 2>/dev/null
+
+  if $copy_notes_from_rebase_orig_commit; then
+    source_commit_input=$(git-rebase-i-get-orig-commit)
+    source_commit=$(git rev-parse --verify "$source_commit_input"^{commit})
+    source_short=$(git rev-parse --short $source_commit)
+  fi
 
   head_short=$(git rev-parse --short HEAD)
   echo "ℹ️ Copying notes     from commit $source_short → $head_short"

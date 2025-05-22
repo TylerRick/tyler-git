@@ -66,11 +66,24 @@ merged_commits=$(git log --format='%s' --no-merges "${into_parent}..${from_paren
 branch1=$(git-name-rev-prefer-branch "$into_parent" 2>/dev/null | sed 's#rewritten/##' || echo "$into_parent")
 branch2=$(git-name-rev-prefer-branch "$from_parent" 2>/dev/null | sed 's#rewritten/##' || echo "$from_parent")
 
+# When rebasing over a merge with --rebase-merges, generates some ugly default label refs,
+# apparently based on previous merge commit titles, such as
+# N-Merge-common-into-main-2025-05-19-Tyler-Rick-.
+# (See them all with: git for-each-ref --format='%(refname)' refs/rewritten/)
+# Let's fix it and try to change it back to the nice simple branch name that it had previously, such
+# as common in this example.
+branch2=$(echo "$branch2" | sed -E 's|.*/?Merge-||; s|-into.*||')
+# from-common-2024-11-19-Tyler-Rick-:
+branch2=$(echo "$branch2" | sed -E 's|.*/?from-||' | sed -E 's|-[0-9].*||')
+# Just to be safe, for now:
+branch2=common
+
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
 # Format commit summary
 if [ -n "$merged_commits" ]; then
-  summary=$(echo "$merged_commits" | sed 's/^/  /')
+  #summary=$(echo "$merged_commits" | sed 's/^/  /')
+  summary=$(echo "$merged_commits" | sed 's/^/- /')
 else
   summary="  (No non-merge commits)"
 fi
@@ -78,11 +91,18 @@ fi
 # Construct the new commit message
 # Other variations to consider:
 #   Merge branch '$branch2' into $branch1
-# but in the context of a rebase, $branch1 may not even have 
-message=$(cat <<End
-Merge from '$branch2':
+# but in the context of a rebase, $branch1 may not even have a useful ref/label attached, so it
+# might just be set to a rev like ae93458.
 
-* $branch2:
+#message=$(cat <<End
+#Merge from '$branch2':
+#
+#* $branch2:
+#$summary
+#End
+
+message=$(cat <<End
+Merge from $branch2:
 $summary
 End
 )

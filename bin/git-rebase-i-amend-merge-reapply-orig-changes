@@ -109,6 +109,11 @@ fi
 # changes you may have!
 git checkout $source_commit .
 
+# Be silent and exit early if git diff tells us there are no changes
+# If this was run from an exec line, then it should continue to next command if there are no
+# differences and pause the rebase sequence if there are some diffs to review.
+git diff --staged $source_short >/dev/null && exit
+
 echo
 echo "✅ Patch from original merge commit ($source_short) has been reapplied to your index and working tree."
 echo "🔍 Please review changes with: git diff --staged and removed any unwanted changes."
@@ -119,4 +124,4 @@ echo
 
 echo "Here are the differences from the original commit ($source_short) now:"
 set -x
-git diff $source_short || true
+git diff --staged $source_short

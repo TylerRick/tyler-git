@@ -24,6 +24,7 @@ cp "$tmp_file" "$todo_file.orig"
 
 while IFS= read -r line; do
   case "$line" in
+    # TODO: make it work for reset lines too
     pick*)
       format_pick_line "$line"
       ;;

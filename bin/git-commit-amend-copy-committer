@@ -74,7 +74,18 @@ else
   # Copy commiter from commiter of other commit
 
   if [ -d .git/rebase-merge ]; then
-    source_commit_input=$(git-rebase-i-get-copy-source-commit)
+    #source_commit_input=$(git-rebase-i-get-copy-source-commit)
+
+    fall_back_to_rebase_orig_commit=true
+    source_commit_input=$(
+      git-rebase-i-get-copy-source-commit ||
+        if $fall_back_to_rebase_orig_commit; then
+          echo >&2 "⚠️ Warning: Falling back to git-rebase-i-get-orig-commit"
+          git-rebase-i-get-orig-commit
+        else
+          true
+        fi
+    )
   else
     source_commit_input=${1-}
   fi
@@ -82,7 +93,10 @@ else
 fi
 
 if [ -z "$source_commit_input" ]; then
-  usage
+  # TODO: add --skip-if-no-input option?
+  #exit 0
+  echo >&2 "Missing <source-commit>!"
+  exit 1
 fi
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
