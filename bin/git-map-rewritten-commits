@@ -9,18 +9,9 @@ pretty=0
 # Parse arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --short)
-      short=1
-      shift
-      ;;
-    --show-match-method)
-      show_method=1
-      shift
-      ;;
-    --pretty)
-      pretty=1
-      shift
-      ;;
+    --short)               short=1;            shift ;;
+    --show-match-method)   show_method=1;      shift ;;
+    --pretty)              pretty=1;           shift ;;
     -*)
       echo "Unknown option: $1" >&2
       exit 1
@@ -44,79 +35,77 @@ if [[ -z "${orig_branch:-}" || -z "${rewritten_branch:-}" ]]; then
   exit 1
 fi
 
-# Get commit SHAs in oldest-to-newest order
+# Get commits in chronological order
 orig_commits=$(git rev-list --reverse "$orig_branch")
 rewritten_commits=$(git rev-list --reverse "$rewritten_branch")
 
-# Declare storage
 declare -A rewritten_by_patchid
 declare -A rewritten_title_counters
 declare -A rewritten_titles
 
-# Process rewritten commits
+# Index rewritten branch
 while read -r sha; do
-  # Skip merge commits
-  if [ "$(git rev-list --parents -n 1 "$sha" | wc -w)" -gt 2 ]; then
+  # skip merges
+  if [ "$(git rev-list --parents -n1 "$sha" | wc -w)" -gt 2 ]; then
     continue
   fi
-
-  patch_output=$(git show "$sha" | git patch-id --stable 2>/dev/null || true)
-  patchid=$(echo "$patch_output" | cut -d' ' -f1)
+  patchid=$(git diff-tree -p "$sha" | git patch-id --stable 2>/dev/null | cut -d' ' -f1 || true)
   title=$(git log -n1 --pretty=format:%s "$sha")
-
-  if [ -n "$patchid" ]; then
-    rewritten_by_patchid["$patchid"]=$sha
-  fi
-
+  [[ -n "$patchid" ]] && rewritten_by_patchid["$patchid"]=$sha
   rewritten_titles["$title"]+="$sha "
 done <<< "$rewritten_commits"
 
-# Match commits from original
+# Match originals
 while read -r orig_sha; do
-  if [ "$(git rev-list --parents -n 1 "$orig_sha" | wc -w)" -gt 2 ]; then
+  # skip merges
+  if [ "$(git rev-list --parents -n1 "$orig_sha" | wc -w)" -gt 2 ]; then
     echo "$orig_sha ? merge-commit"
     continue
   fi
 
-  patchid=$(git show "$orig_sha" | git patch-id --stable 2>/dev/null | cut -d' ' -f1 || true)
+  patchid=$(git diff-tree -p "$orig_sha" | git patch-id --stable 2>/dev/null | cut -d' ' -f1 || true)
   title=$(git log -n1 --pretty=format:%s "$orig_sha")
 
-  match_sha=""
-  method=""
-
+  match_sha="" method="none"
   if [[ -n "$patchid" && -n "${rewritten_by_patchid[$patchid]:-}" ]]; then
     match_sha="${rewritten_by_patchid[$patchid]}"
     method="patch-id"
   elif [[ -n "${rewritten_titles[$title]:-}" ]]; then
-    IFS=' ' read -r -a candidates <<< "${rewritten_titles[$title]}"
+    IFS=' ' read -r -a cands <<< "${rewritten_titles[$title]}"
     idx=${rewritten_title_counters["$title"]:-0}
-    if [[ $idx -lt ${#candidates[@]} ]]; then
-      match_sha="${candidates[$idx]}"
-      rewritten_title_counters["$title"]=$((idx + 1))
+    if (( idx < ${#cands[@]} )); then
+      match_sha="${cands[$idx]}"
       method="title"
+      rewritten_title_counters["$title"]=$((idx+1))
     fi
   fi
 
+  # apply --short
   short_orig=$orig_sha
   short_match=$match_sha
-  if [[ $short -eq 1 ]]; then
-    short_orig=$(git rev-parse --short "$orig_sha" 2>/dev/null || echo "$orig_sha")
+  (( short )) && {
+    short_orig=$(git rev-parse --short "$orig_sha")
     short_match=$(git rev-parse --short "$match_sha" 2>/dev/null || echo "$match_sha")
+  }
+
+  # pad method to 8 chars
+  if (( show_method )); then
+    if [[ "$method" == "patch-id" ]]; then
+      method_pad="patch-id"
+    else
+      method_pad="title   "
+    fi
+    output="$short_orig $short_match $method_pad"
+  else
+    output="$short_orig $short_match"
   fi
 
-  if [[ -n "$match_sha" ]]; then
-    output="$short_orig $short_match"
-    [[ $show_method -eq 1 ]] && output+=" $method"
-    if [[ $pretty -eq 1 ]]; then
-      logline=$(git log -n1 --oneline "$match_sha" 2>/dev/null || true)
-      output+=" $logline"
-    fi
-    echo "$output"
-  else
-    output="$short_orig ?"
-    [[ $show_method -eq 1 ]] && output+=" none"
-    [[ $pretty -eq 1 ]] && output+=" [no match]"
-    echo "$output"
+  # append pretty log if requested
+  if (( pretty )); then
+    logline=$(git log -n1 --oneline "$match_sha" 2>/dev/null || echo "[no match]")
+    output+=" $logline"
   fi
+
+  echo "$output"
 done <<< "$orig_commits"
 
