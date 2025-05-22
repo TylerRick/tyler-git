@@ -3,23 +3,20 @@
 set -euo pipefail
 
 print_usage() {
-  cat - <<End >&2
+  cat <<End >&2
 Usage:
   $(basename "$0") <old-commit> <new-commit>
     - Copy notes from <old-commit> to <new-commit> for all refs under refs/notes/*
 
-  $(basename "$0") --map-file <file>
-    - Copy notes from a list of commit pairs in <file>, where each line is: <old> <new>
+  $(basename "$0") --stdin
+    - Read old<space>new commit pairs from stdin (one per line), stripping comments ("#...")
 
 Options:
-	--force, -f
-		When adding notes to an object that already has notes, overwrite the existing notes (instead of aborting).
+  --force, -f
+      When adding notes to an object that already has notes, overwrite the existing notes (instead of skipping).
 
   --refs <glob1:glob2:...>
-    - Limit refs to those matching the given colon-separated globs (like GIT_NOTES_REWRITE_REF)
-
-  --map-file <file>
-    - Read <old> <new> commit pairs from file instead of positional args
+      Limit refs to those matching the given colon-separated globs (like GIT_NOTES_REWRITE_REF)
 
 Future enhancement ideas:
   - Use notes merge instead of copy and allow passing merge strategy
@@ -31,14 +28,15 @@ End
 
 notes_copy_opts=""
 refs_globs=()
-map_file=""
+use_stdin=false
 old_commit=""
 new_commit=""
+failed_count=0
 
 # Parse args
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
-    --force | -f)
+    --force|-f)
       notes_copy_opts='-f'
       shift
       ;;
@@ -47,52 +45,44 @@ while [[ "$#" -gt 0 ]]; do
       IFS=':' read -r -a refs_globs <<< "$2"
       shift 2
       ;;
-    --map-file)
-      [[ $# -lt 2 ]] && print_usage
-      map_file="$2"
-      shift 2
+    --stdin)
+      use_stdin=true
+      shift
       ;;
     -*)
       echo "Unknown option: $1" >&2
       print_usage
       ;;
     *)
-      if [[ -n "$map_file" ]]; then
-        echo "Positional arguments not allowed with --map-file" >&2
-        print_usage
-      fi
-      if [[ -z "$old_commit" ]]; then
-        old_commit="$1"
-      elif [[ -z "$new_commit" ]]; then
-        new_commit="$1"
+      if ! $use_stdin; then
+        if [[ -z "$old_commit" ]]; then
+          old_commit="$1"
+        elif [[ -z "$new_commit" ]]; then
+          new_commit="$1"
+        else
+          echo "Too many arguments" >&2
+          print_usage
+        fi
+        shift
       else
-        echo "Too many arguments" >&2
+        echo "Positional arguments not allowed with --stdin" >&2
         print_usage
       fi
-      shift
       ;;
   esac
 done
 
-if [[ -n "$map_file" ]]; then
-  if [[ ! -f "$map_file" ]]; then
-    echo "Map file not found: $map_file" >&2
-    exit 1
-  fi
-else
+if ! $use_stdin; then
   if [[ -z "$old_commit" || -z "$new_commit" ]]; then
     print_usage
   fi
 fi
 
-#════════════════════════════════════════════════════════════════════════════════════════════════════
-
 # Collect matching refs
 all_refs=$(git for-each-ref --format='%(refname)' refs/notes/)
 matching_refs=()
-
 for ref in $all_refs; do
-  if [[ "${#refs_globs[@]}" -eq 0 ]]; then
+  if [[ ${#refs_globs[@]} -eq 0 ]]; then
     matching_refs+=("$ref")
   else
     for glob in "${refs_globs[@]}"; do
@@ -109,50 +99,60 @@ if [[ ${#matching_refs[@]} -eq 0 ]]; then
   exit 0
 fi
 
-# Copy and report notes
+# Function to copy and report notes for one commit pair
 copy_notes() {
-  local old="$1"
-  local new="$2"
-  local old_short new_short
+  local old="$1" new="$2"
+  local old_short new_short any_copied=false note
   old_short=$(git rev-parse --short "$old")
   new_short=$(git rev-parse --short "$new")
 
-  local any_copied=false
-
   for ref in "${matching_refs[@]}"; do
     if git notes --ref="$ref" show "$old" > /dev/null 2>&1; then
-      # Silence Overwriting existing notes for object errors when using -f
-      git notes --ref="$ref" copy ${notes_copy_opts-} "$old" "$new" 2>/dev/null
-
-      if [[ "$any_copied" = false ]]; then
-        echo "📤 Copied notes from commit $old_short → $new_short:"
-        any_copied=true
-      fi
-
-      note=$(git notes --ref="$ref" show "$new" 2>/dev/null || true)
-
-      if [[ "$note" == *$'\n'* ]] || [[ "$note" != "$(echo "$note" | tr -d '\n')" ]]; then
-        echo "─── $ref ───"
-        echo "$note"
-        echo
+      if git notes --ref="$ref" copy ${notes_copy_opts:-} "$old" "$new" 2>/dev/null; then
+        if ! $any_copied; then
+          echo "📤 Copied notes from commit $old_short -> $new_short:"
+          any_copied=true
+        fi
+        note=$(git notes --ref="$ref" show "$new" 2>/dev/null || true)
+        # Multi-line?
+        if [[ "$note" == *$'\n'* ]]; then
+          echo "─── $ref ───"
+          echo "$note"
+          echo
+        else
+          echo "  • $ref: $note"
+        fi
       else
-        echo "  • $ref: $note"
+        ((failed_count++))
       fi
     fi
   done
 
-  if [[ "$any_copied" = false ]]; then
+  if ! $any_copied; then
     echo "ℹ️  No notes found to copy for commit $old_short"
   fi
 }
 
-if [[ -n "$map_file" ]]; then
-  while read -r old new; do
-    [[ -z "$old" || -z "$new" ]] && continue
-    copy_notes "$old" "$new"
-  done < "$map_file"
+# Main: single or stdin
+if $use_stdin; then
+  while IFS= read -r line; do
+    # strip comments and whitespace
+    line="${line%%#*}"
+    if [[ -z "${line//[[:space:]]/}" ]]; then
+      continue
+    fi
+    # read old and new
+    read -r old_commit new_commit <<< "$line"
+    [[ -z "$new_commit" ]] && continue
+
+    copy_notes "$old_commit" "$new_commit"
+  done
 else
-  #set -x
   copy_notes "$old_commit" "$new_commit"
+fi
+
+# Report failed count
+if (( failed_count > 0 )); then
+  echo "⚠️  $failed_count notes were not copied because they already exist; use -f to force overwrite."
 fi
 
