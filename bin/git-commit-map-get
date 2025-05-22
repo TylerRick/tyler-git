@@ -9,9 +9,12 @@ usage() {
   cat <<End >&2
 Usage: $(basename "$0") (--old|--new) <mapping-file> <commit>
 
---old <file> <new_commit>: look up and print the old_commit for given new_commit
---new <file> <old_commit>: look up and print the new_commit for given old_commit
-Supports full or short commit hashes in mapping file and input.
+Options:
+  --old <file> <new_commit>: look up and print the old_commit for given new_commit
+  --new <file> <old_commit>: look up and print the new_commit for given old_commit
+  Supports full or short commit hashes in mapping file and input.
+
+  --short
 
 Examples:
   ⟫ git-commit-map-get -n .git/split-branch/rewritten-linear 0d898b5
@@ -25,12 +28,18 @@ End
 }
 
 mode=""
-if [[ $# -gt 0 ]]; then
+output_rev_parse_options=
+while [[ $# -gt 0 ]]; do
   case "$1" in
     -o|--old) mode=old; shift;;
     -n|--new) mode=new; shift;;
+    --short)  output_rev_parse_options='--short'; shift;;
+    -h|--help)     usage ;;      
+    --)            shift; break ;;
+    -* )           echo "Unknown option: $1" >&2; usage ;;  
+    *)             break ;;      
   esac
-fi
+done
 if [[ -z "$mode" || $# -ne 2 ]]; then
   usage
 fi
@@ -56,7 +65,7 @@ case "$mode" in
       echo "❌ No mapping for new-commit $input" >&2
       exit 1
     fi
-    echo "$line" | awk '{print $1}'
+    commit=$(echo "$line" | awk '{print $1}')
     ;;
 
   new)
@@ -67,7 +76,7 @@ case "$mode" in
       echo "❌ No mapping for old-commit $input" >&2
       exit 1
     fi
-    echo "$line" | awk '{print $2}'
+    commit=$(echo "$line" | awk '{print $2}')
     ;;
 
   *)
@@ -75,3 +84,4 @@ case "$mode" in
     ;;
 esac
 
+git rev-parse $output_rev_parse_options $commit
