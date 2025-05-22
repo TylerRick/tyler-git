@@ -78,7 +78,6 @@ source_commit=$(git rev-parse --verify "$source_commit_input"^{commit})
 source_short=$(git rev-parse --short $source_commit)
 
 # The commit we are amending, which can only be HEAD
-head=$(git rev-parse HEAD)
 head_short=$(git rev-parse --short HEAD)
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -86,8 +85,14 @@ head_short=$(git rev-parse --short HEAD)
 if [[ $source_short = $head_short ]]; then
   : # No-op
 else
-  echo "ℹ️ Copying committer and notes from commit $source_short → $head_short"
-  set -x
+  echo "ℹ️ Copying committer from commit $source_short → $head_short"
+  #set -x
   git-commit-amend-copy-committer $source_commit >/dev/null
+  { set +x; } 2>/dev/null
+
+  head_short=$(git rev-parse --short HEAD)
+  echo "ℹ️ Copying notes     from commit $source_short → $head_short"
+  #set -x
   git-notes-copy-all "${notes_copy_opts-}" $source_commit $head_short >/dev/null
+  { set +x; } 2>/dev/null
 fi
