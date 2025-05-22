@@ -41,15 +41,19 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "${1-}" ] && [ -d .git/rebase-merge ]; then
-  source_commit_input=$(git-rebase-i-get-orig-commit)
+  # This is expected to fail for custom merge commands that don't have a -C <orig_commit> line, for example
+  # It is required for git-rebase-i-amend-merge-reapply-orig-changes, but not for git-rebase-i-amend-merge-add-details
+  source_commit_input=$(git-rebase-i-get-orig-commit 2>/dev/null || true)
 else
   source_commit_input=${1-}
 fi
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
-source_commit=$(git rev-parse --verify "$source_commit_input"^{commit})
-source_short=$(git rev-parse --short $source_commit)
+if [ -n "${source_commit_input-}" ]; then
+  source_commit=$(git rev-parse --verify "$source_commit_input"^{commit})
+  source_short=$(git rev-parse --short $source_commit)
+fi
 
 # The commit we are amending, which can only be HEAD
 head=$(git rev-parse HEAD)
@@ -58,7 +62,9 @@ head_short=$(git rev-parse --short HEAD)
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
 if git-is-merge-commit $head; then
-  git-rebase-i-amend-merge-reapply-orig-changes
+  if [ -n "${source_commit-}" ]; then
+    git-rebase-i-amend-merge-reapply-orig-changes
+  fi
   git-rebase-i-amend-merge-add-details
 else
   git-commit-amend-copy

@@ -118,10 +118,13 @@ fi
 # A more strict regex would be [0-9a-f]{7,40}
 if [[ $line =~ ^(m|merge)\ -C\ ([0-9a-f]+) ]]; then
   original_commit=${BASH_REMATCH[2]}
-  $verbose && echo "🔁 Found original merge commit: $original_commit"
+  $verbose && echo >&2 "🔁 Found original merge commit: $original_commit"
+#elif [[ $line =~ ^(m|merge)\  ]]; then
+#  echo >&2 "Could not extract original commit id from line: $line"
+#  exit
 elif [[ $line =~ ^(p|pick|e|edit|r|reword)\ ([0-9a-f]+) ]]; then
   original_commit=${BASH_REMATCH[2]}
-  $verbose && echo "🔁 Found original commit: $original_commit"
+  $verbose && echo >&2 "🔁 Found original commit: $original_commit"
 else
   echo >&2 "❌ Could not extract previous commit from line: $line"
   exit 1
