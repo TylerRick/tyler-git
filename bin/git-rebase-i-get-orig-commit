@@ -4,7 +4,7 @@ set -euo pipefail
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
-usage() {
+print_usage() {
   cat - <<End >&2
 Usage: $(basename "$0")
 
@@ -79,7 +79,7 @@ End
 verbose=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --help | -h)         usage;;
+    --help | -h)         print_usage;;
     --verbose)           verbose=true; shift ;;
     -*)                  echo "Unknown option $1" >&2; exit 1 ;;
     *) break ;;
