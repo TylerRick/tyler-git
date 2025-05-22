@@ -1,0 +1,57 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ $# -ne 2 ]; then
+  echo "Usage: $0 <original-branch> <rewritten-branch>" >&2
+  exit 1
+fi
+
+orig_branch=$1
+rewritten_branch=$2
+
+# Gather commit SHAs
+orig_commits=$(git rev-list --reverse "$orig_branch")
+rewritten_commits=$(git rev-list "$rewritten_branch")
+
+declare -A rewritten_by_patchid
+declare -A rewritten_by_title
+
+# Build lookup maps for rewritten branch
+while read -r sha; do
+  # Ignore merge commits (patch-id doesn't work for them)
+  if [ "$(git rev-list --parents -n 1 "$sha" | wc -w)" -gt 2 ]; then
+    continue
+  fi
+
+  patch_output=$(git show "$sha" | git patch-id --stable || true)
+  patchid=$(echo "$patch_output" | cut -d' ' -f1)
+
+  if [ -n "$patchid" ]; then
+    rewritten_by_patchid["$patchid"]=$sha
+  fi
+
+  title=$(git log -n1 --pretty=format:%s "$sha")
+  rewritten_by_title["$title"]=$sha
+done <<< "$rewritten_commits"
+
+# Match each original commit
+while read -r orig_sha; do
+  if [ "$(git rev-list --parents -n 1 "$orig_sha" | wc -w)" -gt 2 ]; then
+    # Skip merge commits; add custom logic if desired
+    echo "$orig_sha ?"  # optional: mark as skipped
+    continue
+  fi
+
+  patch_output=$(git show "$orig_sha" | git patch-id --stable || true)
+  patchid=$(echo "$patch_output" | cut -d' ' -f1)
+  title=$(git log -n1 --pretty=format:%s "$orig_sha")
+
+  if [[ -n "$patchid" && -n "${rewritten_by_patchid[$patchid]:-}" ]]; then
+    echo "$orig_sha ${rewritten_by_patchid[$patchid]}"
+  elif [[ -n "${rewritten_by_title[$title]:-}" ]]; then
+    echo "$orig_sha ${rewritten_by_title[$title]}"
+  else
+    echo "$orig_sha ?"
+  fi
+done <<< "$orig_commits"
+
