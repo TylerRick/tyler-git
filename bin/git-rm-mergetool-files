@@ -15,7 +15,8 @@ else
 fi
 fi
 
-find_command="find . -path './.git' -prune -o -type f -a \( -name '*.orig' \)"
+find_command="find . -path '*/.*' -type d -prune -o -type f -name '*.orig'"
+echo $find_command -print
 eval $find_command -print
 
 echo -n "Delete these files [y/n]? "
