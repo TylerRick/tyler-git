@@ -536,7 +536,7 @@
   instructionFormat = "[%as %an]%d %s" # %as is short ISO date, %d lists branch/tags
   instructionFormat = "[%N] %s [%as %an]" # %N is notes
 	backend = merge
-  #rescheduleFailedExec = true
+  rescheduleFailedExec = true
 [mergetool]
   # Don't create .orig backup files after running git mergetool. I never use them and then I have to
   # go and delete them.

@@ -63,9 +63,18 @@ head_short=$(git rev-parse --short HEAD)
 
 if git-is-merge-commit $head; then
   if [ -n "${source_commit-}" ]; then
+    echo $source_commit
     git-rebase-i-amend-merge-reapply-orig-changes
   fi
-  git-rebase-i-amend-merge-add-details
+
+  # This was only for a certain large-scale rewriting. May not be needed for every use case — except
+  # to reset the committer date!
+  # The message rewriting is not needed if rebasing over commits that have _already_ had this
+  # treatment and have the message how we want it.  TODO: Make this opt-in (env var? )-- or only if
+  # it detects the message is missing the details.
+  git-rebase-i-amend-merge-add-details --no-message
+  # We could also just hand off to git-commit-amend-copy if we detect that
+  # git-rebase-i-amend-merge-add-details is disabled, so that at least the committer date is fixed...
 else
   git-commit-amend-copy
 fi
