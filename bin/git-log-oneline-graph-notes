@@ -1,0 +1,5 @@
+#!/bin/sh
+git log --color --graph --pretty=format:'%Cred%h %Cgreen%as %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N%Creset' "$@" | 
+  # Remove "blank" lines caused by the notes adding a newline; due to the --graph, they will look
+  # like "|" or "| |", etc.
+  sed -E '/^((\x1b\[[0-9;]*m)*[| ]*)+(\x1b\[[0-9;]*m)*$/d' | less -R
