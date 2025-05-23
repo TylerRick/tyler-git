@@ -79,7 +79,7 @@ done
 # Copy commiter from commiter of other commit
 
 if [ -z "${1-}" ] && [ -d .git/rebase-merge ]; then
-  #2>/dev/null
+  #git-rebase-i-get-copy-source-commit 2>/dev/null
   source_commit_input=$(
     git-rebase-i-get-copy-source-commit ||
       if $fall_back_to_rebase_orig_commit; then

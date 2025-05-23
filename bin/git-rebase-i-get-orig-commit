@@ -100,7 +100,7 @@ if [ ! -d .git/rebase-merge ]; then
 fi
 
 if [ ! -f "$done_file" ]; then
-  echo >&2 "❌ Could not find $done_file (rebase done log)."
+  echo >&2 "❌ Warning: Could not find $done_file (rebase done log)."
   exit 1
 fi
 
