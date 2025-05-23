@@ -123,7 +123,10 @@
   #log-oneline = "!f() { git log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N<<ENDNOTE>>%Creset' \"$@\" | sed -E ':a;N;$!ba;s/\\n?<<ENDNOTE>>//g' | less -R; }; f"
 
   log-oneline-graph         = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' --graph
-  log-oneline-notes-graph   = log --color --pretty=format:'%Cred%h %Cgreen%as %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N%Creset' --graph
+  log-oneline-notes-graph-0 = log --color --pretty=format:'%Cred%h %Cgreen%as %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N%Creset' --graph
+  log-oneline-graph-notes   = ! git-log-oneline-graph-notes 
+  log-oneline-notes-graph   = ! git-log-oneline-graph-notes 
+
   ls                        = log-oneline-graph
   lsn                       = log-oneline-notes-graph
   log-oneline-no-walk       = log --color --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' --no-walk
@@ -577,7 +580,7 @@
   # Note: This is used/respected independently of rebase.updateRefs.
   # To set this value to match all notes, execute the following:
   #   git config --global notes.rewriteRef "refs/notes/*"
-  #rewriteRef = refs/notes/*
+  rewriteRef = refs/notes/*
   #
   # Alternatively, you can use --exec git-commit-amend-copy to copy those notes as you go instead of
   # waiting until the end of the rewrite. If you're wanting to use git-commit-amend-copy-committer
