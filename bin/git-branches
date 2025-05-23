@@ -3,6 +3,11 @@
 # Based on: for k in `git branch --no-color|sed s/^..//`;do echo -e `git log -1 --pretty=format:"%Cgreen%ci %Cblue%cr%Creset" "$k"`\\t"$k";done|sort
 #-------------------------------------------------------------------------------
 
+# TODO:
+#   change to shell script
+#   integrate with or make an option to show something like git branch -vv shows, but that is
+#   missing date / recent info
+
 sorted = `git branch #{ARGV.join(' ')} --no-color|sed s/^..// | grep -v '^old_'`.lines.map do |branch|
   branch = branch.chomp
   date_string = `git log -1 --pretty=format:"%Cgreen%ci %Cblue%cr%Creset" "#{branch}"`.chomp
