@@ -101,6 +101,7 @@ fi
 # Classify commit by specificity and record that specificity
 
 if $should_detect; then
+  git-diff-tree-specificity --quiet "$commit" || true
   mapfile -t specs < <(git-diff-tree-specificity --quiet "$commit" | awk '{print $NF}' | sort -u)
   echo
   echo "Files have these specificity values: ${specs[@]}"

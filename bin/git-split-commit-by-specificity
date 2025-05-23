@@ -21,6 +21,7 @@
 # - add an --abort command
 
 set -euo pipefail
+trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"' err
 cd "$(git rev-parse --git-dir)/.."
 
 source "$(dirname $0)"/lib/colors.sh

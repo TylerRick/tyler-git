@@ -7,6 +7,7 @@
 # Requires: git-get-file-specificity, git-detect-file-specificity
 
 set -euo pipefail
+trap 'echo "[ERR] at line $LINENO: $BASH_COMMAND"' ERR
 
 source "$(dirname $0)"/lib/specificity.sh
 source "$(dirname $0)"/git-get-file-specificity
@@ -80,6 +81,7 @@ while IFS=$'\t' read -r status path old; do
     disp="$status  $path"
   fi
   specificity=$(git-get-file-specificity "$path" 2>/dev/null || true)
+  #echo >&2 "$status $path $specificity"
   [[ -n "$specificity_filter" && "${specificity:-unknown}" != "$specificity_filter" ]] && continue
 
   if $name_only; then
