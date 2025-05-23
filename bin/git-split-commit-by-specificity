@@ -7,8 +7,14 @@
 # With “resume” support via .git/split-commit.
 #
 # Usage:
-#   git-split-commit-by-specificity
-#   git-split-commit-by-specificity --continue      # resume an in-progress split
+#   To split every commit in your rebase sequence:
+#     git rebase -i -v --exec git-split-commit-by-specificity root
+#
+#  If you are stopped (rebase is interrupted/paused) on a specific commit, you can control it
+#  directly:
+#
+#    git-split-commit-by-specificity
+#    git-split-commit-by-specificity --continue      # resume an in-progress split
 
 # To do:
 # - add a trap that detects error and tells user to run --continue to re-try
