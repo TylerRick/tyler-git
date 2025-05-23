@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage: $(basename "$0") [any options for rebase] <first_commit> <source-branch>
+
+This will replay/transpalent the commits in the range <first_commit>..<source-branch> onto your current branch.
+
+This is meant to be a drop-in replacement for git rebase (for this use case only), so any options
+(such as -i) are passed straight through to git rebase.
+
+Example:
+  git switch new-main
+
+  # What I wish you could do, and what it is loosely equivalent to:
+  git rebase      -i --onto new-main new-main-equiv main
+
+  # What you can do instead:
+  git rebase-from -i                 new-main-equiv main
+
+Why is this needed?
+
+  Unfortunately, git doesn't make this as easy it it should be. I tried this, hoping it would work:
+    git switch new-main
+    git rebase -i --onto new-main new-main-equiv main
+  but that generates a no-op, _and_ it actually updates main (rather than new-main) to point to the
+  result (which is simply new-main, unchanged).
+End
+  exit
+}
+
+force=false
+rebase_opts=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)
+      usage ;;
+    -f|--force)
+      force=true
+      shift ;;
+    --onto)
+      echo "Invalid option $1" >&2; exit 64;;
+    -*)
+			rebase_opts+=("$1")
+      shift ;;
+    *) break ;;
+  esac
+done
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+first_commit=$1; shift
+source_branch=$1; shift
+if [[ $# -gt 0 ]]; then
+  echo 2> "Unexpected args: $@"
+  exit 64
+fi
+
+branch=$(git current-branch)
+temp_branch=$branch-rebase
+
+if ! $force; then
+  read -rp "Replay all commits from $first_commit..$source_branch onto current branch ($branch)? " response
+fi
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+git branch -D $temp_branch 2>/dev/null || true
+git checkout -b $temp_branch $source_branch
+set -x
+git rebase --no-update-refs "${rebase_opts[@]}" --onto $branch $first_commit $temp_branch
+{ set +x; } 2>/dev/null
+
+git switch $branch
+git merge --ff-only $temp_branch
+git branch -D $temp_branch
