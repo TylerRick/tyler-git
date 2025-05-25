@@ -46,12 +46,15 @@ alias  gprb='git pull --rebase'
 alias   gup='git update' #  [custom]
 
 #------------------------------------------
-# Branches
+# Branches / tags
 
 alias  gcob='git checkout -b'          # Create and check out a new branch
 alias  gcot='git checkout --track -b'  # Create and check out a new branch that tracks a remote branch. example: gcot stable origin/stable'
 
 alias    gb='git branch'
+alias    gt='git tag'
+alias   gbf='git branch -f' # force update branch
+alias   gtf='git tag -f' # force update tag
 alias   gbs='git branches'
 alias   gbw='git branch-wrapper'
 alias   gbm='git branch-menu'
@@ -227,7 +230,9 @@ function glp-follow() {
   git log -r          --color -p   --stat=$(echo $COLUMNS),$(expr $COLUMNS / 2) --no-prefix --follow -- $path_relative_to_top_level
 }
 
+alias gl1='git log -1'
 alias glp1='glp -1'
+alias gls1='gls -1'
 
 # Sometimes it doesn't show the diffs because the -M isn't set low enough, sou you can set it really
 # low like this:
@@ -310,6 +315,7 @@ alias glpU20='git log -c --color -U20 --numstat --no-prefix'
 #alias   gll='git log --color --stat'
 # old: I got tired of it truncating the beginnig of paths (making it impossible to copy and paste paths onto the command line, so I'm now using --numstat instead of --stat)
 alias   gll='git log --color --stat --graph'
+alias  gll1='git log --color --stat --graph -1'
 alias  glls='git log --color --stat --graph'
 alias  gllf='git log --color --numstat --follow'
 alias gllfM01='git log --color --numstat --follow -M01'
@@ -321,13 +327,15 @@ function  gllrf() {
 
 alias   gwc='git whatchanged'
 alias   glfull='git log --color --format=fuller --show-notes'
+alias   glfull1='glfull -1'
 
 alias gfileschangedinsamecommitsas='gl --pretty=format:"%h" ./app/views/partials/_transfer_report.html.erb | xargs1 git log -1 --name-status {}'
 
 
 alias   gllast='git log --patch-with-stat -n1'          # What is the last thing to be committed? (probably by you)
 
-alias   gl1='git log --color --pretty=oneline'
+#alias   gl1='git log --color --pretty=oneline' # use gls instead
+
 #alias  glsnc='git log --pretty=format:"%h %ai %an - %s"'  # no color, no graph
 alias  glsnc='git log --no-color --graph --pretty=format:"%h %ai %an%d %s"'  # no color, but yes graph
 
@@ -532,6 +540,8 @@ alias git-create-local-dir="mkdir .local;  cd .local/;  git init;  git ci -m 'In
 #------------------------------------------
 # Upstream/Rebase
 
+# Similar:
+#   git rev-parse --abbrev-ref --symbolic-full-name @{u}
 function git-upstream() {
   upstream=$(git rev-parse --abbrev-ref $(git current-branch --fallback)@{upstream})
   if [ "$upstream" == "" ]; then
@@ -847,7 +857,7 @@ alias git-main-branch='git rev-parse --abbrev-ref origin/HEAD | sed "s#origin/##
 alias git-remote-main-branch='git remote show $(git remote show|tail -n1)|grep "HEAD branch"|awk '"'"'{print $NF}'"'"
 
 #------------------------------------------
-# Checkout
+# git checkout / switch
 
 # git checkout <branch>
 #       switches branches by updating the index and working tree to reflect <branch> and updating HEAD to be <branch>
@@ -856,6 +866,7 @@ alias git-remote-main-branch='git remote show $(git remote show|tail -n1)|grep "
 # So if you've staged some changes from <file> but have made other changes since then that you want to discard, git checkout <file> is safe, because it replaces file with the version that is staged (in index), not the version that is [cached] (HEAD)
 alias   gco='git checkout'
 alias  gcom='git checkout $(git-main-branch)'
+alias  gconm='git checkout new-main'
 alias  gcoom='git checkout $(git rev-parse --abbrev-ref origin/HEAD)'
 alias  gcod='git checkout develop'
 alias gcomerge='git checkout -m'

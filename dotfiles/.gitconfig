@@ -580,8 +580,8 @@
   # Note: This is used/respected independently of rebase.updateRefs.
   # To set this value to match all notes, execute the following:
   #   git config --global notes.rewriteRef "refs/notes/*"
-  rewriteRef = refs/notes/*
-  #
+  #rewriteRef = refs/notes/*
+
   # Alternatively, you can use --exec git-commit-amend-copy to copy those notes as you go instead of
   # waiting until the end of the rewrite. If you're wanting to use git-commit-amend-copy-committer
   # for each commit anyway, then this seems like a potentially safer / more reliable method to do
