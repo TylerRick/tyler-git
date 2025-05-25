@@ -51,7 +51,9 @@ End
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 # Parse options
 
+# TODO: make all of these defaults settable from env vars
 fall_back_to_rebase_orig_commit=false
+copy_notes=true
 copy_notes_from_rebase_orig_commit=false
 notes_copy_opts="-f"
 
@@ -64,6 +66,9 @@ while [[ $# -gt 0 ]]; do
       shift ;;
     --copy-notes-from-rebase-orig-commit)
       copy_notes_from_rebase_orig_commit=true
+      shift ;;
+    --no-copy-notes)     
+      copy_notes=false
       shift ;;
     --no-force)     
       notes_copy_opts=""
@@ -78,6 +83,7 @@ done
 
 # Copy commiter from commiter of other commit
 
+# Duplicated between git-commit-amend-copy git-commit-amend-copy-committer
 if [ -z "${1-}" ] && [ -d .git/rebase-merge ]; then
   #git-rebase-i-get-copy-source-commit 2>/dev/null
   source_commit_input=$(
@@ -112,13 +118,16 @@ head_short=$(git rev-parse --short HEAD)
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
 if [[ $source_short = $head_short ]]; then
-  : # No-op
-else
-  echo "ℹ️ Copying committer from commit $source_short → $head_short"
-  #set -x
-  git-commit-amend-copy-committer $source_commit >/dev/null
-  { set +x; } 2>/dev/null
+  # No-op
+  exit
+fi
 
+echo "ℹ️ Copying committer from commit $source_short → $head_short"
+#set -x
+git-commit-amend-copy-committer $source_commit >/dev/null
+{ set +x; } 2>/dev/null
+
+if $copy_notes; then
   if $copy_notes_from_rebase_orig_commit; then
     source_commit_input=$(git-rebase-i-get-orig-commit)
     source_commit=$(git rev-parse --verify "$source_commit_input"^{commit})
