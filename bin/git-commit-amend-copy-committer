@@ -7,25 +7,34 @@ set -euo pipefail
 usage() {
   cat - <<End >&2
 Usage:
-  $(basename "$0") <orig-commit>
+  $(basename "$0") <source-commit>
     Copy commiter from commiter of other commit
 
-  $(basename "$0") --from-author
+  $(basename "$0") --from-author [<source-commit>]
     Copy commiter from author of other commit (HEAD by default)
 
 Amends the tip commit, copying from orig-commit:
-- the committer (name, email, and date)
-- the author (name, email, and date)
+- the committer (identity (name/email) and date)
+- the author    (identity (name/email) and date)
 
-Use case:
+Options:
+  --from-author, --reset-committer-to-author, --committer-is-author
 
-This can be used during a rebase, for example, since a rebase will by default set the committer name
-to you and the committer date to now. It provides --committer-date-is-author-date if you want to
-reset commiter date to copy the author date, but it provides no way to _keep_ committer date how it
-was in the original commit.
+    Similar to --committer-date-is-author-date but copies committer name/email as well, not just
+    date, from author fields.
 
 Example:
   git rebase -i --exec 'git-commit-amend-copy-committer \$(git-rebase-i-get-copy-source-commit)'
+
+Use case:
+
+  This can be used during a rebase, for example, since a rebase will by default set the committer name
+  to you and the committer date to now. It provides --committer-date-is-author-date if you want to
+  reset commiter date to copy the author date, but it provides no way to _keep_ committer date how it
+  was in the original commit.
+
+  TODO: Look into whether we could add GIT_COMMITTER_NAME,etc. to .git/rebase-merge/author-script
+  instead to get it to use it for the commit instead of amending the commit after it's been created.
 
 When used as part of rebase
 
@@ -58,10 +67,15 @@ End
 # Parse options
 
 from_author=false
+fall_back_to_rebase_orig_commit=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)      usage;;
-    --from-author)    from_author=true; shift ;;
+    --from-author | --reset-committer-to-author | --committer-is-author)
+      from_author=true; shift ;;
+    --fall-back-to-rebase-orig-commit)
+      fall_back_to_rebase_orig_commit=true
+      shift ;;
     -*)               echo "Unknown option $1" >&2; exit 1 ;;
     *) break ;;
   esac
@@ -73,10 +87,13 @@ if $from_author; then
 else
   # Copy commiter from commiter of other commit
 
-  if [ -d .git/rebase-merge ]; then
+  # Duplicated between git-commit-amend-copy git-commit-amend-copy-committer
+  if [ -z "${1-}" ] && [ -d .git/rebase-merge ]; then
     #source_commit_input=$(git-rebase-i-get-copy-source-commit)
 
-    fall_back_to_rebase_orig_commit=true
+    # The rebase-local orig commit
+    rebase_orig_commit=$(git-rebase-i-get-orig-commit)
+
     source_commit_input=$(
       git-rebase-i-get-copy-source-commit ||
         if $fall_back_to_rebase_orig_commit; then
@@ -89,7 +106,7 @@ else
   else
     source_commit_input=${1-}
   fi
-  amend_ops="--reset-author"
+  amend_opts="--reset-author"
 fi
 
 if [ -z "$source_commit_input" ]; then
@@ -102,11 +119,6 @@ fi
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
 source_commit=$(git rev-parse --verify "$source_commit_input"^{commit})
-
-if [ -d .git/rebase-merge ]; then
-  # The rebase-local orig commit
-  rebase_orig_commit=$(git-rebase-i-get-orig-commit)
-fi
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -123,7 +135,9 @@ fi
 # Add a --verbose or similar option to inspect which vars are actually set/used in this process.
 #env | grep GIT_ | sort
 
-git commit --allow-empty --amend --no-edit --no-verify "${amend_ops-}"
+# If amend_opts could contain opts with spaces: eval "git commit --allow-empty --amend --no-edit --no-verify ${amend_opts:+$amend_opts}"
+# git commit --allow-empty --amend --no-edit --no-verify "${amend_opts:+$amend_opts}"
+git commit --allow-empty --amend --no-edit --no-verify "${amend_opts:---}"
 
 if [ -n "${rebase_orig_commit-}" ]; then
   new_commit=$(git rev-parse HEAD)

@@ -81,7 +81,9 @@ if ! git-is-merge-commit HEAD; then
 fi
 
 # Would be nice if we could directly apply the 3-way diff patch shown by git show --cc.
-# But unfortunately, it is not in the format that git apply understands.
+# This would be much safer than git checkout below.
+# But unfortunately, the 3-way diff output from `git show --c` is not in the format that git apply
+# understands. So unless we can find an easy way to apply that patch format, we can't do that way.
 if false; then
   # Generate patch from original merge
   tmp_patch=$(mktemp)
