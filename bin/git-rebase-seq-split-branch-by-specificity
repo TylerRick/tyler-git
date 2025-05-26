@@ -61,6 +61,9 @@ Example:
   # To replay/process all commits starting with the root commit:
   git rebase -i -v --rebase-merges --root
 
+  # To simply see a preview of what it would do
+  GIT_SEQUENCE_EDITOR='git-rebase-seq-split-branch-by-specificity --no-act' git-rebase-seq-split-branch-by-specificity ...
+
 You don't have to do it all in one go! You can split the job into multiple smaller batches like
 this:
 
@@ -341,7 +344,8 @@ format_pick_line() {
 
   # Escape slashes and special characters if needed
   local escaped=$(printf '%s\n' "$specificity" | sed 's/[&/\]/\\&/g')
-  echo "$line" | sed "s/%N/$escaped/"
+  line_with_specificity="$(echo "$line" | sed "s/%N/$escaped/")"
+  echo $line_with_specificity
 
   # Now fix the commit we just picked.
   #echo "exec git-rebase-i-amend-head"
@@ -349,7 +353,7 @@ format_pick_line() {
   #echo "exec     git-commit-amend-copy # ↑"
   #exec sh -c 'git-rebase-i-amend-head; git log --color --format=fuller --show-notes -1'
   cat <<-End | sed 's/^[[:space:]]*//'
-  exec sh -c 'echo "✅ $line"; git-rebase-i-amend-head; git log-oneline-notes-graph -1'
+  exec sh -c 'echo "✅ $line_with_specificity"; git-rebase-i-amend-head; git log-oneline-notes-graph -1'
 End
 }
 
