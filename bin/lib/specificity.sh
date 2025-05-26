@@ -1,5 +1,22 @@
 source "$(dirname $0)"/lib/colors.sh
 
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+# Config
+
+# By default this is a hidden repo-specific config dir stored _outside_ of your repos, similar to
+# .git/info/exclude or .git/hooks. But if you want to commit this config as _part_ of your repo, you
+# could configure it to .git_file_specificity, for example, similar to .gitignore/.githooks/.husky.
+
+# TODO: Support reading multiple lists, so that each specific repo can use the common list that is
+# defined in the common repo, and the specific/mixed lists defined in their own repo. Or just make
+# everyone symlink their specific repo's common _file_ to point to the common list in common repo.
+
+file_specificity_dir=$(git config split-branch.fileSpecificityDir ||
+	echo ".git/file_specificity")
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+# Helpers
+
 normalize_specificity() {
   if [ -z "${1-}" ]; then
     return
@@ -39,4 +56,12 @@ colorize_specificity() {
 
 log_oneline_with_commit_specificity() {
   GIT_NOTES_DISPLAY_REF=refs/notes/specificity git log-oneline-notes "$@"
+}
+
+ensure_file_specificity_dir_exists() {
+  if ! [ -d $file_specificity_dir ]; then
+    echo >&2 "$file_specificity_dir does not exist."
+    echo >&2 "Hint: Configure with \`git config split-branch.fileSpecificityDir\` if it is located someplace else."
+    exit 64 # EX_USAGE
+  fi
 }

@@ -36,6 +36,8 @@ End
   exit
 }
 
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
 # Parse options
 quiet=false
 show_matches=if_disagreement

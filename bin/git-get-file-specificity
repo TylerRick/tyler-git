@@ -1,11 +1,35 @@
 #!/usr/bin/env bash
-# Usage: git-get-file-specificity [--verify] <path>
-#
-# Returns: common | specific | mixed  (or nothing if not listed)
-# If listed in >1 list, prints error to stderr and exits 1.
 
 set -euo pipefail
 trap 'echo "[ERR] at line $LINENO: $BASH_COMMAND"' ERR
+
+source "$(dirname $0)"/lib/specificity.sh
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage: $(basename "$0") [--verify] <path>
+
+Returns: common | specific | mixed (or nothing if nothing recorded yet for this file)
+
+If the file is listed in >1 list, prints error to stderr and exits with 1.
+End
+}
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+# Don't check usage if it's being sourced
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  if (( "$#" < 1 )); then
+    usage
+    exit 64 # EX_USAGE
+  fi
+fi
+
+ensure_file_specificity_dir_exists
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
 
 # Read each list once, stripping comments/blank-lines
 # Store as newline-delimited string in associative array
@@ -14,10 +38,9 @@ if [[ -z "${__file_specificity_initialized:-}" ]]; then
   declare -gA __file_specificity_lists
 
   git_get_file_specificity_init() {
-    local base=".git/file_specificity"
     local type patfile cleaned
     for type in common specific mixed; do
-      patfile="$base/$type"
+      patfile="$file_specificity_dir/$type"
       if ! [[ -f "$patfile" ]]; then continue; fi
       # Clean comments and whitespace once
       cleaned=$(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^[[:space:]]*$/d' "$patfile")
