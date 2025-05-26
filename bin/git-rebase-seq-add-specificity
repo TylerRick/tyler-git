@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+source "$(dirname $0)"/lib/specificity.sh
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
 format_pick_line() {
   local line=$1
   if [[ $line =~ ^pick\ ([0-9a-f]+) ]]; then
@@ -18,9 +23,11 @@ format_pick_line() {
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
+rebase_seq__set_instructionFormat_to_include_notes
+
 todo_file="$1"
-tmp_file="$(mktemp)"
-cp "$tmp_file" "$todo_file.orig"
+new_file="$(mktemp)"
+cp "$new_file" "$todo_file.orig"
 
 while IFS= read -r line; do
   case "$line" in
@@ -32,8 +39,14 @@ while IFS= read -r line; do
       echo "$line"
       ;;
   esac
-done <"$todo_file" >"$tmp_file"
-mv "$tmp_file" "$todo_file"
+done <"$todo_file" >"$new_file"
+
+# When we get to the end
+{
+  rebase_exec__restore_instructionFormat
+} >>"$new_file"
+
+mv "$new_file" "$todo_file"
 
 # Now open the modified to-do list in the real editor for review
 editor="${VISUAL:-${EDITOR:-vim}}"

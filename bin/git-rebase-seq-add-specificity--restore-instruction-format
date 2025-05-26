@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+backed_up="$(git config rebase.instructionFormat-backup)"
+if [ -z "$backed_up" ]; then
+  git config unset rebase.instructionFormat
+else
+  git config rebase.instructionFormat "$backed_up"
+fi
+git config unset rebase.instructionFormat-backup || true
