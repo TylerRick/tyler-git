@@ -3,6 +3,8 @@
 set -euo pipefail
 trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"' err
 
+source "$(dirname $0)"/lib/specificity.sh
+
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
 usage() {
@@ -217,10 +219,13 @@ done
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 # Config
 
-git config rebase.instructionFormat "[%N] %s [%as %an]"
+rebase_seq__set_instructionFormat_to_include_notes
 
 common_branch=common
-specific_branch=new-main
+
+branch=$(git current-branch)
+echo "Using current branch ($branch) as 'specific' branch"
+specific_branch=$branch
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 # Prep:
@@ -276,6 +281,13 @@ if $act; then
     fi
   done
 
+  echo
+
+  # To do: add a proper --abort like rebase itself has
+  echo "To abort this rebase:"
+  echo "  git-rebase-seq-add-specificity--restore-instruction-format"
+  echo "  git rebase --abort"
+  echo
   echo
 fi
 
@@ -434,6 +446,9 @@ function merge_common_when_ready() {
   if [[ "$cur_specificity" = "common" ]]; then
     if [[ $next_rev_specificity = 'common' ]]; then
       : # Continue this run of common commits. Just keep picking.
+
+    # Either next commit is specific (we're finishing a run of common commits), _or_ we're at the
+    # end (there are no more commits).
     else # next commit is specific
       # Finished collecting common commits.
       # Now merge into specific branch so that you can build on top of them with any specific
@@ -584,8 +599,12 @@ End
   esac
 done <"$todo_file" >>"$new_file"
 
+# When we get to the end
 {
+  # Cleanly finish up whatever "run" we were on
   merge_common_when_ready ''
+
+  rebase_exec__restore_instructionFormat
 
   #echo "exec git branch -f $specific_branch refs/rewritten/$specific_branch"
   #echo "exec git branch -f $common_branch   refs/rewritten/$common_branch"
