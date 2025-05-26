@@ -4,6 +4,6 @@
 # are commits that are still in the branch we're working on rewriting.
 # To avoid collecting a bunch of extra notes, from doing a bunch of rewriting of our branch.
 
-git-ls-notes-specificity --rm-unless-ancestor-of linear-main,@ --symbolic
+git-ls-notes-specificity --rm-unless-ancestor-of main,@ --symbolic
 echo
 git-ls-notes-specificity --symbolic
