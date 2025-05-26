@@ -1,19 +1,39 @@
 #!/usr/bin/env bash
 
-# git-set-file-specificity
-# Usage: git-set-file-specificity <file> <specificity>
-# Adds or moves <file> into .git/file_specificity/<specificity>
-# Valid specificity: common, specific, mixed
-
 set -euo pipefail
+
+source "$(dirname $0)"/lib/specificity.sh
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage: $(basename "$0") <file> <specificity>
+
+Adds or moves <file> into file_specificity_dir/<specificity>
+
+Valid specificity: common, specific, mixed
+End
+}
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+if (( "$#" < 2 )); then
+  usage
+  exit 64 # EX_USAGE
+fi
+
+ensure_file_specificity_dir_exists
+
 file="$1"
 specificity="$2"
-base=".git/file_specificity"
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
 
 # validate specificity
 if [[ ! "$specificity" =~ ^(common|specific|mixed)$ ]]; then
 	echo "Usage: $0 <path> <common|specific|mixed>" >&2
-	exit 2
+  exit 64 # EX_USAGE
 fi
 
 # get existing specificity (allow multiple)
@@ -29,7 +49,7 @@ fi
 
 # if not recorded yet, append and exit
 if [[ ${#recorded[@]} -eq 0 ]]; then
-	echo "$file" >> "$base/$specificity"
+	echo "$file" >> "$file_specificity_dir/$specificity"
 	exit 0
 fi
 
@@ -43,13 +63,11 @@ echo "Changed to '$specificity' (was ${recorded[*]})"
 # remove from old lists
 for rec in "${recorded[@]}"; do
 	if [[ "$rec" != "$specificity" ]]; then
-		sed -i -e "/^$(printf '%s' "$file" | sed 's/[\/&]/\\&/g')\$/d" "$base/$rec"
+		sed -i -e "/^$(printf '%s' "$file" | sed 's/[\/&]/\\&/g')\$/d" "$file_specificity_dir/$rec"
 	fi
 done
 
 # add to new list if not already
 if [[ ! " ${recorded[*]} " =~ " $specificity " ]]; then
-	echo "$file" >> "$base/$specificity"
+	echo "$file" >> "$file_specificity_dir/$specificity"
 fi
-
-exit 0

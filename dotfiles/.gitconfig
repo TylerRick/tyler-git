@@ -643,3 +643,5 @@
   #editor = /home/tyler/installed/tyler-git/bin/git-rebase-seq
 [commit]
 	verbose = true
+[split-branch]
+	fileSpecificityDir = .git_file_specificity

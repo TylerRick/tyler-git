@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
+
+source "$(dirname $0)"/lib/specificity.sh
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
 
 usage() {
   cat - <<End >&2
@@ -34,6 +39,8 @@ if [ "$(uname)" = "Darwin" ]; then
 else
   ggrep="grep"
 fi
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
 
 # Parse options
 quiet=
@@ -76,11 +83,13 @@ fi
 file=$1
 
 # Path to patterns file
-patterns_file=".git/file_specificity/specific_patterns"
+patterns_file="$file_specificity_dir/specific_patterns"
 if [ ! -f "$patterns_file" ]; then
   echo "Patterns file not found: $patterns_file" >&2
   exit 2
 fi
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
 
 matched_specific=
 set +e  # allow individual greps to fail
