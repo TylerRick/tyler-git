@@ -53,6 +53,7 @@ if [[ -z "${__file_specificity_initialized:-}" ]]; then
   git_get_file_specificity_init
 fi
 
+
 git_get_file_specificity() {
   local file verify=false
   if [[ "${1:-}" == --verify ]]; then
@@ -69,23 +70,22 @@ git_get_file_specificity() {
     [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] checking $type patterns" >&2
     while IFS= read -r pat; do
       [[ -z "$pat" ]] && continue
-      if [[ "$pat" == */ ]]; then
-        prefix="${pat%/}"
-        esc="${prefix//\[/\\[}"
-        esc="${esc//\]/\\]}"
-        [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type prefix? '$file' starts '$prefix/'" >&2
-        if [[ "$file" == ${esc}/* ]]; then
-          matches+=("$type")
-          break
-        fi
-      else
-        esc="${pat//\[/\\[}"
-        esc="${esc//\]/\\]}"
-        [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type glob? '$file' == '$pat'" >&2
-        if [[ "$file" == $esc ]]; then
-          matches+=("$type")
-          break
-        fi
+
+      prefix="${pat%/}"
+      esc="${prefix//\[/\\[}"
+      esc="${esc//\]/\\]}"
+      [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type prefix? '$file' starts '$prefix/'" >&2
+      if [[ "$file" == ${esc}/* ]]; then
+        matches+=("$type")
+        break
+      fi
+
+      esc="${pat//\[/\\[}"
+      esc="${esc//\]/\\]}"
+      [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type glob? '$file' == '$pat'" >&2
+      if [[ "$file" == $esc ]]; then
+        matches+=("$type")
+        break
       fi
     done <<< "$list"
   done
