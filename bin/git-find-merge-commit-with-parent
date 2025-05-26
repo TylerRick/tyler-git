@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -euo pipefail
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+branch_to_search_in=${1-HEAD}
+sought_parent=${2}
+
+git rev-list main --merges --reverse | while read rev; do
+  if git rev-list "$rev"^2 | grep -q $sought_parent; then
+    echo "$rev"
+    break
+  fi
+done

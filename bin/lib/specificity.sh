@@ -67,7 +67,8 @@ ensure_file_specificity_dir_exists() {
 }
 
 rebase_seq__set_instructionFormat_to_include_notes() {
-  default_instructionFormat="[%N] %s [%as %an]"
+  # %N for notes (not natively supported here); %d for branch names
+  default_instructionFormat="[%N]%d %s [%as %an]"
   current_instructionFormat="$(git config rebase.instructionFormat)"
   if ! [ "$current_instructionFormat" = "$default_instructionFormat" ]; then
     git config rebase.instructionFormat "$default_instructionFormat"
@@ -78,7 +79,6 @@ rebase_seq__set_instructionFormat_to_include_notes() {
 rebase_exec__restore_instructionFormat() {
   cat <<-End | sed 's/^[[:space:]]*//'
   exec sh -c 'git-rebase-seq-add-specificity--restore-instruction-format'
-  break
 End
 }
 

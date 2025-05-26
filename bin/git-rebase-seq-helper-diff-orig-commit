@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# This can be used any time you are stopped/break during rebase sequence
+#
+# Its purpose: To reassure you that you have kept the same contents as the original commit had.
+#
+# Usage:
+#   git-rebase-seq-helper-diff-orig-commit
+#     Compare git-rebase-i-get-orig-commit against working tree
+#   git-rebase-seq-helper-diff-orig-commit <commit>
+#     Compare <commit> against working tree
+#   git-rebase-seq-helper-diff-orig-commit <commit> HEAD
+#     Compare <commit> against HEAD
+# 
+
+orig_commit="${1:-$(git-rebase-i-get-orig-commit --short)}"
+other_commit=${2-}
+
+git diff --exit-code $orig_commit $other_commit && echo

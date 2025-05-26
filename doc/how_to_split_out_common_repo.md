@@ -189,6 +189,7 @@ though you could target a more specific onto target if you want.
 
 
 
+
 # 3. `split-branch`: Interleave common and specific commits; create common-only branch/repo
 
 Now we're going to take the "common" commits we just split out and transplant them, one at a time
@@ -208,6 +209,8 @@ you can compare the structure of your rewritten history with your "before" versi
 changed (and be able to reset more easily if anything got messed up).
 
 ## If you're just starting out...
+
+TODO: Figure out which instructions belong here and which belong in `git-rebase-seq-split-branch-by-specificity --help`
 
 ...
 
@@ -305,6 +308,8 @@ Example: The built-in `git diff --exit-code` command that double-checks your wor
 exited with failure and interrupted the rebase sequence. It outputted what the difference from your
 original commit was and now you want to fix up a previous commit to include this patch.
 
+## If you notice the mistake while in the middle of a rebase
+
 First, figure out which commit needs to be amended. Which commit _should_ have included this
 content? If it's the tip commit, then it's as easy as:
 1. Change and stage the file
@@ -317,9 +322,14 @@ If it's a commit _prior_ to the tip commit, it's a bit harder, but still doable.
 2. Rewind. Reset the appropriate refs that the rebase was tracking, directly amend the commit, then
    let `rebase` replay the commands that you just rewound back from.
 
-This section will describe the latter option, "Rewind".
+### [Advanced] Rewinding while in the middle of a rebase, fixing, then continuing rebase
+
+<details>
+
+<summary>This section will describe the latter option, "Rewind"</summary>
 
 Example: You noticed this failure:
+
 ```diff
 Executing: git diff --exit-code 4387f65 HEAD && echo 'Diff is clean compared to 4387f65'
 diff --git a/src/lib/components/icons/icon-config.ts b/src/lib/components/icons/icon-config.ts
@@ -463,9 +473,9 @@ hash of `refs/heads/new-main` (since that's usually how a bare ref is interprete
 correctly showing the hash of `refs/rewritten/new-main` here, which is how git rebase will interpret
 bare ref names (as "labels").
 
-## How to rebase and amend a commit in an already rewritten branch
+</details>
 
-x If you fix mistakes in the rewritten history which now has merges
+## How to rebase and amend a commit in an already rewritten branch
 
 If you want ever need to rebase your already-once-rewritten history, for example in order to apply a
 `fixup` to an earlier commit or to manually amend a commit, then don't worry, you can.
@@ -491,6 +501,10 @@ and then "send that commit back" to the commit on which it should operate with:
 git rebase -i --rebase-merges --autosquash 080da6a^
 ```
 
+If you would rather amend the commit back at the commit itself (or if the `--fixup` approach
+wouldn't work well), then you can just change the `pick` line that you want to amend to `edit` and
+it will stop at that commit and let you amend it.
+
 How you do it is really no different than rebasing a normal linear branch. 
 
 If you want to preserve the original committer, remember to add this line after the commit you
@@ -499,34 +513,30 @@ ammended and any later commit that have it as an ancestor:
 exec git-rebase-i-amend-head
 ```
 
+```sh
+GIT_SEQUENCE_EDITOR=git-rebase-seq-add-specificity \
+  git rebase -i --rebase-merges --exec git-rebase-i-amend-head <parent-of-first-commit-to-fix>
+```
+
+### Git rebases starting at your root commit even if you specify an onto commit
+
 Unfortunately, when your rebasing to get to a commit that touches 2 "lines", then even though it
 starts you right at your "onto" commit for the one line (let's say the "common" line if you're
 trying to amend a commit there), in order to reconstruct the state of the _other_ line (the
 "specific" line or main line in our example) it will construct a sequence starting all the way back
 at the root commit and replay the _entire_ history of commits from there up to the
 
-This is technically not necessary, and you can manually adjust things so that it _won't_ do that,
-but considering git's excellent ability to detect if it's replaying unchanged history and
-fast-forwarding if nothing was actually changed, it's usually harmless and okay to just let it do
-this and you even end up with the exact same, unrewritten commit hashes for that history line that
-you didn't touch!
+This is technically not necessary, and you _could_ fairly easily manually adjust things so that it
+_won't_ do that. (How? Just delete the unneeded `pick` commands and add a `reset` command that
+resets to the same commit that the commands you removed would have brought you up to.)
+
+But considering git's excellent ability to detect if it's replaying unchanged history and
+fast-forwarding if nothing was actually changed, it's usually not worth the extra efort to manually
+edit things just to aviod this _seemingly_ unnecessary history rewriting: It should be harmless and
+okay to just _let_ it do this and you even end up with the exact same, unrewritten commit hashes for
+that history line that you didn't touch!
 
 
-### If you want more manual control
-
-```sh
-GIT_SEQUENCE_EDITOR=git-rebase-seq-add-specificity \
-  git rebase -i --rebase-merges --exec git-rebase-i-amend-head <parent-of-first-commit-to-fix>
-```
-
-but then you either need to remove those lines from the commits that should remain unchanged, or
-remove that history replaying from the sequence altogether...
-
-(don't think this is true: and worse, can sometimes require you to re-resolve conflicts you've already
-resolved before.)
-If that happens and you notice it has added the root commit to the sequence, you
-can fairly easily fix this by deleting the unneeded commands and adding a `reset` command that
-resets to the commit that resulted from the commands you just deleted.
 
 
 ## If you accidentally modified the commit timestamp or need to copy metadata from original commits for whatever reason

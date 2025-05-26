@@ -12,43 +12,80 @@ usage() {
 Usage:
   $(basename "$0")
 
-Splits the current branch into 2 based on the specificity recorded for each commit.
+Splits the current branch (it can be called anything, such as main, but these instructions will call
+it the "specific" branch) into 2 (specific and common) based on the specificity recorded for each
+commit.
 
-Assumptions:
+If you are rebasing with --root instead of onto an existing commit, then the root commit will become
+the root of both the "specific" _and_ the "common" lines. 
 
-  You've already split commits by specificity and tagged them with correct specificity.
+If you are rebasing onto an existing commit:
+Since a rebase can technically only be used for rewriting a single branch, and the primary branch
+that is getting rewritten is "specific", the commit that we're rebasing onto _must_ be part of the
+"specific" line rather than the "common line". And since a rebase only resets the current branch
+which you are rewriting, you need to handle resetting the "common" branch _manually_ prior to
+starting this rebase. To avoid losing any commits, all of "common" must already be merged into
+"specific". Then you can manually reset "common" to the first common commit <= your onto commit. For
+simplicity, you can use a merge commit as your "specific" onto and the common commit that was merged
+in _by_ that merge as your "common" onto targets.
 
-  You want to now take that already-split-commits history and separate those commits into 2 branches
-  based on their specificity.
+(To do: Add an outer script, git-split-branch-by-specificity <specific_onto> <common_onto> that
+handles more of this for you: actually handles resetting _both_ branches, and then simply wraps git
+rebase using this sequence editor. Probably the auto suggested_common_onto_short that we use now is
+good enough though. But an outer script could potentially still provide a better DX.)
+
+You actually only need to rewind/reset "common" if you are going back and fixing something in your
+already split-branch-done commits. If you are just "continuing" where you left off with
+split-branch, and are only rebasing linear "split-commit" commits, then you don't even need to
+rewind/reset "common". In that case, this script will be "removing" common commits from specific
+branch and applying them onto "common" branch instead, building on the common branch you've built up
+so far.
+
+The commits being replayed will fall into 1 of 2 categories:
+
+1. commits already prior "split-branch-done". If it detects that a commit is <= split-branch-done,
+  then it tried to treat it as a "no-op", not mess with it, and just replay it the same way as git
+  rebase would normally try to.
+
+  The reason we have to treat these specially is because the main part of the script assumes the
+  pick lines for a split common/specific commit pair are adjacent in the list, one right after the
+  other. But if they've already been split into different branches, then their respective pick
+  commands may be widely spread out across the sequence, because rebase basically processes the
+  different history lines separately and then interleaves them using merges at the appropriate
+  places in the main line.
+
+  By detecting which commits are already "done", we can avoid "double processing" the same commits
+  and can just leave those commits with their existing topology. This gives us the flexibility to
+  rewrite history that has _already_ been rewritten using this tool. Although this tool is not
+  really needed for such a case, it's nice to be able to rebase over already-done commits without
+  missing things up (idempotency), in case (for example) you want to fix a mistake that is back in
+  the already-rewritten history, using the same output and "git diff" double-check assurances that
+  you had the first time you actually split those commits into the 2 branches.
+
+  (TODO: extract those double-checks into a new more generic git-rebase-seq.)
+
+2. new commits (not already split-branch-done).
+
+  This is the main purpose of this tool.
+
+  These new commits need to be split-commit-done, meaning you need to have already processed them
+  with git-split-commit-by-specificity, so they have have already been split into "common" or
+  "specific" commits and these are alerady tagged with this specificity.
+
+  Now you want to now take that split-commit-done history and separate those commits into the
+  respective 2 branches based on their specificity.
 
   At the end, and at each step along the way, you expect there to be no diff between each rewritten
   commit and the source commit from the previous phase's branch.
 
-  Your root commit is a common commit, and is just the way you want it. (It is not recommended to
-  amend the root commit as part of this command/sequence.)
+General assumptions:
 
-  You want to end up with 2 new branches whose names can be configured with A= and B=.
-  TODO: add proper env variables
+  Your root commit is a common commit (and also the root of the "specific" branch), and is just the
+  way you want it. (It is not recommended to amend the root commit as part of this
+  command/sequence.)
 
-Limitations:
-
-  Currently, it will only work if all of the picks in your input sequence have a specificity note attached.
-  If you try to --rebase-merges and rewrite history that has _already_ been rewritten using this
-  tool, it will no longer have its specificity attached, so it won't let you do this.
-  (Actually, it should still have those notes, but it's still necessary to nor recommended to run
-  your rebase through this sequence editor.)
-
-  TODO: It should let you do this, even if the pick commits don't have specificity, as long as it
-  detects they are/were ancestors of either the main or common branches, at the time git rebase is
-  run.
-  TODO: Fix so it does copy notes. (May be fixed now.)
-
-
-If there are merge conflicts, consider using
-  git-rebase-i-resolve-conflicts-use-picked
-to resolve them. Since we started out with a purely linear list of commits, the contents of the
-"next commit" should be correct as-is, so this simple script will resolve the conflict by simply
-using the contents of the "pick"ed commit. Of course, review the resulting diff to make sure it's right.
+  The specific branch is the one you are in when you run this command and could have any name, such
+  as "main". The "common" branch is named "common".
 
 Options:
   --no-act, -n
@@ -59,10 +96,14 @@ Example:
   export GIT_SEQUENCE_EDITOR=git-rebase-seq-split-branch-by-specificity
 
   # To replay/process all commits starting with the root commit:
-  git rebase -i -v --rebase-merges --root
+  git rebase -i --rebase-merges --root
+
+  git rebase -i --rebase-merges --root
 
   # To simply see a preview of what it would do
-  GIT_SEQUENCE_EDITOR='git-rebase-seq-split-branch-by-specificity --no-act' git-rebase-seq-split-branch-by-specificity ...
+  GIT_SEQUENCE_EDITOR='git-rebase-seq-split-branch-by-specificity --no-act' git rebase -i --rebase-merges onto
+
+════════════════════════════════════════════════════════════════════════════════════════════════════
 
 You don't have to do it all in one go! You can split the job into multiple smaller batches like
 this:
@@ -92,14 +133,24 @@ If you break the sequence at any point, you can inspect the branches-to-be by lo
 - refs/rewritten/common
 - refs/rewritten/main
 
+If there are merge conflicts, consider using
+  git-rebase-i-resolve-conflicts-use-picked
+to resolve them. Since we started out with a purely linear list of commits, the contents of the
+"next commit" should be correct as-is, so this simple script will resolve the conflict by simply
+using the contents of the "pick"ed commit. Of course, review the resulting diff to make sure it's right.
+
+
 ════════════════════════════════════════════════════════════════════════════════════════════════════
 Fixing partially-processed branches without losing your progress
 
-However, if you need rebase the work you've _already_ processed with this script, in order to make
-amends and fix any commits in your rewritten history so far ["progress"], then you don't need to run
-it through this script again. Instead, just use something like this:
+If you need to rebase the work you've _already_ processed with this script, in order to make
+amends and fix any commits in your rewritten history so far ["progress"], then
+
+[Reevaluate:] you don't need to run it through this script again. Instead, just use something like this:
 
   GIT_SEQUENCE_EDITOR= git rebase -i -v --rebase-merges --root --exec git-rebase-i-amend-head
+
+════════════════════════════════════════════════════════════════════════════════════════════════════
 
 If in the middle of _that_ ["fix"] rebase (to fix your rewritten history), you notice a problem that
 will require you to do yet _another_ rebase, then you may want to stop early before finishing the
@@ -206,12 +257,14 @@ End
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
 act=true
+debug=false
 keep_instructions=false
 onto_root=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)         usage ;;
     --no-act | -n)       act=false; shift ;;
+    --debug)             debug=true; shift ;;
     --keep-instructions) keep_instructions=true; shift ;;
     --no-instructions)   keep_instructions=false; shift ;;
     -*)                  echo "Unknown option $1" >&2; exit 1 ;;
@@ -226,46 +279,99 @@ rebase_seq__set_instructionFormat_to_include_notes
 
 common_branch=common
 
-branch=$(git current-branch)
-echo "Using current branch ($branch) as 'specific' branch"
-specific_branch=$branch
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+# Figure out the 2 branches and revs being used for those 2 branches
+
+current_branch=$(git current-branch)
+echo "Using current branch ($current_branch) as 'specific' branch"
+specific_branch=$current_branch
+
+parse_revs() {
+  local _onto=$(cat .git/rebase-merge/onto)
+
+  # onto will be assumed to be / used as the new main/specific
+  specific_onto=$_onto
+  specific_onto_short=$(git rev-parse --short $specific_onto)
+
+  # Does this need || true to allow common to not exist yet? (This may have been added before set -e)
+  common_onto=$(git rev-parse --quiet --verify common^{commit})
+  common_onto_short=$(git rev-parse --short $common_onto)
+}
+parse_revs
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 # Prep:
-# - Sanity check
+# - Sanity checks
 # - Back up branches to avoid losing data
 
-onto=$(cat .git/rebase-merge/onto)
-
-# onto will be assumed to be / used as the new main
-main_rev=$onto
-
-common_rev=$(git rev-parse --quiet --verify common^{commit})
-
 if $act; then
-  # "hint: Waiting for your editor to close the file..." does not include a newline
+  # "hint: Waiting for your editor to close the file..." does not include a trailing newline!
   echo
 
-  if [ -n "$common_rev" ] || [ -n "$main_rev" ]; then
-    if git merge-base --is-ancestor "$common_rev" "$onto"; then
-      echo "✅ Using existing $common_branch branch ($common_rev), which is an ancestor of 'onto' ($onto), which will be used to reset $specific_branch branch"
-      git log-oneline-graph -n10 $common_branch
-      echo
+  # TODO: grep for "reset [new root]" here instead of waiting for main loop? If that is present, we
+  # can set onto_root earliy here, and if that is set, we should avoid validating $specific_onto rev.
+  if [ -n "$specific_onto" ]; then
+    echo
+    echo "🧠 Rebasing $specific_branch onto $specific_onto_short . ($specific_branch will be reset back to this and we will replay on top of it.)"
+    if git merge-base --is-ancestor "$specific_onto" HEAD; then
+      echo "  ✅ is an ancestor of HEAD"
     else
-      # TODO: Find the latest merge commit, extract its parent2 and assume that is the common branch
-      # that was merged into specific. Give a hint about how you can `git update-ref
-      # refs/heads/common $that_parent2` if you are sure that's where common should start.
-      # We could even completely automate that, but I feel it's safer to make the user do it, so
-      # they don't accidentally lose any work if it's not correct.
-      echo >&2 "❌ Error: $common_branch ($common_rev) is not an ancestor of onto rev $onto (which will be used to reset $specific_branch branch)."
-      echo >&2 "Please reset $common_branch to point to the latest $common_branch commit that has been merged into $specific_branch."
-      echo >&2 "We need this so that we can add common new commits to it as we go."
-      echo >&2
+      echo >&2 "❌ Error: $specific_onto_short is not an ancestor of HEAD. Are you sure you want to rebase $specific_branch onto an unrelated history??"
       exit 1
     fi
+    # [ -n "$common_onto" ] && ?
+    if git merge-base --is-ancestor "$specific_onto" "$common_branch"; then
+      echo >&2 "❌ Error: $specific_onto is an ancestor of $common_branch. Cannot use this as your $specific_branch onto commit, because that would cause specific commits to be added to $common_branch!"
+      merge_commit=$(git-find-merge-commit-with-parent $current_branch $specific_onto)
+      echo >&2 "  Hint: Rebase onto the merge commit that merges this common commit into $specific_branch instead. Did you mean $merge_commit ?"
+      exit 1
+    else
+      echo "  ✅ is not an ancestor of $common_branch"
+    fi
+    git log-oneline-graph -n5 $specific_onto
+    echo
+  fi
+
+  if ! git merge-base --is-ancestor $specific_onto split-branch-done; then
+    echo >&2 "❌ Error: split-branch-done must be a descendant of (contain) $specific_branch"
+    exit 1
+  fi
+
+  if [ -n "$common_onto" ] || [ -n "$specific_onto" ]; then
+    echo
+    echo "🧠 Rebasing $common_branch onto $common_onto_short . ($common_branch is assumed to have been reset back if needed if we are rewinding rather than simply continuing where we left off.) We will replay common commits on top of it."
+    if git merge-base --is-ancestor "$common_onto" "$specific_onto"; then
+      echo "  ✅ is an ancestor of $specific_branch 'onto' commit ($specific_onto_short)"
+    else
+      if git-is-merge-commit $specific_onto; then
+        # We expect almost always that they will want to rebase common onto the parent of
+        # specific_onto, if that is a merge commit.
+        suggested_common_onto_short=$(git rev-parse --short $specific_onto^2)
+        if git merge-base --is-ancestor "$suggested_common_onto_short" "$common_branch"; then
+          echo "⚠️  Warning: $common_branch ($common_onto_short) is currently not an ancestor of onto rev $specific_onto_short."
+          echo "Should I reset $common_branch to point to the parent from the last time $common_branch was merged into $specific_branch?"
+          git log-oneline-graph -n5 $suggested_common_onto_short
+          read -rp "Reset $common_branch to $suggested_common_onto_short? [Enter] " response
+          git update-ref refs/heads/$common_branch $suggested_common_onto_short; echo $?
+          parse_revs
+          echo "Now that $common_branch is correct, please run this command again. (It needs to be correct _before_ git rebase runs or it will an extra update-ref refs/heads/common line, which will fail at the end because it fights with other label/update-refs.)"
+          exit 1
+        else
+          echo >&2 "❌ Error: $specific_onto_short was a merge commit but its parent ($suggested_common_onto_short) didn't appear to be an ancestor of $common_branch."
+          exit 1
+        fi
+      else
+        echo >&2 "❌ Error: $common_branch ($common_onto_short) is not an ancestor of onto rev $specific_onto_short."
+        echo >&2 "  Hint: rebase onto a merge commit in $specific_branch and we can extract the right $common_branch onto rev from its parents."
+        exit 1
+      fi
+    fi
+    git log-oneline-graph -n5 $common_onto_short
+    echo
   fi
 
   # If the branches we will be creating/resetting already exist, back them up
+  # We use tags so that 1. They won't clutter the branch list. 2. They won't get rewritten by 
   tag=backup/$(now s)
   echo "Backing up branches $common_branch $specific_branch …"
   for branch in $common_branch $specific_branch; do
@@ -314,21 +420,22 @@ cur_branch() {
 }
 
 label_branch() {
-  local branch=$1
+  local branch=${1}
   echo label $branch
   echo update-ref refs/heads/$branch
 }
 
+# Do a sanity check to make sure things look the same as they did before in the original commit.
+# See also: git-rebase-seq-helper-diff-orig-commit
 diff_with_orig_commit() {
-  # Do a sanity check to make sure things look the same as they did before.
-  echo "exec git diff --exit-code $last_pick_rev HEAD && echo 'Diff is clean compared to $last_pick_rev'"
-  #echo "exec git diff \$(git-rebase-i-get-copy-source-commit) HEAD"
+  local orig_commit=$1
 
-  # just for now so we can double-check it went well:
-  #echo "break"
+  echo "exec git diff --exit-code $orig_commit HEAD"
+  # We could instead use our helper here, but there is no reason to:
+  #echo "exec git-rebase-seq-helper-diff-orig-commit $orig_commit HEAD && echo"
 }
 
-format_pick_line() {
+handle_pick_line() {
   local line=$1
   if [[ $line =~ ^pick\ ([0-9a-f]+) ]]; then
     local rev=${BASH_REMATCH[1]}
@@ -352,9 +459,22 @@ format_pick_line() {
   #echo "exec     git-commit-amend-copy $rev # ↑"
   #echo "exec     git-commit-amend-copy # ↑"
   #exec sh -c 'git-rebase-i-amend-head; git log --color --format=fuller --show-notes -1'
-  cat <<-End | sed 's/^[[:space:]]*//'
-  exec sh -c 'echo "✅ $line_with_specificity"; git-rebase-i-amend-head; git log-oneline-notes-graph -1'
-End
+#  cat <<-End | sed 's/^[[:space:]]*//'
+#  exec sh -c 'echo "✅ $line_with_specificity"; git-rebase-i-amend-head; git log-oneline-notes-graph -1'
+#End
+
+  # We just pass a simplified version of the pick line because it's too challenging to escape
+  # correctly with quotes and color codes.
+  #echo "exec sh -c 'echo \" ↑ \">/dev/null; " \
+  #  "git-rebase-seq-helper-handle-completed-line \"pick $rev\"'"
+  # Or maybe this version will work:
+  echo "exec sh -c 'echo \" ↑ \" >/dev/null; git-rebase-seq-helper-handle-completed-line \"\$1\"' _ \"$line\""
+
+  # Can only do this after specific commits, because that's the 2nd "half" of a split commit
+  # (common+specific).
+  if [ "$last_pick_specificity" = specific ]; then
+    diff_with_orig_commit $last_pick_rev
+  fi
 }
 
 # Not technically a branch — yet — but our branch's ref will be updated to point to this rev at the
@@ -411,6 +531,11 @@ output_log_current_branch() {
 #---------------------------------------------------------------------------------------------------
 
 function merge_common_when_ready() {
+  # In case we're still in state=replaying_done_commits
+  if [ "$state" != collecting_runs_and_merging ]; then
+    return
+  fi
+
   local next_rev
   local next_rev_specificity=
   next_rev=${1-}; shift
@@ -426,6 +551,7 @@ function merge_common_when_ready() {
 
   # Handle initial pick. Switch to the right branch to start collecting it.
   if [ -z "$(cur_branch)" ]; then
+    echo "# Handling initial pick for collecting_runs_and_merging state"
     if $onto_root; then
       if [[ $next_rev_specificity != common ]]; then
         echo >&2 "❌ If rebasing --root commit, then first commit needs to be common (was $next_rev_specificity), since it will be used as the common ancestry that they both share."
@@ -443,8 +569,9 @@ function merge_common_when_ready() {
     fi
   fi
 
-  # if $debug;
-  #echo >&2 "${next_rev:-end}: cur_specificity=$cur_specificity; cur_branch=$(cur_branch); next_rev_specificity=$next_rev_specificity"
+  if $debug; then
+    echo "# ${next_rev:-end}: cur_specificity=$cur_specificity; cur_branch=$(cur_branch); next_rev_specificity=$next_rev_specificity"
+  fi
 
   # State machine
   if [[ "$cur_specificity" = "common" ]]; then
@@ -471,12 +598,16 @@ function merge_common_when_ready() {
       # no-op/fast-forward, because to begin with specific branced directly off of common, so it
       # already _contains_ all of the commits that we would be merging in.
       echo "merge $common_branch # Merge $common_branch into $specific_branch"
-      cat <<-End | sed 's/^[[:space:]]*//'
-      exec sh -c 'echo "✅ $line"; git-rebase-i-amend-head' # ↑
-End
-      #echo "exec git-rebase-i-amend-merge-add-details --copy-dates"
 
-      diff_with_orig_commit
+      # Now amend and display the completed merge commit
+      #echo "exec git-rebase-i-amend-merge-add-details --copy-dates"
+      #cat <<-End | sed 's/^[[:space:]]*//'
+      #exec sh -c 'echo "✅ $line"; git-rebase-i-amend-head' # ↑
+#End
+      echo "exec sh -c 'echo \" ↑ \" >/dev/null; git-rebase-seq-helper-handle-completed-line \"\$1\"' _ \"$line\""
+
+      echo "# $last_pick_rev should be the last-picked _common_ commit. Now that we've merged it in, we can diff."
+      diff_with_orig_commit $last_pick_rev
 
       # Label our progress in specific. This is important in case we return and there _aren't_ any
       # more picks.
@@ -489,21 +620,26 @@ End
     if [[ $next_rev_specificity = 'specific' ]]; then
       : # Continue this run of specific commits. Just keep picking.
 
-      diff_with_orig_commit
-
     # Either next commit is common (we're finishing a run of specific commits), _or_ we're at the
     # end (there are no more commits).
     else
-      # Label our progress in specific. Then switch back to common.
+      # Label our progress in specific. Then switch back to common, if we expect more picks (not if
+      # we're at the very end).
       label_branch $(cur_branch)
       output_log_current_branch
       echo
 
-      cur_specificity=common
-      #echo "exec git switch $common_branch"
-      echo "reset $(cur_branch)"
-
-      # Now return and add any common picks
+      if [ "${next_rev:-end}" = "end" ]; then
+        # If we're at the end of the rebase, we want to remain on the last specific commit, since
+        # that is the primary branch we are rebasing, and rebase will actually update-ref that
+        # branch to point to whatever HEAD we end up in.
+        :
+      else
+        cur_specificity=common
+        #echo "exec git switch $common_branch"
+        echo "reset $(cur_branch)"
+        # Now return and add any common picks
+      fi
     fi
   fi
 }
@@ -535,60 +671,112 @@ while IFS= read -r line; do
       onto_root=true
       ;;
 
-    "reset onto")
-      # Skip this command because we may want to start at label common instead of onto (we are
-      # treating onto as the starting point for specific only), and this could interfere with
-      # that and cause us to pick common commits directly into onto/specific.
-      ;;
-
     # Default label. Tells us we're at the very beginning.
     "label onto")
-      #echo "$line"
-      echo label $specific_branch # label main
+      echo "$line"
+      # The commit we're rebasing onto must be a specific commit.
+      echo label $specific_branch # label specific/main
 
       # "Reset" specific branch to point to the "onto" ref
-      #echo "exec git branch -f $specific_branch"
+      # To do: Do we need this sanity check both here and earlier in this script?
       cat <<-End | sed 's/^[[:space:]]*//'
-      exec sh -c 'echo "This is what we'\''re rebasing onto:"; git log-oneline-graph -n10 HEAD'
+      exec sh -c 'echo "This is what we'\''re rebasing $specific_branch onto ($specific_branch has been reset back to this and we will replay on top of it):"; git log-oneline-graph -n10 refs/rewritten/$specific_branch'
 End
+      echo
 
       # Now reset to and label the starting point for our common branch, which should be wherever we
       # left off on that very branch. We'll simply continue from there.
       echo reset refs/heads/$common_branch
       label_branch $common_branch
+      cat <<-End | sed 's/^[[:space:]]*//'
+      exec sh -c 'echo "This is what we'\''re rebasing $common_branch onto ($common_branch has been reset back to this and we will replay on top of it):"; git log-oneline-graph -n10 refs/rewritten/$common_branch'
+End
+      echo
 
+      ;;
+
+    "reset onto")
+      # Still needed?? Skip this command because we may want to start at label common instead of
+      # onto (we are treating onto as the starting point for specific only), and this could
+      # interfere with that and cause us to pick common commits directly into onto/specific.
+      #;;
+      # But it _is_ needed if we want to support rebasing over "done" commits. 
+      # And if we are currently doin so, then when we hit this line, it's a clue that we've just
+      # finished doing all the picks for the "common" "side line", so we need to label it.
+      label_branch $common_branch
+      echo
+      echo "$line"
       ;;
 
     # Existing merges that we are rebasing
     "label" | "rebase")
-      # TODO: change from built-in commands to real branch checkouts??
       echo "$line"
       ;;
 
     pick*)
       if $onto_root && [[ $state = initial ]]; then
         # We start out by picking the root commit, then creating our 2 branches branching off from our root commit
-        format_pick_line "$line"
+        handle_pick_line "$line"
         label_branch $common_branch
         label_branch $specific_branch
         state=collecting_runs_and_merging
 
       elif [[ $line =~ ^pick\ ([0-9a-f]+) ]]; then
         rev=${BASH_REMATCH[1]}
-        state=collecting_runs_and_merging
 
-        merge_common_when_ready $rev
+        # If rev is already included in split-branch-done, then exempt it from our split-branch
+        # processing
+        if git merge-base --is-ancestor $rev split-branch-done; then
+          state=replaying_done_commits
+          if $debug; then
+            : #echo "# Detected $rev is already split-branch-done. Replaying normally." 
+          fi
 
-        format_pick_line "$line"
+          # Original thought: Since git will detect these are unchanged commits and simply
+          # fast-forward, and we're basically just "skipping over" these commits, we don't need to
+          # be noisy and print our usual verbose output after each pick. 
+          #echo "$line"
 
-        # We can come back and do this as a later pass. It's kind of noisy including this after every
-        # pick.
-        #echo "exec     git-commit-amend-copy-committer $rev # ↑"
+          # However, if we were to manualy change any of those picks into an edit — after this
+          # script had processed all the lines — then any commits from that edit and later would
+          # actually get rewritten rather than fast-forwarded, so if we want to preserve committer,
+          # we need to just run all of these lines through
+          # git-rebase-seq-helper-handle-completed-line / git-rebase-i-amend-head after all. 
+          handle_pick_line "$line"
+
+        else
+          if [ $state = replaying_done_commits ]; then
+            echo "# Done replaying done commits ($specific_branch)"
+            label_branch $specific_branch
+            echo
+          fi
+
+          state=collecting_runs_and_merging
+
+          merge_common_when_ready $rev
+
+          handle_pick_line "$line"
+        fi
       else
         echo >&2 "pick command not in expected format!"
         exit 1
       fi
       ;;
+
+    merge\ -C*)
+      if [[ $line =~ ^(m|merge)\ -C\ ([0-9a-f]+) ]]; then
+        # We're probably in state=replaying_done_commits, but not worth asserting
+        rev=${BASH_REMATCH[2]}
+
+        echo "$line"
+        echo "exec sh -c 'echo \" ↑ \" >/dev/null; git-rebase-seq-helper-handle-completed-line \"\$1\"' _ \"$line\""
+        diff_with_orig_commit $rev
+        echo
+      else
+        echo "$line"
+      fi
+      ;;
+
     \#*)
       if $act && $keep_instructions; then
         echo "$line"
@@ -598,6 +786,7 @@ End
       fi
       ;;
     *)
+      #echo '# Using as-is:'
       echo "$line"
       ;;
   esac
@@ -606,6 +795,7 @@ done <"$todo_file" >>"$new_file"
 # When we get to the end
 {
   # Cleanly finish up whatever "run" we were on
+  echo '# Finished picks. Checking if we need a final merge.'
   merge_common_when_ready ''
 
   rebase_exec__restore_instructionFormat

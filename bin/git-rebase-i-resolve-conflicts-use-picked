@@ -1,20 +1,42 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 # Get list of unmerged files
+echo 'unmerged files:'
+git diff --name-only --diff-filter=U
+echo
+
+# To do: Copy the initial state of all files for this merge to a backup dir, in case we want to
+# revert to or check against them.
+
 mapfile -t files < <(git diff --name-only --diff-filter=U)
 for file in "${files[@]}"; do
   echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
   echo "$file"
   echo "Before resolving:"
+  # This didn't show any diff during an actual merge with conflicts.
   git diff --staged "$file"
   echo
 
-  if git rev-parse --quiet --verify MERGE_HEAD; then
-    # If we detect we're in a merge, then use the opposite side — --ours
-    git checkout --ours "$file"
+  orig_commit=$(git-rebase-i-get-orig-commit --short || true)
+  if [ -n "$orig_commit" ]; then
+    set -x
+    git checkout $orig_commit "$file"
+    { set +x; } 2>/dev/null
   else
-    git checkout --theirs "$file"
+    if git rev-parse --quiet --verify MERGE_HEAD; then
+      # If we detect we're in a merge, then use the opposite side — --ours
+      # This hasn't always produced the right result, like when replaying over already rewritten
+      # history with merges.
+      set -x
+      git checkout --ours "$file"
+      { set +x; } 2>/dev/null
+    else
+      git checkout --theirs "$file"
+    fi
   fi
+
   git add -f "$file"
 
   echo
