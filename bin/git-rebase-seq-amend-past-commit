@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"' err
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage:
+  $(basename "$0")
+
+[Unfinished!]
+
+Makes it easy to "amend" a commit that isn't the HEAD of your branch using \`git rebase\`. Adds the
+following behaviors which wouldn't be present by default with a \`git rebase\`:
+
+- For every commit, checks that you haven't diverged from original
+
+Preserves these behaviors which _are_ be present by default with a standard \`git rebase\`:
+
+- Allows it to replay history cleanly, including merges if --rebase-merges is used, as a
+  fast-forward!, up until the commit that you wanted to amend. Only rewrites history starting from
+  the first commit in the list that you actually _change_.
+
+(This is a more generic tool extracted from git-rebase-seq-split-branch-by-specificity)
+
+To do: Update git-commit-fixup-rebase / git-commit-amend-past-commit to use this.
+End
+  exit
+}
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage

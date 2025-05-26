@@ -17,14 +17,37 @@
 
 # TODO: Add --squash option like git-commit has (also --fixup to be complete?)
 
+usage() {
+  cat - <<End >&2
+Usage:
+  $(basename "$0") <commit> [file...]
+
+git commit --amend can _only_ be used to amend the HEAD commit. What if you need to amend a commit
+further back in your branch's history, some ancestor of HEAD?
+
+This command lets you "git commit --amend" a _past_ commit by making a temporary commit and then
+doing a "fixup" onto the commit you want to amend, using git rebase -i.
+
+If you've already staged the changes/files/hunks you wish to commit, you can omit passing any
+files.
+
+In place of <commit>, you can pass a "file-relative commit ref" in addition to the usual commitish
+formats (documented by man git-rev-parse under SPECIFYING REVISIONS):
+
+  file~0 or file@ ? means most recent commit that changed file
+  file~1 or file^ means the 2nd commit back looking only at commits that changed file
+
+To do:
+- Use GIT_SEQUENCE_EDITOR=git-rebase-seq-amend-past-commit by default?
+- Alias as git-commit-amend-past-commit so that's similarity to git-commit-amend is more obvious for
+  someone looking for a way to amend a commit, but then maybe realizing that normal amend can _only_
+  be used on HEAD commit.
+End
+  exit
+}
+
 if [ -z "$1" ]; then
-  echo "Usage: gcifrb <commit> [file...]"
-  echo '"git commit --amend" a past commit by making a temporary commit and then doing a "fixup" onto the commit you want to amend, using git rebase -i'
-  echo "If you've already staged the changes/files/hunks you wish to commit, you can omit passing any files."
-  echo "In place of <commit>, you can pass a "file-relative commit ref" in addition to the usual commitish formats (documented by man git-rev-parse under SPECIFYING REVISIONS):"
-  echo "  file~0 or file@ ? means most recent commit that changed file"
-  echo "  file~1 or file^ means the 2nd commit back looking only at commits that changed file"
-  exit 1
+  usage
 fi
 
 # https://medium.com/@Drew_Stokes/bash-argument-parsing-54f3b81a6a8f
@@ -106,4 +129,11 @@ git merge-base --is-ancestor $commit HEAD || {
 # in control of whether or not to use this option:
 #   git config --global rebase.autoSquash true
 # or just pass --autosquash  directly to this command and it will pass it through here.
+# TODO: Now I'm feeling again like --autosquash should be the default, so that this does what it
+# says it will do "out of the box". Maybe add a --no-autosquash if you specifically want to disable
+# this? And maybe the default of --autosquash should only be used if rebase.autoSquash is unset or
+# true, but disabled if set to false?
+# TODO: Should the -i should be the default, or only if -i is passed to this command? -i may not be
+# necessary to accomplish the goal of this command, but is often nice to have because it gives you a
+# previous of what it's about to do.
 git rebase ${rebase_opts} -i $commit^

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+# This can be used after pick or merge command in your rebase sequence
+#
+# Its purpose:
+# - To give visual feedback of the commands as they are completed, for those who like more
+#   visual/verbose progress indication.
+# - To call git-rebase-i-amend-head
+# - To show which rewritten commit that original commit was replaced by
+#
+# TODO: Make it so you can set a config to opt out of any of these features. They are here for
+# user's benefit so they should be able to choose what is most helpful to them.
+
+
+line=$1
+
+if [[ $line =~ ^pick\ ([0-9a-f]+) ]]; then
+  rev=${BASH_REMATCH[1]}
+  echo -n "✅ pick $(git log-oneline -1 $rev)"
+  #git show --no-patch --pretty=format:"$(git config rebase.instructionFormat)" | tr -d "\n"
+  reset=$'\e[0m'
+  echo "$reset"
+else
+  # Merge line — use as-is
+  echo "$line"
+fi
+
+git-rebase-i-amend-head
+
+# Now show which rewritten commit that original commit was replaced by
+echo "      → $(git log-oneline -1)"
