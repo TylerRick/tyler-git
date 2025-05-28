@@ -105,13 +105,47 @@
   # https://stackoverflow.com/a/35487209/47185
   set-upstream = !git branch --set-upstream-to=origin/`git symbolic-ref --short HEAD`
 
-  #─────────────────────────────────────────────────────────────────────────────────────────────────
-  # Status
-  current-branch = ! git current-branch
-  st = status
+  f = fetch
+  fetchall = fetch --all
 
   #─────────────────────────────────────────────────────────────────────────────────────────────────
-  # Log
+  # Status
+  st = status
+  s  = status
+  ss = status --short
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # List branch
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Current branch / Switching branches
+
+  current-branch = ! git current-branch
+  branch-vv = branch -vv
+  bvv       = branch -vv
+
+  co = checkout
+  sw = switch
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Finding/naming commits or branches
+
+  # Option -r causes the remote-tracking branches to be listed, and option -a shows both local and remote branches.
+  branches-containing = branch --contains
+
+  # Find the common ancestor for a list of commits
+  # (Not quite the same as merge-base, as man git-merge-base will tell you.)
+  common-ancestor = show-branch --merge-base
+
+  # Gives a symbolic name for a rev (relative to the closest tag or branch)
+  name        = name-rev --name-only
+  # Shortens a rev as short as it can make it while still being uniqe
+  shorten-ref = rev-parse --short
+
+  is-ancestor = merge-base --is-ancestor
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Log (list commits)
 
   # TODO finish rename from short to oneline to be more in line with built-in pretty formats?
   # %d = ref names, like the --decorate option of git-log(1)
@@ -161,6 +195,7 @@
   }; f \"$@\"' arg0"
 
   #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Show (1 commit)
  
   # Like log-oneline except only shows 1 commit.
   show-oneline = show --no-patch --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s %C(magenta)%N '
@@ -211,7 +246,6 @@
 
   #─────────────────────────────────────────────────────────────────────────────────────────────────
 
-  co = checkout
   ch = cherry-pick
 
   #─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -242,23 +276,6 @@
         git checkout HEAD $file; \
     fi \
   }; f \"$@\"' arg0"
-
-  #─────────────────────────────────────────────────────────────────────────────────────────────────
-  # Finding/naming commits or branches
-
-  # Option -r causes the remote-tracking branches to be listed, and option -a shows both local and remote branches.
-  branches-containing = branch --contains
-
-  # Find the common ancestor for a list of commits
-  # (Not quite the same as merge-base, as man git-merge-base will tell you.)
-  common-ancestor = show-branch --merge-base
-
-  # Gives a symbolic name for a rev (relative to the closest tag or branch)
-  name        = name-rev --name-only
-  # Shortens a rev as short as it can make it while still being uniqe
-  shorten-ref = rev-parse --short
-
-  is-ancestor = merge-base --is-ancestor
 
   #─────────────────────────────────────────────────────────────────────────────────────────────────
 
