@@ -19,7 +19,7 @@ for file in "${files[@]}"; do
   git diff --staged "$file"
   echo
 
-  orig_commit=$(git-rebase-i-get-orig-commit --short || true)
+  orig_commit=$(git-rebase-i-get-orig-commit --quiet --short || true)
   if [ -n "$orig_commit" ]; then
     set -x
     git checkout $orig_commit "$file"
