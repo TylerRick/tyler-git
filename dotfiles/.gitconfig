@@ -647,9 +647,11 @@
 #	dialog = /home/tyler/.githooks/bin/githooks-dialog
 #	maintainedHooks = all
 #	updateCheckEnabled = true
+
 [sequence]
-  #editor = /home/tyler/installed/tyler-git/bin/git-rebase-seq_flatten_merges_with_empty_commits
-  #editor = /home/tyler/installed/tyler-git/bin/git-rebase-seq
+  #editor = git-rebase-seq --preserve-committer
+  editor = git-rebase-seq
+
 [commit]
 	verbose = true
 [split-branch]

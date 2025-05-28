@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+print_usage() {
+  cat - <<End >&2
+Usage: GIT_SEQUENCE_EDITOR='$(basename "$0") [options]'
+
+Or set 'git config sequence.editor' to this script. Configure it with the options to be run by
+default _any_ time you run git rebase -i.
+
+(Would be nice if we could configure to always add certain --exec commands to rebase as well. This
+roughly gives you that same ability, though it's not as flexible.)
+
+What it does (always):
+
+- Removes any 'update-ref refs/tags/backup/', 'update-ref refs/remotes', and 'update-ref HEAD'
+  lines.
+
+  update-ref lines are only added when using --update-refs or when rebase.updateRefs is set. But
+  there is a bug in git where if git config rebase.instructionFormat contains "%d" (to show
+  branch/tags matching each commit), it will cause git to add these extraneous update-ref lines that
+  wouldn't normally be included and are not refs that we would ever _want_ to update during a
+  rebase.  In the case of HEAD, it even causes an error.
+
+- TODO: Expand any placeholders in rebase.instructionFormat format that aren't natively expanded
+
+Options:
+
+  --preserve-committer, --copy-committer
+    Preserve original committer metadata.
+    Equivalent to passing rebase --exec git-commit-amend-copy-committer
+
+  --from-author, --reset-committer-to-author, --committer-is-author
+    Equivalent to passing rebase --exec 'git-commit-amend-copy-committer --from-author'
+
+Examples:
+
+  GIT_SEQUENCE_EDITOR='git-rebase-seq --copy-committer --from-author' git rebase -i
+
+Notes:
+
+  As with git rebase -i --exec:
+    If --autosquash is used, exec lines will not be appended for the intermediate commits, and will
+    only appear at the end of each squash/fixup series.
+
+Tips:
+
+  Remember to override or unset GIT_SEQUENCE_EDITOR if you need to edit your to-do list with git
+  rebase --edit-todo.  Otherwise it will run this again, and you'll end up with duplicate lines
+  added.
+
+  GIT_SEQUENCE_EDITOR='vim' git rebase --edit-todo
+
+  # Or use alias:
+  git rb-edit-todo
+
+End
+  exit
+}
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+# Parse options
+copy_committer=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)
+      print_usage;;
+    --preserve-committer | --copy-committer)
+      copy_committer=true; shift ;;
+    --from-author | --reset-committer-to-author | --committer-is-author)
+      from_author=true; shift ;;
+    -*)                   echo "Unknown option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+if [ ! -d .git/rebase-merge ]; then
+  echo >&2 "❌ Not inside an interactive rebase with merge backend."
+  exit 1
+fi
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+function git-show() {
+  git show --no-patch --pretty=format:"$(git config rebase.instructionFormat)" "$1"
+}
+
+todo_file="$1"
+tmp_file="$(mktemp)"
+cp "$tmp_file" "$todo_file.orig"
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+base_commit=""
+base_line=""
+buffered_lines=()
+
+flush_buffer() {
+  for buffered_line in "${buffered_lines[@]}"; do
+    echo "$buffered_line"
+  done
+  if $copy_committer && [[ -n "$base_commit" ]]; then
+    #echo "exec git-commit-amend-copy-committer $rev #$(git-show $rev)"
+    echo "exec     git-commit-amend-copy-committer$($from_author && echo ' --from-author') $base_commit # ↑"
+  fi
+  buffered_lines=()
+  base_commit=""
+  base_line=""
+}
+
+{
+  while IFS= read -r line; do
+    if [[ $line =~ ^(pick|reword|edit)\ ([0-9a-f]+) ]]; then
+      flush_buffer
+      base_commit=${BASH_REMATCH[2]}
+      base_line="$line"
+      echo "$line"
+
+    elif [[ $line =~ ^(squash|fixup)\ ([0-9a-f]+) ]]; then
+      buffered_lines+=("$line")
+
+    elif [[ $line =~ ^update-ref\ refs/tags/backup/|^update-ref\ refs/remotes|^update-ref\ HEAD ]]; then
+      :
+
+    else
+      flush_buffer
+      echo "$line"
+    fi
+  done
+  flush_buffer
+} <"$todo_file" >"$tmp_file"
+
+mv "$tmp_file" "$todo_file"
+
+# Now open the modified to-do list in the real editor for review
+editor="${VISUAL:-${EDITOR:-vim}}"
+exec "$editor" "$todo_file"
