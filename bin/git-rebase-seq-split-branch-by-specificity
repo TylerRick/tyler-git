@@ -370,8 +370,7 @@ if $act; then
     echo
   fi
 
-  # If the branches we will be creating/resetting already exist, back them up
-  # We use tags so that 1. They won't clutter the branch list. 2. They won't get rewritten by 
+  # If the branches we will be creating/resetting already exist, back them up using tags.
   tag=backup/$(now s)
   echo "Backing up branches $common_branch $specific_branch …"
   for branch in $common_branch $specific_branch; do

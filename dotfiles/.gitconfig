@@ -98,6 +98,9 @@
 
   #pushinit = push origin master:refs/heads/master
   pushinit = "!branch = `git symbolic-ref --short HEAD`; git push origin $branch:refs/heads/$branch"
+  pushn = push --no-verify
+  pushf = push --force-with-lease
+  pushnf = push --no-verify --force-with-lease
 
   # https://stackoverflow.com/a/35487209/47185
   set-upstream = !git branch --set-upstream-to=origin/`git symbolic-ref --short HEAD`
@@ -512,6 +515,11 @@
   # (Recommended for everyone)
   # (https://andrewlock.net/working-with-stacked-branches-in-git-is-easier-with-update-refs/)
   # git config --global --add --bool rebase.updateRefs true
+  # Just keep in mind that if you ever make a backup tag of your branch prior to a rebase, it will
+  # automatically update that and all tags that were pointing to your branch HEAD, so you'll have to
+  # remember to manually remove any 'update-ref refs/tags/backup' lines from the sequence in order
+  # to have a "before" version of your branch accurately retained by the tag. You may also want to
+  # remove any update-ref refs/remotes lines.
   updateRefs = true
   # disable for now, while doing major rewriting of main
   #updateRefs = false

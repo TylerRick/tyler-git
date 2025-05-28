@@ -62,9 +62,19 @@ head_short=$(git rev-parse --short HEAD)
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
 if git-is-merge-commit $head; then
-  # TODO: make this an option user can opt out of
-  if true && [ -n "${source_commit-}" ]; then
+  # TODO: Make this an option user can opt in to? It may be useful when you're doing a rebase that
+  # _should_ produce identical-to-original merge commits at each step. But it's emphatically _not_
+  # what you want if you're doing a rebase specifically for the purpose of amending one of those
+  # merge commits.
+  # It may not be safe to make it the default. I found that this silently reverted the changes I'd manually
+  # made to the merge commit (I specifically did a rebase/edit to amend it) because it silently
+  # checked out the other version and then silently committed them in the commit --amend --no-edit
+  # that git-rebase-i-amend-merge-add-details does. So if we add this back, we need to make it very
+  # noisy about what changes it is adding, and possibly even prompt the user if they want to accept
+  # them if it detects that any changes were made from the existing merge commit.
+  if false && [ -n "${source_commit-}" ]; then
     git-rebase-i-amend-merge-reapply-orig-changes $source_commit
+    git diff --staged
   fi
 
   # The adding merge details to message part was only for a certain large-scale rewriting. It may

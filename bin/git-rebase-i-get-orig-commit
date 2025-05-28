@@ -79,12 +79,14 @@ End
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
 verbose=false
+quiet=false
 output_rev_parse_options=
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)         print_usage;;
     --short)  output_rev_parse_options='--short'; shift;;
     --verbose)           verbose=true; shift ;;
+    --quiet)             quiet=true; shift ;;
     -*)                  echo "Unknown option $1" >&2; exit 1 ;;
     *) break ;;
   esac
@@ -95,12 +97,16 @@ done
 done_file=.git/rebase-merge/done
 
 if [ ! -d .git/rebase-merge ]; then
-  echo >&2 "❌ Not inside an interactive rebase with merge backend."
+  if ! $quiet; then
+    echo >&2 "❌ Not inside an interactive rebase with merge backend."
+  fi
   exit 1
 fi
 
 if [ ! -f "$done_file" ]; then
-  echo >&2 "❌ Warning: Could not find $done_file (rebase done log)."
+  if ! $quiet; then
+    echo >&2 "❌ Warning: Could not find $done_file (rebase done log)."
+  fi
   exit 1
 fi
 
@@ -110,7 +116,9 @@ fi
 line=$(grep -E '^\s*(p|pick|e|edit|r|reword|m|merge)\s+' "$done_file" | tail -n 1 || true)
 
 if [[ -z "$line" ]]; then
-  echo >&2 "❌ Could not find a previous commit command in $done_file."
+  if ! $quiet; then
+    echo >&2 "❌ Could not find a previous commit command in $done_file."
+  fi
   exit 1
 fi
 
@@ -130,7 +138,10 @@ elif [[ $line =~ ^(p|pick|e|edit|r|reword)\ ([0-9a-f]+) ]]; then
   commit=${BASH_REMATCH[2]}
   commit_type=
 else
-  echo >&2 "❌ Could not extract previous commit from line: $line"
+  # Including when we have a merge command without a -C
+  if ! $quiet; then
+    echo >&2 "❌ Could not extract previous commit from line: $line"
+  fi
   exit 1
 fi
 
