@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage: $(basename "$0") <sed-script>
+
+Amends the current HEAD commit message by applying a sed transformation.
+
+Examples:
+  $(basename "$0") 's/bad/good/g'
+
+  git rebase -i --exec "git-rebase-i-amend-reword 's/\[Bad Prefix\]/[good prefix]/g' && git-commit-amend-copy-committer --from-author"
+
+Options:
+  --edit
+    Open with default editor to manually tweak the resulting message.
+
+  --no-edit (the default)
+    Don't open with default editor to manually tweak the resulting message.
+
+Compare: git-rebase-i-amend-reword, git-rebase-i-amend-merge-add-details
+End
+  exit ${1:-0}
+}
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+copy_dates=true
+edit=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)         usage;;
+    --no-copy-dates)     copy_dates=false; shift ;;
+    --edit)              edit=true; shift ;;
+    --no-edit)           edit=false; shift ;;
+    -*)                  echo "Unknown option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
+
+if [ $# -ne 1 ]; then
+  usage 64 # EX_USAGE
+fi
+
+#═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+sed_script="$1"
+
+# Get the current commit message
+current_message=$(git log -1 --pretty=%B)
+
+# Apply the sed script to transform the commit message
+new_message=$(echo "$current_message" | sed "$sed_script")
+
+if $copy_dates; then
+  # Like what git-commit-amend-copy-committer does
+  orig_vars="$(git-commit-metadata-vars @)"
+  vars=$(echo "$orig_vars" | grep DATE)
+  eval "$vars"
+  #env | grep GIT_ | sort
+fi
+
+# Amend the commit
+# GIT_EDITOR="echo \"$new_message\" >"
+git commit --amend $($edit && echo '--edit' || echo '--no-edit') --no-verify --reset-author -m "$new_message"
