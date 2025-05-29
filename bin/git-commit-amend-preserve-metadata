@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage: $(basename "$0")
+
+The same as 
+  git commit --amend
+but doesn't 
+
+Amends the HEAD commit, preserving all metadata from the original HEAD commit.
+
+See also: git-commit-amend-copy-committer
+End
+  exit 64 # EX_USAGE
+}
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+# Parse options
+
+from_author=false
+fall_back_to_rebase_orig_commit=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)      usage;;
+    -*)               echo "Unknown option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+eval "$(git-commit-metadata-vars HEAD)"
+git commit --allow-empty --amend --no-verify --reset-author
