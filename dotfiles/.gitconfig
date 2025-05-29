@@ -222,6 +222,7 @@
   commit = commit -v
   ci     = commit -v
   cia    = commit -v --amend
+  cia-preserve = commit-amend-preserve-metadata
 
   # This is needed if you have a line that begins with a # that you *want* to keep, such as a
   # reference to a Ruby #method or #123 issue number.
@@ -666,8 +667,9 @@
 #	updateCheckEnabled = true
 
 [sequence]
-  #editor = git-rebase-seq --preserve-committer
   editor = git-rebase-seq
+  editor = git-rebase-seq --preserve-committer
+  editor = git-rebase-seq --copy-committer --from-author
 
 [commit]
 	verbose = true
