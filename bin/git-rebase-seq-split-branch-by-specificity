@@ -62,7 +62,8 @@ The commits being replayed will fall into 1 of 2 categories:
   the already-rewritten history, using the same output and "git diff" double-check assurances that
   you had the first time you actually split those commits into the 2 branches.
 
-  (TODO: extract those double-checks into a new more generic git-rebase-seq.)
+  (To do: extract those double-checks into the more generic git-rebase-seq /
+  git-rebase-seq-amend-past-commit since they're not specific to "specificity".)
 
 2. new commits (not already split-branch-done).
 
@@ -87,10 +88,10 @@ General assumptions:
   The specific branch is the one you are in when you run this command and could have any name, such
   as "main". The "common" branch is named "common".
 
-Options:
-  --no-act, -n
-    By default, we will call git-commit-amend-copy-committer to avoid changing the committer from
-    what it was in the original commit.
+  We also assume that you want to preserve the original Committer info from the commits that you are
+  rewritting, since (at least initially) we may be going back and rewriting rather old history. So
+  dy default, we will call git-commit-amend-copy-committer in order to preserve the committer from
+  the original commit.
 
 Example:
   export GIT_SEQUENCE_EDITOR=git-rebase-seq-split-branch-by-specificity
@@ -100,8 +101,8 @@ Example:
 
   git rebase -i --rebase-merges onto
 
-  # To simply see a preview of what it would do
-  GIT_SEQUENCE_EDITOR='git-rebase-seq-split-branch-by-specificity --no-act' git rebase -i --rebase-merges onto
+  # Or use the wrapper, which sets GIT_SEQUENCE_EDITOR for you:
+  git rebase-move-and-merge-common-commits -i onto
 
 ════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -239,7 +240,7 @@ Challenges with the built-in label/reset/merge commands
   deleted at the end of the rebase.  So even if we did use them, then by the end, we would have to
   create 2 branches anyway, to avoid losing the commits for each branch. 
 
-  So if we just use the branches from the very beginning of our sequence, it will just make it
+  So if we _could_ just use the branches from the very beginning of our sequence, it would make it
   easier to understand and follow.
 
   Normally, the git rebase operates on a detached head.  labels are more like tags than branches, in
@@ -261,20 +262,19 @@ Challenges with the built-in label/reset/merge commands
       * common:
       Fix site config
 
+  Unfortunately, git won't let you switch branches in the middle of a merge, so this option is out.
 End
   exit
 }
 
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
-act=true
 debug=false
 keep_instructions=false
 onto_root=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)         usage ;;
-    --no-act | -n)       act=false; shift ;;
     --debug)             debug=true; shift ;;
     --keep-instructions) keep_instructions=true; shift ;;
     --no-instructions)   keep_instructions=false; shift ;;
@@ -315,100 +315,98 @@ parse_revs
 # - Sanity checks
 # - Back up branches to avoid losing data
 
-if $act; then
-  # "hint: Waiting for your editor to close the file..." does not include a trailing newline!
+# "hint: Waiting for your editor to close the file..." does not include a trailing newline!
+echo
+
+# TODO: grep for "reset [new root]" here instead of waiting for main loop? If that is present, we
+# can set onto_root earliy here, and if that is set, we should avoid validating $specific_onto rev.
+if [ -n "$specific_onto" ]; then
   echo
-
-  # TODO: grep for "reset [new root]" here instead of waiting for main loop? If that is present, we
-  # can set onto_root earliy here, and if that is set, we should avoid validating $specific_onto rev.
-  if [ -n "$specific_onto" ]; then
-    echo
-    echo "🧠 Rebasing $specific_branch onto $specific_onto_short . ($specific_branch will be reset back to this and we will replay on top of it.)"
-    if git merge-base --is-ancestor "$specific_onto" HEAD; then
-      echo "  ✅ is an ancestor of HEAD"
-    else
-      echo >&2 "❌ Error: $specific_onto_short is not an ancestor of HEAD. Are you sure you want to rebase $specific_branch onto an unrelated history??"
-      exit 1
-    fi
-    # [ -n "$common_onto" ] && ?
-    if git merge-base --is-ancestor "$specific_onto" "$common_branch"; then
-      echo >&2 "❌ Error: $specific_onto is an ancestor of $common_branch. Cannot use this as your $specific_branch onto commit, because that would cause specific commits to be added to $common_branch!"
-      merge_commit=$(git-find-merge-commit-with-parent $current_branch $specific_onto)
-      echo >&2 "  Hint: Rebase onto the merge commit that merges this common commit into $specific_branch instead. Did you mean $merge_commit ?"
-      exit 1
-    else
-      echo "  ✅ is not an ancestor of $common_branch"
-    fi
-    git log-oneline-graph -n5 $specific_onto
-    echo
-  fi
-
-  if ! git merge-base --is-ancestor $specific_onto split-branch-done; then
-    echo >&2 "❌ Error: split-branch-done must be a descendant of (contain) $specific_branch"
+  echo "🧠 Rebasing $specific_branch onto $specific_onto_short . ($specific_branch will be reset back to this and we will replay on top of it.)"
+  if git merge-base --is-ancestor "$specific_onto" HEAD; then
+    echo "  ✅ is an ancestor of HEAD"
+  else
+    echo >&2 "❌ Error: $specific_onto_short is not an ancestor of HEAD. Are you sure you want to rebase $specific_branch onto an unrelated history??"
     exit 1
   fi
-
-  if [ -n "$common_onto" ] || [ -n "$specific_onto" ]; then
-    echo
-    echo "🧠 Rebasing $common_branch onto $common_onto_short . ($common_branch is assumed to have been reset back if needed if we are rewinding rather than simply continuing where we left off.) We will replay common commits on top of it."
-    if git merge-base --is-ancestor "$common_onto" "$specific_onto"; then
-      echo "  ✅ is an ancestor of $specific_branch 'onto' commit ($specific_onto_short)"
-    else
-      if git-is-merge-commit $specific_onto; then
-        # We expect almost always that they will want to rebase common onto the parent of
-        # specific_onto, if that is a merge commit.
-        suggested_common_onto_short=$(git rev-parse --short $specific_onto^2)
-        if git merge-base --is-ancestor "$suggested_common_onto_short" "$common_branch"; then
-          echo "⚠️  Warning: $common_branch ($common_onto_short) is currently not an ancestor of onto rev $specific_onto_short."
-          echo "Should I reset $common_branch to point to the parent from the last time $common_branch was merged into $specific_branch?"
-          git log-oneline-graph -n5 $suggested_common_onto_short
-          read -rp "Reset $common_branch to $suggested_common_onto_short? [Enter] " response
-          git update-ref refs/heads/$common_branch $suggested_common_onto_short; echo $?
-          parse_revs
-          echo "Now that $common_branch is correct, please run this command again. (It needs to be correct _before_ git rebase runs or it will an extra update-ref refs/heads/common line, which will fail at the end because it fights with other label/update-refs.)"
-          exit 1
-        else
-          echo >&2 "❌ Error: $specific_onto_short was a merge commit but its parent ($suggested_common_onto_short) didn't appear to be an ancestor of $common_branch."
-          exit 1
-        fi
-      else
-        echo >&2 "❌ Error: $common_branch ($common_onto_short) is not an ancestor of onto rev $specific_onto_short."
-        echo >&2 "  Hint: rebase onto a merge commit in $specific_branch and we can extract the right $common_branch onto rev from its parents."
-        exit 1
-      fi
-    fi
-    git log-oneline-graph -n5 $common_onto_short
-    echo
+  # [ -n "$common_onto" ] && ?
+  if git merge-base --is-ancestor "$specific_onto" "$common_branch"; then
+    echo >&2 "❌ Error: $specific_onto is an ancestor of $common_branch. Cannot use this as your $specific_branch onto commit, because that would cause specific commits to be added to $common_branch!"
+    merge_commit=$(git-find-merge-commit-with-parent $current_branch $specific_onto)
+    echo >&2 "  Hint: Rebase onto the merge commit that merges this common commit into $specific_branch instead. Did you mean $merge_commit ?"
+    exit 1
+  else
+    echo "  ✅ is not an ancestor of $common_branch"
   fi
-
-  # If the branches we will be creating/resetting already exist, back them up using tags.
-  tag=backup/$(now s)
-  echo "Backing up branches $common_branch $specific_branch …"
-  for branch in $common_branch $specific_branch; do
-    echo
-    # If branch exists
-    if git rev-parse --quiet --verify "$branch"^{commit}; then
-      # If we already have a backup
-      if git tag --points-at $branch | grep ^backup/ | tail -n1; then
-        : # Already backed up
-      else
-        git tag $tag-$branch $branch
-        echo "Backed up $branch as $tag-$branch"
-        # To do: print the tag, like git bak does. Better yet, use git bak, and make it accept
-        # optional commit to use, just like `git branch name commit`.
-      fi
-    fi
-  done
-
-  echo
-
-  # To do: add a proper --abort like rebase itself has
-  echo "To abort this rebase:"
-  echo "  git-rebase-seq-add-specificity--restore-instruction-format"
-  echo "  git rebase --abort"
-  echo
+  git log-oneline-graph -n5 $specific_onto
   echo
 fi
+
+if ! git merge-base --is-ancestor $specific_onto split-branch-done; then
+  echo >&2 "❌ Error: split-branch-done must be a descendant of (contain) $specific_branch"
+  exit 1
+fi
+
+if [ -n "$common_onto" ] || [ -n "$specific_onto" ]; then
+  echo
+  echo "🧠 Rebasing $common_branch onto $common_onto_short . ($common_branch is assumed to have been reset back if needed if we are rewinding rather than simply continuing where we left off.) We will replay common commits on top of it."
+  if git merge-base --is-ancestor "$common_onto" "$specific_onto"; then
+    echo "  ✅ is an ancestor of $specific_branch 'onto' commit ($specific_onto_short)"
+  else
+    if git-is-merge-commit $specific_onto; then
+      # We expect almost always that they will want to rebase common onto the parent of
+      # specific_onto, if that is a merge commit.
+      suggested_common_onto_short=$(git rev-parse --short $specific_onto^2)
+      if git merge-base --is-ancestor "$suggested_common_onto_short" "$common_branch"; then
+        echo "⚠️  Warning: $common_branch ($common_onto_short) is currently not an ancestor of onto rev $specific_onto_short."
+        echo "Should I reset $common_branch to point to the parent from the last time $common_branch was merged into $specific_branch?"
+        git log-oneline-graph -n5 $suggested_common_onto_short
+        read -rp "Reset $common_branch to $suggested_common_onto_short? [Enter] " response
+        git update-ref refs/heads/$common_branch $suggested_common_onto_short; echo $?
+        parse_revs
+        echo "Now that $common_branch is correct, please run this command again. (It needs to be correct _before_ git rebase runs or it will an extra update-ref refs/heads/common line, which will fail at the end because it fights with other label/update-refs.)"
+        exit 1
+      else
+        echo >&2 "❌ Error: $specific_onto_short was a merge commit but its parent ($suggested_common_onto_short) didn't appear to be an ancestor of $common_branch."
+        exit 1
+      fi
+    else
+      echo >&2 "❌ Error: $common_branch ($common_onto_short) is not an ancestor of onto rev $specific_onto_short."
+      echo >&2 "  Hint: rebase onto a merge commit in $specific_branch and we can extract the right $common_branch onto rev from its parents."
+      exit 1
+    fi
+  fi
+  git log-oneline-graph -n5 $common_onto_short
+  echo
+fi
+
+# If the branches we will be creating/resetting already exist, back them up using tags.
+tag=backup/$(now s)
+echo "Backing up branches $common_branch $specific_branch …"
+for branch in $common_branch $specific_branch; do
+  echo
+  # If branch exists
+  if git rev-parse --quiet --verify "$branch"^{commit}; then
+    # If we already have a backup
+    if git tag --points-at $branch | grep ^backup/ | tail -n1; then
+      : # Already backed up
+    else
+      git tag $tag-$branch $branch
+      echo "Backed up $branch as $tag-$branch"
+      # To do: print the tag, like git bak does. Better yet, use git bak, and make it accept
+      # optional commit to use, just like `git branch name commit`.
+    fi
+  fi
+done
+
+echo
+
+# To do: add a proper --abort like rebase itself has
+echo "To abort this rebase:"
+echo "  git-rebase-seq-add-specificity--restore-instruction-format"
+echo "  git rebase --abort"
+echo
+echo
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 # Prep: Prepare file to write sequence to
@@ -788,7 +786,7 @@ End
       ;;
 
     \#*)
-      if $act && $keep_instructions; then
+      if $keep_instructions; then
         echo "$line"
       else
        # Drop the instructions that git added to the end
@@ -818,18 +816,13 @@ mv "$new_file" "$todo_file"
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
-if $act; then
-  # Now open the modified to-do list in the real editor for review
-  editor="${VISUAL:-${EDITOR:-vim}}"
+# Now open the modified to-do list in the real editor for review
+editor="${VISUAL:-${EDITOR:-vim}}"
 
-  backup_file=$(backup -dt .git/rebase-merge)
-  ln -sfn --relative "$backup_file" .git/rebase-merge.backup
-  ls -al .git/rebase-merge.backup
+backup_file=$(backup -dt .git/rebase-merge)
+ln -sfn --relative "$backup_file" .git/rebase-merge.backup
+ls -al .git/rebase-merge.backup
 
-  exec "$editor" "$todo_file"
-  #exec "$editor" "$todo_file" -O "$todo_file.orig"
-  #exec "$editor" "$todo_file" -O $bak/git-rebase-todo.revised
-else
-  cat "$todo_file"
-  exit 1
-fi
+exec "$editor" "$todo_file"
+#exec "$editor" "$todo_file" -O "$todo_file.orig"
+#exec "$editor" "$todo_file" -O $bak/git-rebase-todo.revised

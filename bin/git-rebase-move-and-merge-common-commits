@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage:
+  $(basename "$0") [<rebase-options>]
+
+Rebase your current branch, "moving" any common commits over to a branch named
+"common-<current-branch>" and merging those commits back into your current branch.
+
+This is simply a convenience wrapper for \`git rebase\`, using
+git-rebase-seq-split-branch-by-specificity to pre-process the rebase sequence.
+
+Any options will be passed straight on to \`git rebase\`.
+
+Other names considered:
+- git-split-branch-by-specificity
+- git-rebase-common-commits
+
+See also: git-rebase-split-commits-by-specificity
+End
+  exit
+}
+
+set -x
+GIT_SEQUENCE_EDITOR='git-rebase-seq-split-branch-by-specificity' git rebase -i --rebase-merges "$@"

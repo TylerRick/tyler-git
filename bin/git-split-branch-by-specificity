@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+
+exec git-rebase-move-and-merge-common-commits "$@"
