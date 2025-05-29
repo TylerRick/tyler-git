@@ -26,6 +26,10 @@ Options:
 
   --quiet
     Passes --quiet to git-detect-file-specificity.
+
+  --if-disagree-ask
+    Passes --if-disagree-ask to git-detect-file-specificity.
+    Ask what to do if file was recorded as common, but we detected specific keyword
 End
   exit
 }
@@ -37,12 +41,15 @@ quiet=false
 name_only=false
 color_name=true
 detect=false
+if_disagree_ask=false
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --help | -h)  usage ;;  
     --quiet | -q) quiet=true; shift ;;  
     --name-only)  name_only=true; shift ;;  
     --detect)     detect=true;    shift ;;  
-    --help | -h)  usage ;;  
+    --if-disagree-ask) if_disagree_ask=true; shift ;;  
     -*)           echo "Unknown option $1" >&2; exit 1 ;;  
     *) break ;;  
   esac
@@ -64,7 +71,7 @@ if $detect; then
   # ls_files_cmd --name-only $commit
   while IFS=$'\t' read -r path; do
     #set -x # Show next command only
-    git-detect-file-specificity $($quiet && echo '--quiet') ${commit} "$path" </dev/tty || true
+    git-detect-file-specificity $($quiet && echo '--quiet') $($if_disagree_ask && echo '--if-disagree-ask') ${commit} "$path" </dev/tty || true
     #{ set +x; } 2>/dev/null
   done < <(ls_files_cmd --name-only $commit)
   echo 'Done with detect'

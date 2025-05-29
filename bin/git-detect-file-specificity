@@ -23,6 +23,10 @@ Options:
     Don't show any output about files that already have a recorded specificity, unless there is a discrepancy.
     Implies --show-matches never.
 
+  --if-disagree-ask
+    Ask what to do if file was recorded as common but we detected specific keyword.
+    (The default is to trusting the recorded specificity and simply warn if detected disagrees.)
+
   -m, --show-matches (never|if_disagreement|always)
 
   -f, --file <file_contents>
@@ -42,11 +46,12 @@ End
 quiet=false
 show_matches=if_disagreement
 positional_args=
+if_disagree_ask=false
+
 while (( "$#" > 0 )); do
   case "$1" in
-    -h|--help)
-      usage
-      ;;
+    --help | -h)        usage ;;  
+    --if-disagree-ask) if_disagree_ask=true; shift ;;  
 
     -q|--quiet)
       quiet=true
@@ -198,20 +203,23 @@ if [[ -z "$recorded" ]]; then
   exit 0
 fi
 
-discrepancy_msg="recorded=${bold}$(colorize_specificity $recorded)${reset}, but detected=${bold}$colorized_detected${reset}"
+# was using ${bold} before the recorded value but that was interfering somehow and preventing common from showing as green
+discrepancy_msg="recorded=$(colorize_specificity $recorded)${reset}, but detected=${bold}$colorized_detected${reset}"
 if [[ "$recorded" == common && "$detected_specific" == true ]]; then
   if [[ $show_matches == if_disagreement || $show_matches == always ]]; then
     echo "$specific_matches"
   fi
   _red "${file}: Disagreement! ${reset}${discrepancy_msg}" >&2 
-  choice=$(confirm_loop "override classification for this file? (you may need to update your detection script if it failed to detect a specific/mixed file.)")
-  if [[ -n "$choice" ]]; then
-    git-set-file-specificity "$file" "$choice"
-    _green "updated ${file} → ${bold}${choice}${reset}."
+  if $if_disagree_ask; then
+    choice=$(confirm_loop "override classification for this file? (you may need to update your detection script if it failed to detect a specific/mixed file.)")
+    if [[ -n "$choice" ]]; then
+      git-set-file-specificity "$file" "$choice"
+      _green "updated ${file} → ${bold}${choice}${reset}."
+    fi
   fi
 elif [[ "$recorded" =~ ^(specific|mixed)$ ]] && [[ "$detected_specific" == false ]]; then
   if ! $quiet; then
-    _green "${file}: No specific keywords found${reset}: ${discrepancy_msg}" >&2 
+    _green "${file}: No specific keywords detected${reset}: ${discrepancy_msg}" >&2 
   fi
 else
   # no discrepancy; detected already agrees with recorded
