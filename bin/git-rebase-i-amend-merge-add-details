@@ -33,6 +33,8 @@ Options:
 
   --no-copy-dates
     Turn off --copy-dates
+
+Compare: git-rebase-i-amend-reword, git-rebase-i-amend-merge-add-details
 End
   exit
 }
