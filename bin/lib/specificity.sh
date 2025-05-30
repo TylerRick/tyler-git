@@ -58,14 +58,6 @@ log_oneline_with_commit_specificity() {
   GIT_NOTES_DISPLAY_REF=refs/notes/specificity git log-oneline-notes "$@"
 }
 
-ensure_file_specificity_dir_exists() {
-  if ! [ -d $file_specificity_dir ]; then
-    echo >&2 "$file_specificity_dir does not exist."
-    echo >&2 "Hint: Configure with \`git config split-branch.fileSpecificityDir\` if it is located someplace else."
-    exit 64 # EX_USAGE
-  fi
-}
-
 rebase_seq__set_instructionFormat_to_include_notes() {
   # %N for notes (not natively supported here); %d for branch names
   default_instructionFormat="[%N]%d %s [%as %an]"
@@ -82,3 +74,18 @@ rebase_exec__restore_instructionFormat() {
 End
 }
 
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+ensure_file_specificity_dir_exists() {
+  if ! [ -d $file_specificity_dir ]; then
+    echo >&2 "$file_specificity_dir does not exist."
+    echo >&2 "Hint: Configure with \`git config split-branch.fileSpecificityDir\` if it is located someplace else."
+    exit 64 # EX_USAGE
+  fi
+}
+
+# Return contents of file with comments and whitespace removed
+clean_file_specificity_list() {
+  pattern_file=$1
+  sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^[[:space:]]*$/d' "$pattern_file"
+}

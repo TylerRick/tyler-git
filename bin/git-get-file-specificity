@@ -13,7 +13,12 @@ Usage: $(basename "$0") [--verify] <path>
 
 Returns: common | specific | mixed (or nothing if nothing recorded yet for this file)
 
-If the file is listed in >1 list, prints error to stderr and exits with 1.
+If the file is listed in > 1 list, prints error to stderr and exits with 1.
+
+Options
+  --verify
+    If --verify specified and the file has no specificity recorded yet, it will error instead of
+    silently outputting nothing.
 End
 }
 
@@ -38,12 +43,12 @@ if [[ -z "${__file_specificity_initialized:-}" ]]; then
   declare -gA __file_specificity_lists
 
   git_get_file_specificity_init() {
-    local type patfile cleaned
+    local type pattern_file cleaned
     for type in common specific mixed; do
-      patfile="$file_specificity_dir/$type"
-      if ! [[ -f "$patfile" ]]; then continue; fi
-      # Clean comments and whitespace once
-      cleaned=$(sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^[[:space:]]*$/d' "$patfile")
+      pattern_file="$file_specificity_dir/$type"
+      if ! [[ -f "$pattern_file" ]]; then continue; fi
+
+      cleaned=$(clean_file_specificity_list "$pattern_file")
       __file_specificity_lists["$type"]="$cleaned"
       if [[ -n "${DEBUG:-}" ]]; then echo "[DEBUG] cached $type: $(echo "$cleaned" | wc -l) patterns" >&2; fi
     done
@@ -53,7 +58,6 @@ if [[ -z "${__file_specificity_initialized:-}" ]]; then
   git_get_file_specificity_init
 fi
 
-
 git_get_file_specificity() {
   local file verify=false
   if [[ "${1:-}" == --verify ]]; then
@@ -62,51 +66,116 @@ git_get_file_specificity() {
   fi
   file="$1"
 
-  local type list matches=() pat prefix esc
+  local type list pat esc
+  declare -A matches_by_type=()   # type => patterns (with newlines)
+  declare -A exact_by_type=()     # type => exact patterns
+  declare -A match_kinds=()       # type => kind
 
   for type in common specific mixed; do
     list="${__file_specificity_lists[$type]:-}"
     [[ -z "$list" ]] && continue
+
+    # initialize empty
+    matches_by_type[$type]=''
+    exact_by_type[$type]=''
+
     [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] checking $type patterns" >&2
     while IFS= read -r pat; do
       [[ -z "$pat" ]] && continue
 
-      prefix="${pat%/}"
-      esc="${prefix//\[/\\[}"
-      esc="${esc//\]/\\]}"
-      [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type prefix? '$file' starts '$prefix/'" >&2
-      if [[ "$file" == ${esc}/* ]]; then
-        matches+=("$type")
-        break
+      # 1) Test for exact match
+      if [[ "$file" == "$pat" ]]; then
+        exact_by_type[$type]+="$pat"$'\n'
+        matches_by_type[$type]+="$pat"$'\n'
+        match_kinds[$type]=exact
+        continue
       fi
 
-      esc="${pat//\[/\\[}"
+      # 2) Test for glob match
+      # Normalize trailing `/` → `/ *` to mean "any subpath"
+      pat_for_match="$pat"
+      [[ "$pat" == */ ]] && pat_for_match="$pat*"
+
+      esc="${pat_for_match//\[/\\[}"
       esc="${esc//\]/\\]}"
-      [[ -n "${DEBUG:-}" ]] && echo "[DEBUG] $type glob? '$file' == '$pat'" >&2
-      if [[ "$file" == $esc ]]; then
-        matches+=("$type")
-        break
+      if [[ "$file" = $esc ]]; then
+        matches_by_type["$type"]+="$pat"$'\n'
+        match_kinds["$type"]="glob"
+        continue
       fi
     done <<< "$list"
+
+    # strip trailing newline (so we don't get an empty record)
+    matches_by_type[$type]=${matches_by_type[$type]%$'\n'}
+    exact_by_type[$type]=${exact_by_type[$type]%$'\n'}
   done
 
-  case ${#matches[@]} in
-    0)
-      if $verify; then
-        echo "Error: '$file': no specificity recorded yet" >&2
-        return 1
-      else
-        return 0
-      fi
-      ;;
-    1)
-      echo "${matches[0]}"
-      ;;
-    *)
-      echo "Error: '$file' matches multiple lists: ${matches[*]}" >&2
+  # gather which types matched
+  local -a exact_types=() all_types=()
+  for t in common specific mixed; do
+    [[ -n "${matches_by_type[$t]:-}" ]] && all_types+=("$t")
+    [[ -n "${exact_by_type[$t]:-}" ]]   && exact_types+=("$t")
+  done
+
+  # 1) multiple exact → error
+  if (( ${#exact_types[@]} > 1 )); then
+    echo "Error: '$file' matched exactly in multiple lists: ${exact_types[*]}" >&2
+    for t in "${exact_types[@]}"; do
+      echo "  $t:" >&2
+      while IFS= read -r m; do
+        echo "    $m" >&2
+      done <<< "${exact_by_type[$t]}"
+    done
+    return 1
+  fi
+
+  # 2) single exact → winner, but warn if other matches exist
+  if (( ${#exact_types[@]} == 1 )); then
+    local win=${exact_types[0]}
+    if (( ${#all_types[@]} > 1 )); then
+      echo "Warning: File '$file' matches multiple lists:" >&2
+      for t in "${all_types[@]}"; do
+        echo "  $t:" >&2
+        while IFS= read -r m; do
+          echo "    $m" >&2
+        done <<< "${matches_by_type[$t]}"
+      done
+    fi
+    echo "$win"
+    return 0
+  fi
+
+  # 3) no exact; zero matches
+  if (( ${#all_types[@]} == 0 )); then
+    if $verify; then
+      echo "Error: '$file': no specificity recorded yet" >&2
       return 1
-      ;;
-  esac
+    else
+      return 0
+    fi
+  fi
+
+  # 4) no exact; single match
+  if (( ${#all_types[@]} == 1 )); then
+    echo "${all_types[0]}"
+    return 0
+  fi
+
+  # 5) no exact; multiple matches → warn & pick by priority
+  echo "Warning: File '$file' matches multiple lists:" >&2
+  for t in "${all_types[@]}"; do
+    echo "  $t:" >&2
+    while IFS= read -r m; do
+      echo "    $m" >&2
+    done <<< "${matches_by_type[$t]}"
+  done
+
+  for preferred in specific mixed common; do
+    if [[ -n "${matches_by_type[$preferred]}" ]]; then
+      echo "$preferred"
+      return 0
+    fi
+  done
 }
 
 # Allow script to be sourced or executed
