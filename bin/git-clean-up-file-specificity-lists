@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+
+# FIXME
+# It seemed to have some false positive detection of all dir patterns:
+# -bin/
+# and some 1 file pattern:
+# -src/lib/components/Modal.svelte
+
+set -euo pipefail
+trap 'echo "[ERR] at line $LINENO: $BASH_COMMAND"' ERR
+
+source "$(dirname $0)"/lib/specificity.sh
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage: $(basename "$0")
+
+Cleans up files in .git/file_specificity (or the dir returned by \`git config
+split-branch.fileSpecificityDir\`)
+
+- Removes duplicate lines
+- Removes patterns that no longer have any matches in the current tree
+  (Probably because those files have been removed after the pattern was added.)
+End
+}
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+ensure_file_specificity_dir_exists
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+declare -gA removed_patterns=()
+
+glob_to_regex() {
+  printf '%s\n' "$1" | sed \
+    -e 's/[.[\*^$()+?{}|]/\\&/g' \
+    -e 's/\\\*/.*/g'
+}
+
+# Clean patterns that don't match files in HEAD
+remove_obsolete_patterns_from_specificity_list() {
+  local path="$1" type="$2"
+  local cleaned="" removed=""
+
+  while IFS= read -r pat; do
+    [[ -z "$pat" || "$pat" =~ ^# ]] && cleaned+="$pat"$'\n' && continue
+
+    # Treat trailing slash as prefix pattern
+    glob="$pat"
+    [[ "$pat" == */ ]] && glob="${pat}*"
+
+    regex="^$(glob_to_regex "$glob")\$"
+
+    if git ls-tree -r --name-only HEAD | grep -qE "^$regex\$"; then
+      cleaned+="$pat"$'\n'
+    else
+      #echo REMOVED $pat >&2
+      removed+="$pat"$'\n'
+    fi
+  done < "$path"
+
+  if [[ -n "$removed" ]]; then
+    removed_patterns["$type"]="$removed"
+  fi
+  printf '%s' "$cleaned"
+}
+
+for type in common specific mixed; do
+  pattern_file="$file_specificity_dir/$type"
+  [[ -f "$pattern_file" ]] || continue
+
+  # Remove adjacent duplicates
+  uniq $pattern_file |
+    sponge $pattern_file
+
+  # Remove patterns that have no matches in tree
+  tmp_file=$(mktemp)
+  remove_obsolete_patterns_from_specificity_list "$pattern_file" "$type" > $tmp_file
+  mv $tmp_file "$pattern_file"
+done
+
+# Report removed patterns
+if (( ${#removed_patterns[@]} > 0 )); then
+  echo
+  echo "Removed unused patterns:"
+  for type in common specific mixed; do
+    if [[ -n "${removed_patterns[$type]:-}" ]]; then
+      echo "$type:"
+      while IFS= read -r line; do
+        if [[ -n "$line" ]]; then
+          echo "  $line"
+          #echo "  $line  $(ls -- $line)"
+          #echo "  $line  $(git log-oneline -1 -- $line)"
+        fi
+      done <<< "${removed_patterns[$type]}"
+    fi
+  done
+fi
