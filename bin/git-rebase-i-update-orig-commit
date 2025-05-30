@@ -2,6 +2,7 @@
 
 set -euo pipefail
 trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"' err
+git_dir=$(git rev-parse --git-dir)
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -57,9 +58,9 @@ new_commit=$(git rev-parse --verify "$2"^{commit})
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
-rewritten_file=".git/rebase-merge/rewritten-list"
+rewritten_file="$git_dir/rebase-merge/rewritten-list"
 
-if [ ! -d .git/rebase-merge ]; then
+if [ ! -d $git_dir/rebase-merge ]; then
   echo >&2 "❌ Not inside an interactive rebase with merge backend."
   exit 1
 fi

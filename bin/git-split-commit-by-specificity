@@ -22,6 +22,7 @@
 
 set -euo pipefail
 trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"' err
+git_dir=$(git rev-parse --git-dir)
 cd "$(git rev-parse --git-dir)/.."
 
 source "$(dirname $0)"/lib/colors.sh
@@ -292,7 +293,7 @@ if [ "$recorded" == mixed ] || $continued; then
   :
 else
   echo "  ✅ No split needed"
-  if [ -d .git/rebase-merge ] && $copy_committer; then
+  if [ -d $git_dir/rebase-merge ] && $copy_committer; then
     # This is a convenience in case we're using this directly in a rebase, like
     #  git rebase -i --root --exec 'git-split-commit-by-specificity'
     # Otherwise, the user would have to also add git-commit-amend-copy-committer to the --exec list.

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+git_dir=$(git rev-parse --git-dir)
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -88,7 +89,7 @@ else
   # Copy commiter from commiter of other commit
 
   # Duplicated between git-commit-amend-copy git-commit-amend-copy-committer
-  if [ -z "${1-}" ] && [ -d .git/rebase-merge ]; then
+  if [ -z "${1-}" ] && [ -d $git_dir/rebase-merge ]; then
     #source_commit_input=$(git-rebase-i-get-copy-source-commit)
 
     # The rebase-local orig commit

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+git_dir=$(git rev-parse --git-dir)
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -94,9 +95,9 @@ done
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
-done_file=.git/rebase-merge/done
+done_file=$git_dir/rebase-merge/done
 
-if [ ! -d .git/rebase-merge ]; then
+if [ ! -d $git_dir/rebase-merge ]; then
   if ! $quiet; then
     echo >&2 "❌ Not inside an interactive rebase with merge backend."
   fi
@@ -112,7 +113,7 @@ fi
 
 # Extract line containing the last "real" commit command (one that recreates/replays a commit from
 # the original history, including pick/edit/reword/merge, but ignoring fixup/squash) from
-# .git/rebase-merge/done.
+# $git_dir/rebase-merge/done.
 line=$(grep -E '^\s*(p|pick|e|edit|r|reword|m|merge)\s+' "$done_file" | tail -n 1 || true)
 
 if [[ -z "$line" ]]; then

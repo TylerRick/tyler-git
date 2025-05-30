@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+git_dir=$(git rev-parse --git-dir)
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
@@ -58,7 +59,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [ -z "${1-}" ] && [ -d .git/rebase-merge ]; then
+if [ -z "${1-}" ] && [ -d $git_dir/rebase-merge ]; then
   source_commit_input=$(git-rebase-i-get-copy-source-commit)
 else
   source_commit_input=${1-}

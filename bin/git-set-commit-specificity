@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -euo pipefail
+git_dir=$(git rev-parse --git-dir)
 
 source "$(dirname $0)"/lib/colors.sh
 source "$(dirname $0)"/lib/specificity.sh
@@ -58,7 +59,7 @@ recorded=$(git-get-commit-specificity $commit)
 git notes --ref=$notes_ref add -f -m "$specificity" "$commit" 2>/dev/null
 _cyan "Marked ${bold}$commit${reset}${cyan} as ${bold}$specificity${reset} (was: $recorded)"
 
-if [ -d .git/rebase-merge ] && [ -n "$(git config notes.rewriteRef)" ]; then
+if [ -d $git_dir/rebase-merge ] && [ -n "$(git config notes.rewriteRef)" ]; then
   if  [[ "$(notes_rewrite_mode)" == "overwrite" ]]; then
     # Git’s internal logic for notes copy --for-rewrite=rebase does not handle identity rewrites (unchanged commits) safely under overwrite mode.
     # Even if a note exists and even if the commit is untouched, the mere presence of the commit ID in the rewrite flow is enough to potentially erase the note, whether or not it's explicitly mapped in rewritten-list.

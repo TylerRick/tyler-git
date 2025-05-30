@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+git_dir=$(git rev-parse --git-dir)
+
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
 print_usage() {
@@ -78,7 +81,7 @@ done
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 
-if [ ! -d .git/rebase-merge ]; then
+if [ ! -d $git_dir/rebase-merge ]; then
   echo >&2 "❌ Not inside an interactive rebase with merge backend."
   exit 1
 fi

@@ -2,8 +2,9 @@
 
 # Shows the status of where you are in the middle of an interactive git rebase
 
-head_name=$(cat .git/rebase-merge/head-name)
-onto=$(cat .git/rebase-merge/onto)
+git_dir=$(git rev-parse --git-dir)
+head_name=$(cat $git_dir/rebase-merge/head-name)
+onto=$(cat $git_dir/rebase-merge/onto)
 
 all=false
 C=5
@@ -29,11 +30,11 @@ done
 echo "Rebasing $head_name onto $onto :"
 echo '════════════════════════════════════════════════════════════════════════════════════════════════════'
 if $all; then
-  cat .git/rebase-merge/done
+  cat $git_dir/rebase-merge/done
   echo '<<<─────────── You are here ───────────>>>'
-  cat .git/rebase-merge/git-rebase-todo
+  cat $git_dir/rebase-merge/git-rebase-todo
 else
-  tail -n$C .git/rebase-merge/done
+  tail -n$C $git_dir/rebase-merge/done
   echo '<<<─────────── You are here ───────────>>>'
-  head -n$C .git/rebase-merge/git-rebase-todo | grep -v '^#'
+  head -n$C $git_dir/rebase-merge/git-rebase-todo | grep -v '^#'
 fi

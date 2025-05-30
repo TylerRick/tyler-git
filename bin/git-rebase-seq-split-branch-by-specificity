@@ -2,6 +2,7 @@
 
 set -euo pipefail
 trap 'echo "❌ Error at line $LINENO: $BASH_COMMAND"' err
+git_dir=$(git rev-parse --git-dir)
 
 source "$(dirname $0)"/lib/specificity.sh
 
@@ -298,7 +299,7 @@ echo "Using current branch ($current_branch) as 'specific' branch"
 specific_branch=$current_branch
 
 parse_revs() {
-  local _onto=$(cat .git/rebase-merge/onto)
+  local _onto=$(cat $git_dir/rebase-merge/onto)
 
   # onto will be assumed to be / used as the new main/specific
   specific_onto=$_onto
@@ -819,9 +820,9 @@ mv "$new_file" "$todo_file"
 # Now open the modified to-do list in the real editor for review
 editor="${VISUAL:-${EDITOR:-vim}}"
 
-backup_file=$(backup -dt .git/rebase-merge)
-ln -sfn --relative "$backup_file" .git/rebase-merge.backup
-ls -al .git/rebase-merge.backup
+backup_file=$(backup -dt $git_dir/rebase-merge)
+ln -sfn --relative "$backup_file" $git_dir/rebase-merge.backup
+ls -al $git_dir/rebase-merge.backup
 
 exec "$editor" "$todo_file"
 #exec "$editor" "$todo_file" -O "$todo_file.orig"
