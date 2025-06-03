@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+usage() {
+  cat - <<End >&2
+Usage:
+  $(basename "$0") [<rebase-options>] [<upstream>]
+
+Rebase your current branch, splitting each existing commit into a new "common" and "specific" commit
+as needed.
+
+Where it will start from:
+
+  If <upstream> is specified, then it will be used as the starting commit (onto which we will replay
+  new commits), the same as \`git rebase\` usually works.
+
+  If <upstream> is not specified, and you have _already_ split any commits in this branch, this will
+  start from where you left off (the commit following the last commit having a split-commit-status of
+  done).
+
+  Otherwise, the default \`git rebase\` behavior will be used: the upstream configured in
+  branch.<name>.remote and branch.<name>.merge options will be used.
+
+See git-split-commit-by-specificity for the command that it will run for every commit in your history.
+
+This is simply a convenience wrapper for \`git rebase\`, using
+git-rebase-seq-split-branch-by-specificity to pre-process the rebase sequence.
+
+Any options will be passed straight on to \`git rebase\`.
+
+See also: git-split-branch-by-specificity
+End
+  exit
+}
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)         usage ;;
+    -*)                  echo "Unknown option $1" >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+upstream=$1
+
+# If no explicit upstream is provided, try to find the last commit marked as done
+if [[ -z "$upstream" ]]; then
+  last_done_commit=$(
+    # Get last commit having a split-commit-status of "done"
+    git log --first-parent \
+            --notes=refs/notes/split-commit-status \
+            --format="%H %N" \
+            HEAD \
+    | awk '$2 == "done" { print $1; exit }'
+  )
+  upstream=$last_done_commit
+fi
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+git rebase -i --rebase-merges --exec git-split-commit-by-specificity ${upstream-}

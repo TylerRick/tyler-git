@@ -8,7 +8,7 @@
 #
 # Usage:
 #   To split every commit in your rebase sequence:
-#     git rebase -i -v --exec git-split-commit-by-specificity root
+#     git rebase -i --exec git-split-commit-by-specificity root
 #
 #  If you are stopped (rebase is interrupted/paused) on a specific commit, you can control it
 #  directly:
@@ -115,6 +115,10 @@ set_split_commit_status() {
 clean_up() {
   undo_disable_local_exclude_file
   rm -rf "$state_dir"
+}
+
+is_git_staged_deleted() {
+  git diff --staged --name-status -- "$1" | grep -q '^D'
 }
 
 get_files_with_specificity() {
@@ -326,6 +330,11 @@ fi
 step=2.stage_common
 if ! is_done $step; then
   echo
+  if [ -n "$(git diff --name-only --diff-filter=D)" ]; then
+    read -rp 'handle deletes!'
+    # TODO: make sure get_files_with_specificity common detects/lists staged _deleted_ common files too, and
+    # that we are handling them (deleting them as part of common commit)
+  fi
   mapfile -t files < <(get_files_with_specificity common)
   echo "→ Staging ${#files[@]} $(colorize_specificity common) files…"
   if (( ${#files[@]} )); then
