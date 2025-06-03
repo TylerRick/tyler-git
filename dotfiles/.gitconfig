@@ -321,54 +321,10 @@
   #archive-ref = "!git update-ref refs/archive/$(date '+%Y%m%d-%s')"
   #list-archive-ref = for-each-ref --sort=-authordate --format='%(refname) %(objectname:short) %(contents:subject)' refs/archive/
 
-  # https://stackoverflow.com/a/32354260/47185
-  #arc            = "! git tag archive/$1 @ && { echo -n \"Created archive tag 'archive/$1': \" && git log -1 --color --graph --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' archive/$1 && echo; } || { echo -n 'Last tag: '; git archive-list | tail -n1 ; }"
-  # && echo -n "Archiving branch '$1' as a tag... " 
-#  arc            = "!f() { \
-#      if [ -n \"$1\" ]; then \
-#        git tag archive/$1 @ && echo -n \"Created archive tag 'archive/$1': \" && git log -1 --color --graph --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' archive/$1 && echo; \
-#      else \
-#        echo -n 'Last tag: '; git archive-list | tail -n1; \
-#      fi \
-#    }; f"
-#  arc            = "!f() { \
-#    tag=archive/$(now); \
-#    if [ -n \"$1\" ]; then \
-#      tag=$tag-$1; \
-#    fi; \
-#    if git tag $tag @; then \
-#      echo \"Created archive tag '$tag': \"; \
-#      git log -1 --color --graph --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' $tag && echo; \
-#    fi; \
-#  }; f"
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Creating and listing backup tags
 
-  #archive-list   = ! git tag | grep '^archive/'
-  #arclist        = ! git archive-list
-
-  # Decided that what I used the above for was not really "archiving" but creating backup snapshots
-  # (tags) of work in progress states or things I was about to discard but wanted a backup copy kept
-  # just in case. So I changed the name from "archive" to "backup".
-  bak-plain = "!f() { \
-    tag=backup/$(now s); \
-    if [ -n \"$1\" ]; then \
-      : \"Lets you pass names containing spaces; changes to underscores\"; \
-      safe_name=$(echo \"$1\" | sed 's/ /_/g'); \
-      tag=$tag-$safe_name; \
-    fi; \
-    if git tag $tag @; then \
-      echo \"Created backup tag '$tag': \"; \
-      git log -1 --color --graph --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' $tag && echo; \
-    fi; \
-  }; f"
-  bak = "!f() { \
-    suffix=$(git current-branch); \
-    if [ -n \"$1\" ]; then \
-      : \"Lets you pass names containing spaces; changes to underscores\"; \
-      safe_name=$(echo \"$1\" | sed 's/ /_/g'); \
-      suffix=$suffix-$safe_name; \
-    fi; \
-    git bak-plain \"$suffix\"; \
-  }; f"
+  bak = backup
   #backup-list-raw   = ! git tag | grep '^backup/'
   backup-list-raw   = ! git rev-parse --tags=backup
   backup-list-simple = ! git backup-list-raw | tac | git log-short-no-walk --no-walk=unsorted --stdin
@@ -379,6 +335,9 @@
 
   baklist-raw       = ! git backup-list-raw
   baklist           = ! git backup-list
+
+  #─────────────────────────────────────────────────────────────────────────────────────────────────
+  # Listing deployed tags
 
   #ls-deployed-staging    = ! git rev-parse --tags=deployed/staging    | git log-short-no-walk --stdin
   #ls-deployed-production = ! git rev-parse --tags=deployed/production | git log-short-no-walk --stdin

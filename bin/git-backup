@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+git_dir=$(git rev-parse --git-dir)
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+print_usage() {
+  cat - <<End >&2
+Usage: $(basename "$0") [<title>]
+
+Creates a timestamped backup "snapshot" tag of the current state of HEAD.
+
+If you're on a branch, the branch name is included in the backup name. If a title is provided, it is
+included too (spaces will be converted to underscores).
+
+Format of backup ref:
+  backup/<date-time>-<branch>[-<title>]
+
+Use \`git backup-list\` to list your backups.
+
+Useful for:
+- Creating a backup before a potentially destructive or hard-to-undo operation like a rebase or
+  merge or reset
+- Can be used instead of stash for work-in-progress work that you want to keep around
+End
+  exit
+}
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+# Parse options
+
+include_branch=true
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help | -h)
+      print_usage;;
+    --no-branch)
+      include_branch=false;
+      shift ;;
+    -*)
+      echo "Unknown option $1" >&2;
+      exit 1 ;;
+    *) break ;;
+  esac
+done
+
+#════════════════════════════════════════════════════════════════════════════════════════════════════
+
+now=$(date '+%Y-%m-%dT%H-%M-%S')
+name="$now"
+branch=$(git current-branch || true)
+if $include_branch && [ -n "$branch" ]; then
+  name=$name-$(git current-branch)
+fi
+
+if [ -n "${1:-}" ]; then
+  # Lets you pass names containing spaces; changes to underscores
+  safe_title=$(echo "$1" | sed 's/ /_/g')
+  name=$name-$safe_title
+fi
+
+tag=backup/$name
+
+if git tag $tag @; then
+  echo "Created backup tag '$tag': "
+  git log -1 --color --graph --pretty=format:'%Cred%h %Cgreen%ai %Cblue%an%C(yellow)%d%Creset %s' $tag && echo
+fi
