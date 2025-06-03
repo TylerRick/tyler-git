@@ -33,3 +33,8 @@ End
 #═══════════════════════════════════════════════════════════════════════════════════════════════════
 
 usage
+
+# Is this script even necessary now that git-rebase-seq is growing into a multi-tool that could
+# serve this use case just fine?
+# Or would it be worth making this simply a wrapper for ...?
+git-rebase-seq --diff-orig-commit "$@"

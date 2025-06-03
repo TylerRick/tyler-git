@@ -18,4 +18,9 @@ set -euo pipefail
 orig_commit="${1:-$(git-rebase-i-get-orig-commit --short)}"
 other_commit=${2-}
 
-git diff --exit-code $orig_commit $other_commit && echo
+git diff --exit-code $orig_commit $other_commit || {
+  read -rp "Are these differences acceptable? [Y/n] " response
+	if [ "${response,,}" = "n" ]; then
+    exit 1
+  fi
+}

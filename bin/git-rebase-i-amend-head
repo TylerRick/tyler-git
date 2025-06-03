@@ -33,9 +33,17 @@ End
 #════════════════════════════════════════════════════════════════════════════════════════════════════
 # Parse args and apply defaults
 
+copy_notes=true
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)      usage;;
+    --copy-notes)     
+      copy_notes=true
+      shift ;;
+    --no-copy-notes)     
+      copy_notes=false
+      shift ;;
     -*)               echo "Unknown option $1" >&2; exit 1 ;;
     *) break ;;
   esac
@@ -90,5 +98,5 @@ if git-is-merge-commit $head; then
   # We could also just hand off to git-commit-amend-copy if we detect that
   # git-rebase-i-amend-merge-add-details is disabled, so that at least the committer date is fixed...
 else
-  git-commit-amend-copy $source_commit
+  git-commit-amend-copy $($copy_notes && echo '--copy-notes' || echo '--no-copy-notes') $source_commit
 fi

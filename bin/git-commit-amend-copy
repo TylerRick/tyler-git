@@ -10,7 +10,7 @@ usage() {
   cat - <<End >&2
 Usage:
   $(basename "$0") <source-commit>
-    Copy some details from other commit
+Copy some details from other commit
 
 Amends the tip commit, copying from source-commit:
 - the author/committer details
@@ -67,6 +67,9 @@ while [[ $# -gt 0 ]]; do
       shift ;;
     --copy-notes-from-rebase-orig-commit)
       copy_notes_from_rebase_orig_commit=true
+      shift ;;
+    --copy-notes)     
+      copy_notes=true
       shift ;;
     --no-copy-notes)     
       copy_notes=false

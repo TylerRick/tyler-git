@@ -37,6 +37,9 @@ Options:
   --from-author, --reset-committer-to-author, --committer-is-author
     Equivalent to passing rebase --exec 'git-commit-amend-copy-committer --from-author'
 
+  --copy-notes
+    Copy all notes from source commit to HEAD.
+
 Examples:
 
   GIT_SEQUENCE_EDITOR='git-rebase-seq --copy-committer --from-author' git rebase -i
@@ -63,17 +66,26 @@ End
 }
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
-
 # Parse options
+
+copy_notes=false
 copy_committer=false
+from_author=false
+diff_orig_commit=false
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help | -h)
       print_usage;;
+    --copy-notes)
+      copy_notes=true
+      shift ;;
     --preserve-committer | --copy-committer)
       copy_committer=true; shift ;;
     --from-author | --reset-committer-to-author | --committer-is-author)
       from_author=true; shift ;;
+    --diff-orig-commit)
+      diff_orig_commit=true; shift ;;
     -*)                   echo "Unknown option $1" >&2; exit 1 ;;
     *) break ;;
   esac
@@ -87,10 +99,6 @@ if [ ! -d $git_dir/rebase-merge ]; then
 fi
 
 #════════════════════════════════════════════════════════════════════════════════════════════════════
-
-function git-show() {
-  git show --no-patch --pretty=format:"$(git config rebase.instructionFormat)" "$1"
-}
 
 todo_file="$1"
 tmp_file="$(mktemp)"
@@ -107,8 +115,18 @@ flush_buffer() {
     echo "$buffered_line"
   done
   if $copy_committer && [[ -n "$base_commit" ]]; then
-    #echo "exec git-commit-amend-copy-committer $rev #$(git-show $rev)"
-    echo "exec     git-commit-amend-copy-committer$($from_author && echo ' --from-author') $base_commit # ↑"
+    if $from_author; then
+      echo "exec git-commit-amend-copy-committer$($from_author && echo ' --from-author') $base_commit # ↑"
+      # This has to be _after_ amending the commit.
+      if $copy_notes; then
+        echo "exec git-notes-copy-all -f $base_commit HEAD >/dev/null # ↑"
+      fi
+    else
+      echo "exec git-rebase-i-amend-head $($copy_notes && echo '--copy-notes' || echo '--no-copy-notes') $base_commit # ↑"
+    fi
+    if $diff_orig_commit; then
+      echo "exec git-rebase-seq-helper-diff-orig-commit $base_commit HEAD"
+    fi
   fi
   buffered_lines=()
   base_commit=""

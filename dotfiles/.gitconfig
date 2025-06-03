@@ -616,8 +616,8 @@
   # than copying them so another benefit of this approach is it allows you to have those notes exist
   # still in the old branch _and_ in the new/rewritten branch.
 
-  #displayRef = refs/notes/*
-  displayRef = refs/notes/specificity
+  displayRef = refs/notes/*
+  #displayRef = refs/notes/specificity
 
   # concatenate is safer; overwrite can sometimes be too agressive and cause you to lose notes,
   # especialy if you "rewrite" from and to the same commit id (that is, if you don't end up actualy
@@ -667,9 +667,10 @@
 #	updateCheckEnabled = true
 
 [sequence]
-  editor = git-rebase-seq
-  editor = git-rebase-seq --preserve-committer
-  editor = git-rebase-seq --copy-committer --from-author
+  #editor = git-rebase-seq
+  #editor = git-rebase-seq --copy-committer
+  #editor = git-rebase-seq --copy-committer --from-author
+  editor = git-rebase-seq --copy-committer --copy-notes --diff-orig-commit
 
 [commit]
 	verbose = true
